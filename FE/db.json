@@ -1,0 +1,21 @@
+{
+  "students": [
+    {
+      "fullName": "nguyen van a",
+      "age": "12",
+      "address": "ha noi",
+      "email": "ab@gmail.com",
+      "active": "disable",
+      "id": "1"
+    },
+    {
+      "fullName": "12331",
+      "age": "19",
+      "address": "hcm",
+      "email": "aaa@gmail.com",
+      "active": "active",
+      "id": "wuQG45v"
+    }
+  ],
+  "users": []
+}
