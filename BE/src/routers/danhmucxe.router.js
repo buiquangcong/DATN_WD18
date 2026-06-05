@@ -8,6 +8,6 @@ danhmucxeRouter.get("/", getAll);
 
 danhmucxeRouter.post("/add",  createOne);
 danhmucxeRouter.put("/edit/:id",  updateOne);
-danhmucxeRouter.delete("/:id", deleteOne);
+danhmucxeRouter.delete("/delete/:id", deleteOne);
 
 export default danhmucxeRouter;
