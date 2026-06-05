@@ -1,5 +1,5 @@
 import { Router } from "express";
-import busRouter from "./list.bus.router";
+import busRouter from "./bus.router";
 import danhmucxeRouter from "./danhmucxe.router";
 const router = Router();
 
