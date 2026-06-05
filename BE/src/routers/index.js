@@ -1,10 +1,9 @@
 import { Router } from "express";
 import busRouter from "./bus.router";
-import danhmucxeRouter from "./danhmucxe.router";   
-
+import danhmucxeRouter from "./danhmucxe.router";
 const router = Router();
 
 router.use("/bus", busRouter);
-router.use("/danhmucxe",danhmucxeRouter);
+router.use("/danhmucxe",danhmucxeRouter)
 
 export default router;
