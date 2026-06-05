@@ -6,22 +6,22 @@ import { useNavigate, useParams } from "react-router-dom"
 
 
 
-const API = `http://localhost:3000/students`
+const API = `http://localhost:3000/api/bus`
 
- export const useCRUD = () => {
+export const useCRUD = () => {
     const reload = useQueryClient()
     const navigate = useNavigate()
-    const {id} = useParams()
+    const { id } = useParams()
 
     const refresh = () => {
-        reload.invalidateQueries({queryKey: ['students']})
+        reload.invalidateQueries({ queryKey: ['bus'] })
     }
 
-    const {data: list} = useQuery({
-        queryKey: ['students'],
+    const { data: list = [], isLoading, isError } = useQuery<any[], Error>({
+        queryKey: ['bus'],
         queryFn: async () => {
             const res = await axios.get(API)
-            return res.data
+            return res.data || []
         }
     })
 
@@ -32,7 +32,7 @@ const API = `http://localhost:3000/students`
         onSuccess: () => {
             refresh()
             toast.success("them thanh cong")
-            navigate('/list')
+            navigate('/admin/list')
         },
         onError: () => {
             toast.error("them that bai")
@@ -45,7 +45,7 @@ const API = `http://localhost:3000/students`
         onSuccess: () => {
             refresh()
             toast.success("cap nhat thanh cong")
-            navigate('/list')
+            navigate('/admin/list')
         },
         onError: () => {
             toast.error("cap nhat that bai")
@@ -65,8 +65,10 @@ const API = `http://localhost:3000/students`
         }
     })
 
-    return{
+    return {
         list,
+        isLoading,
+        isError,
         Add: Add.mutate,
         Edit: Edit.mutate,
         Delete: Delete.mutate
