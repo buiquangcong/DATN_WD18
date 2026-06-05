@@ -14,6 +14,4 @@ const danhmucSchema = new mongoose.Schema(
   }
 );
 
-const DanhMuc = mongoose.model("DanhMuc", danhmucSchema);
-
-export default DanhMuc;
+export default mongoose.model("DanhMuc", danhmucSchema);
