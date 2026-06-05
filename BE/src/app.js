@@ -7,7 +7,12 @@ const app = express();
 
 app.use(express.json());
 
-mongoose.connect('mongodb://localhost:27017/datn')
+mongoose.connect(
+  'mongodb+srv://hungtran:admin1@datn-wd18.9bxbump.mongodb.net/DATN_WD18?retryWrites=true&w=majority',
+   {
+    dbName: 'DATN-WD18'
+  }
+)
     .then(() => console.log('Kết nối CSDL thành công'))
     .catch(() => console.log('Kết nối CSDL thất bại'));
 
