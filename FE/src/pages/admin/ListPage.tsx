@@ -1,5 +1,5 @@
 import { Popconfirm, Space, Table, Button } from "antd";
-import { useCRUD } from "../hooks/useCRUD";
+import { useCRUD } from "../../hooks/useCRUD";
 import { useNavigate } from "react-router-dom";
 
 function ListPage() {
