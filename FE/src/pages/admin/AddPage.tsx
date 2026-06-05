@@ -1,5 +1,5 @@
 import { Button, Form, Input, Select } from "antd";
-import { useCRUD } from "../hooks/useCRUD";
+import { useCRUD } from "../../hooks/useCRUD";
 
 function AddPage() {
   const {Add} = useCRUD()
