@@ -5,3 +5,7 @@ export const getAll = asyncHandler(async (req, res) => {
     const bus = await Bus.find();
     return res.json(bus)
 })
+export const createOne = asyncHandler(async (req, res) => {
+    const bus = await Bus.create(req.body);
+    return res.json(bus)
+})
