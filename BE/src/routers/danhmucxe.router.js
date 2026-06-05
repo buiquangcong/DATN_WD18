@@ -6,8 +6,8 @@ const danhmucxeRouter = Router();
 
 danhmucxeRouter.get("/", getAll);
 
-danhmucxeRouter.post("/",  createOne);
-danhmucxeRouter.put("/:id",  updateOne);
-danhmucxeRouter.delete("/:id", deleteOne);
+danhmucxeRouter.post("/add",  createOne);
+danhmucxeRouter.put("/edit/:id",  updateOne);
+danhmucxeRouter.delete("/delete/:id", deleteOne);
 
 export default danhmucxeRouter;
