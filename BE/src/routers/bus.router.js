@@ -1,8 +1,9 @@
 import { Router } from "express";
-import { getAll } from "../controllers/list.bus.controller";
+import { createOne, getAll } from "../controllers/bus.controller";
 
 const busRouter = Router();
 
 busRouter.get("/", getAll);
+busRouter.post("/add", createOne);
 
 export default busRouter;
