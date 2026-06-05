@@ -20,7 +20,7 @@
     "homepage": "https://github.com/datlt2306/FPL-WEB503#readme",
     "dependencies": {
         "bcryptjs": "^3.0.3",
-        "cors": "^2.8.5",
+        "cors": "^2.8.6",
         "dotenv": "^17.2.3",
         "express": "^5.2.1",
         "joi": "^18.0.2",
