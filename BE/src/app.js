@@ -7,7 +7,7 @@ const app = express();
 
 app.use(express.json());
 
-mongoose.connect('mongodb://localhost:27017/NodeJS')
+mongoose.connect('mongodb://localhost:27017/datn')
     .then(() => console.log('Kết nối CSDL thành công'))
     .catch(() => console.log('Kết nối CSDL thất bại'));
 
