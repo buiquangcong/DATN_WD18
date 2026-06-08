@@ -3,21 +3,21 @@ import { useCRUD } from "../../hooks/useCRUD";
 import { useNavigate } from "react-router-dom";
 import type { ColumnsType } from "antd/es/table";
 
-// 1. Định nghĩa chuẩn Interface theo các trường dữ liệu thật của bạn
+
 interface BusType {
-  _id: string;            // Khóa chính từ MongoDB
-  name: string;           // Tên xe (Ví dụ: "Xe giường nằm VIP-2 Express")
-  licensePlates: string;  // Biển số xe (Ví dụ: "29A-888.88")
-  capacity: number;       // Sức chứa (Ví dụ: 40)
-  type: string;           // Loại xe (Ví dụ: "Sleeper")
-  status: string;         // Trạng thái (Ví dụ: "Active")
+  _id: string;
+  name: string;
+  licensePlates: string;
+  capacity: number;
+  type: string;
+  status: string;
 }
 
 function ListPage() {
   const navigate = useNavigate();
   const { list, Delete } = useCRUD();
 
-  // 2. Cấu hình các cột hiển thị chuẩn xác theo các trường dữ liệu trên
+
   const columns: ColumnsType<BusType> = [
     {
       title: "Tên Xe / Nhà Xe",
@@ -40,7 +40,7 @@ function ListPage() {
       dataIndex: "type",
       key: "type",
       render: (type: string) => {
-        // Viết hoa hoặc dịch sang tiếng Việt cho trực quan
+
         return type === "Sleeper" ? "Xe giường nằm" : type;
       },
     },
@@ -55,7 +55,6 @@ function ListPage() {
       dataIndex: "status",
       key: "status",
       render: (status: string) => {
-        // Kiểm tra trạng thái Active/Inactive để hiển thị màu sắc tương ứng
         const isActive = status?.toLowerCase() === "active";
         return (
           <Tag color={isActive ? "green" : "red"}>
@@ -71,7 +70,7 @@ function ListPage() {
         <Space size="middle">
           <Button
             type="primary"
-            onClick={() => navigate(`/edit/${record._id}`)} // Sửa thành _id
+            onClick={() => navigate(`/admin/edit/${record._id}`)}
           >
             Sửa
           </Button>
@@ -79,7 +78,7 @@ function ListPage() {
           <Popconfirm
             title="Xóa xe này"
             description="Bạn có chắc chắn muốn xóa thông tin xe này?"
-            onConfirm={() => Delete(record._id)} // Sửa thành _id
+            onConfirm={() => Delete(record._id)}
             okText="Có"
             cancelText="Không"
             okButtonProps={{ danger: true }}
@@ -95,7 +94,7 @@ function ListPage() {
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-semibold text-gray-800">Quản Lý Danh Sách Xe Bus / Khách</h1>
-        <Button type="primary" size="large" onClick={() => navigate("/create")}>
+        <Button type="primary" size="large" onClick={() => navigate("/admin/add")}>
           Thêm Xe Mới
         </Button>
       </div>

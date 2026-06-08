@@ -19,13 +19,13 @@ export const navData = [
     icon: icon('ic-analytics'),
   },
   {
-    title: 'Danh sách sinh viên',
+    title: 'Danh sách xe',
     path: '/admin/list',
     icon: icon('ic-user'),
   },
   {
-    title: 'Thêm mới sinh viên',
-    path: '/admin/add',
+    title: 'Thêm mới xe',
+    path: '/admin',
     icon: icon('ic-cart'),
   },
   {

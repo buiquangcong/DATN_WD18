@@ -53,7 +53,7 @@ function PortalPage() {
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-emerald-600/10 rounded-full blur-3xl"></div>
 
       <div className="z-10 max-w-4xl w-full text-center space-y-4 mb-12">
-        <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight bg-gradient-to-r from-emerald-400 via-teal-300 to-blue-500 bg-clip-text text-transparent">
+        <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight bg-linear-to-r from-emerald-400 via-teal-300 to-blue-500 bg-clip-text text-transparent">
           GOPRO TRANSPORT
         </h1>
         <p className="text-slate-400 text-sm md:text-base max-w-md mx-auto">
@@ -108,7 +108,7 @@ function PortalPage() {
             </div>
             <h2 className="text-xl font-bold text-slate-100">Cổng Quản trị (Admin)</h2>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Truy cập bảng điều khiển hệ thống. Xem báo cáo doanh thu chi tiết, quản lý danh sách sinh viên học tập, cấu hình danh mục sản phẩm và blog.
+              Truy cập bảng điều khiển hệ thống. Xem báo cáo doanh thu chi tiết, quản lý danh sách xe, cấu hình danh mục sản phẩm và blog.
             </p>
           </div>
           <Link
@@ -151,12 +151,12 @@ function App() {
           >
             {/* When path is /admin, show DashboardPage */}
             <Route index element={<DashboardPage />} />
-            
+
             {/* Nested CRUD pages and template pages under /admin/ */}
             <Route path="list" element={<ListPage />} />
             <Route path="add" element={<AddPage />} />
             <Route path="edit/:id" element={<EditPage />} />
-            
+
             <Route path="products" element={<ProductsPage />} />
             <Route path="blog" element={<BlogPage />} />
           </Route>
