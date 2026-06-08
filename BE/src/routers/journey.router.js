@@ -1,6 +1,5 @@
 import { Router } from "express";
-import { createOne, deleteOne, getAll, updateOne } from "../controllers/journey.controller";
-import { getOne } from "../controllers/danhmucxe.controller";
+import { getOne, createOne, deleteOne, getAll, updateOne } from "../controllers/journey.controller";
 
 const journeyRouter = Router();
 
