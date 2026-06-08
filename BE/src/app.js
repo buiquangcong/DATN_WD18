@@ -28,6 +28,7 @@ mongoose.connect('mongodb+srv://tduc:admin1@datn-wd18.9bxbump.mongodb.net/DATN-W
     .catch((err) => console.log('=== Kết nối CSDL thất bại ===\nChi tiết lỗi:', err));
 
 // Định nghĩa các route API
+
 app.use("/api", router);
 
 // Cấu hình Port
