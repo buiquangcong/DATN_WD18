@@ -26,47 +26,24 @@ export const useCRUD = () => {
 
     const Add = useMutation({
         mutationFn: async (data: any) => {
-            await axios.post(`${API}/add`, data)
+            const res = await axios.post(`${API}/add`, data)
+            return res.data
         },
         onSuccess: () => {
             refresh()
-            toast.success("Thêm thành công")
-            navigate('/admin/list')
+            toast.success("Thêm mới thành công")
+            navigate("/admin/list")
         },
-        onError: () => { toast.error("Thêm thất bại") }
+        onError: () => {
+            toast.error("Thêm mới thất bại")
+        }
     })
+    
 
-    // 2. Hàm Edit sửa thành: ${API}/update/${id}
-    const Edit = useMutation({
-        mutationFn: async (payload: any) => {
-            const { id, ...data } = payload
-            await axios.put(`${API}/update/${id}`, data)
-        },
-        onSuccess: () => {
-            refresh()
-            toast.success("Cập nhật thành công")
-            navigate('/admin/list')
-        },
-        onError: () => { toast.error("Cập nhật thất bại") }
-    })
-
-    // 3. Hàm Delete sửa thành: ${API}/delete/${id}
-    const Delete = useMutation({
-        mutationFn: async (id: number | string) => {
-            await axios.delete(`${API}/delete/${id}`)
-        },
-        onSuccess: () => {
-            refresh()
-            toast.success("Xóa thành công")
-        },
-        onError: () => { toast.error("Xóa thất bại") }
-    })
     return {
         list,
         isLoading,
         isError,
-        Add: Add.mutate,
-        Edit: Edit.mutate,
-        Delete: Delete.mutate
+        Add: Add.mutate
     }
 }
