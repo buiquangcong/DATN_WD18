@@ -39,11 +39,27 @@ export const useCRUD = () => {
         }
     })
     
+    const Edit = useMutation({
+        mutationFn: async (payload: any) => {
+            const { id, ...data } = payload
+            const res = await axios.put(`${API}/update/${id}`, data)
+            return res.data
+        },
+        onSuccess: () => {
+            refresh()
+            toast.success("Cập nhật thành công")
+            navigate("/admin/list")
+        },
+        onError: (error: any) => {
+            toast.error(error.response?.data?.message || "Cập nhật thất bại")
+        }
+    })
 
     return {
         list,
         isLoading,
         isError,
-        Add: Add.mutate
+        Add: Add.mutate,
+        Edit: Edit.mutate
     }
 }
