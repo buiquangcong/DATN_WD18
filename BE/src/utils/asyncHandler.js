@@ -6,8 +6,18 @@ const asyncHandler = (fn) => {
                 return res.json(result)
             }
         } catch (error) {
+            let message = error.message;
+            if (error.code === 11000) {
+                if (message.includes("licensePlates")) {
+                    message = "Biển số xe đã tồn tại!";
+                } else if (message.includes("email")) {
+                    message = "Email đã tồn tại!";
+                } else {
+                    message = "Dữ liệu bị trùng lặp đã tồn tại!";
+                }
+            }
             return res.status(400).json({
-                message: error.message
+                message
             })
         }
     }
