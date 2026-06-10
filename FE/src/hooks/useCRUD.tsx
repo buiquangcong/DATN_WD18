@@ -50,8 +50,22 @@ export const useCRUD = () => {
             toast.success("Cập nhật thành công")
             navigate("/admin/list")
         },
-        onError: (error: any) => {
-            toast.error(error.response?.data?.message || "Cập nhật thất bại")
+        onError: () => {
+            toast.error("Cập nhật thất bại")
+        }
+    })
+
+    const Delete = useMutation({
+        mutationFn: async (id: number | string) => {
+            const res = await axios.delete(`${API}/delete/${id}`)
+            return res.data
+        },
+        onSuccess: () => {
+            refresh()
+            toast.success("Xóa thành công")
+        },
+        onError: () => {
+            toast.error("Xóa thất bại")
         }
     })
 
@@ -60,6 +74,7 @@ export const useCRUD = () => {
         isLoading,
         isError,
         Add: Add.mutate,
-        Edit: Edit.mutate
+        Edit: Edit.mutate,
+        Delete: Delete.mutate
     }
 }
