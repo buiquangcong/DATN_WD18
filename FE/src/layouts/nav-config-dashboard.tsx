@@ -20,12 +20,12 @@ export const navData = [
   },
   {
     title: 'Danh sách xe',
-    path: '/admin/list',
+    path: '/admin/bus/list',
     icon: icon('ic-user'),
   },
   {
-    title: 'Thêm mới xe',
-    path: '/admin',
+    title: 'Danh sách nhân viên',
+    path: '/admin/staff/list',
     icon: icon('ic-cart'),
   },
   {

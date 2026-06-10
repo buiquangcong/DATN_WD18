@@ -9,9 +9,9 @@ import { ThemeProvider } from "./theme/theme-provider";
 import { DashboardLayout } from "./layouts/dashboard";
 import { Iconify } from "./components/iconify";
 
-import ListPage from "./pages/admin/ListPage";
-import AddPage from "./pages/admin/AddPage";
-import EditPage from "./pages/admin/EditPage";
+import ListPage from "./pages/admin/danhsachxe/ListPage";
+import AddPage from "./pages/admin/danhsachxe/AddPage";
+import EditPage from "./pages/admin/danhsachxe/EditPage";
 
 // Lazy load template pages
 const DashboardPage = lazy(() => import("./pages/admin/dashboard"));
@@ -153,9 +153,9 @@ function App() {
             <Route index element={<DashboardPage />} />
 
             {/* Nested CRUD pages and template pages under /admin/ */}
-            <Route path="list" element={<ListPage />} />
-            <Route path="add" element={<AddPage />} />
-            <Route path="edit/:id" element={<EditPage />} />
+            <Route path="bus/list" element={<ListPage />} />
+            <Route path="bus/add" element={<AddPage />} />
+            <Route path="bus/edit/:id" element={<EditPage />} />
 
             <Route path="products" element={<ProductsPage />} />
             <Route path="blog" element={<BlogPage />} />

@@ -1,5 +1,5 @@
 import { Popconfirm, Space, Table, Button, Tag } from "antd";
-import { useCRUD } from "../../hooks/useCRUD";
+import { useCRUD } from "../../../hooks/useCRUD";
 import { useNavigate } from "react-router-dom";
 import type { ColumnsType } from "antd/es/table";
 
@@ -15,7 +15,7 @@ interface BusType {
 
 function ListPage() {
   const navigate = useNavigate();
-  const { list, Delete } = useCRUD();
+  const { list, Delete } = useCRUD("bus");
 
 
   const columns: ColumnsType<BusType> = [
@@ -70,7 +70,7 @@ function ListPage() {
         <Space size="middle">
           <Button
             type="primary"
-            onClick={() => navigate(`/admin/edit/${record._id}`)}
+            onClick={() => navigate(`/admin/bus/edit/${record._id}`)}
           >
             Sửa
           </Button>
@@ -94,7 +94,7 @@ function ListPage() {
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-semibold text-gray-800">Quản Lý Danh Sách Xe Bus / Khách</h1>
-        <Button type="primary" size="large" onClick={() => navigate("/admin/add")}>
+        <Button type="primary" size="large" onClick={() => navigate("/admin/bus/add")}>
           Thêm Xe Mới
         </Button>
       </div>

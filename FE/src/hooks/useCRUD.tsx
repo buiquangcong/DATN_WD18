@@ -3,24 +3,24 @@ import axios from "axios"
 import toast from "react-hot-toast"
 import { useNavigate } from "react-router-dom"
 
+const BASE_URL = "http://localhost:3000/api"
 
+type ResourceType = "staff" | "bus" | "route"
 
-
-const API = `http://localhost:3000/api/bus`
-
-export const useCRUD = () => {
-    const reload = useQueryClient()
+export const useCRUD = (resource: ResourceType) => {
+    const queryClient = useQueryClient()
     const navigate = useNavigate()
+    const API = `${BASE_URL}/${resource}`
 
     const refresh = () => {
-        reload.invalidateQueries({ queryKey: ['bus'] })
+        queryClient.invalidateQueries({ queryKey: [resource] })
     }
 
     const { data: list = [], isLoading, isError } = useQuery<any[], Error>({
-        queryKey: ['bus'],
+        queryKey: [resource],
         queryFn: async () => {
             const res = await axios.get(API)
-            return res.data || []
+            return Array.isArray(res.data) ? res.data : res.data?.data || []
         }
     })
 
@@ -32,23 +32,25 @@ export const useCRUD = () => {
         onSuccess: () => {
             refresh()
             toast.success("Thêm mới thành công")
-            navigate("/admin/list")
+            navigate(`/admin/${resource}/list`)
         },
         onError: () => {
             toast.error("Thêm mới thất bại")
         }
     })
-    
+
     const Edit = useMutation({
         mutationFn: async (payload: any) => {
-            const { id, ...data } = payload
-            const res = await axios.put(`${API}/update/${id}`, data)
+            const { _id, id, ...data } = payload
+            const targetId = _id || id 
+
+            const res = await axios.put(`${API}/update/${targetId}`, data)
             return res.data
         },
         onSuccess: () => {
             refresh()
             toast.success("Cập nhật thành công")
-            navigate("/admin/list")
+            navigate(`/admin/${resource}/list`)
         },
         onError: () => {
             toast.error("Cập nhật thất bại")
