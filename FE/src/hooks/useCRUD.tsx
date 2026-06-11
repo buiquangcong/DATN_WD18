@@ -5,7 +5,19 @@ import { useNavigate } from "react-router-dom"
 
 const BASE_URL = "http://localhost:3000/api"
 
-type ResourceType = "staff" | "bus" | "route"|"journey"
+type ResourceType = "staff" | "bus" | "route" | "journey"
+
+export const useDetail = (resource: ResourceType, id: string | undefined) => {
+    const API = `${BASE_URL}/${resource}`
+    return useQuery<any, Error>({
+        queryKey: [resource, id],
+        queryFn: async () => {
+            const res = await axios.get(`${API}/${id}`)
+            return res.data?.data ?? res.data
+        },
+        enabled: !!id
+    })
+}
 
 export const useCRUD = (resource: ResourceType) => {
     const queryClient = useQueryClient()
@@ -42,8 +54,7 @@ export const useCRUD = (resource: ResourceType) => {
     const Edit = useMutation({
         mutationFn: async (payload: any) => {
             const { _id, id, ...data } = payload
-            const targetId = _id || id 
-
+            const targetId = _id || id
             const res = await axios.put(`${API}/update/${targetId}`, data)
             return res.data
         },

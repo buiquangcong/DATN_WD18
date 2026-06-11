@@ -1,10 +1,11 @@
-import { Popconfirm, Space, Table, Button, Tag } from "antd";
-import { useCRUD } from "../../../hooks/useCRUD";
+import { Popconfirm, Space, Table, Button, Tag, Modal, Divider } from "antd";
+import { useCRUD, useDetail } from "../../../hooks/useCRUD";
 import { useNavigate } from "react-router-dom";
 import type { ColumnsType } from "antd/es/table";
+import { useState } from "react";
 
 interface DiemType {
-  _id: string;
+  _id?: string;
   diaDiem: string;
   thoiGian: string;
 }
@@ -24,6 +25,14 @@ interface JourneyType {
 function JourneyListPage() {
   const navigate = useNavigate();
   const { list, Delete } = useCRUD("journey");
+  const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
+  const [open, setOpen] = useState(false);
+  const { data: journey } = useDetail("journey", selectedId);
+
+  const handleView = (id: string) => {
+    setSelectedId(id);
+    setOpen(true);
+  };
 
   const columns: ColumnsType<JourneyType> = [
     {
@@ -87,13 +96,13 @@ function JourneyListPage() {
       key: "action",
       render: (_, record) => (
         <Space size="middle">
+          <Button onClick={() => handleView(record._id)}>Xem</Button>
           <Button
             type="primary"
             onClick={() => navigate(`/admin/journey/edit/${record._id}`)}
           >
             Sửa
           </Button>
-
           <Popconfirm
             title="Xóa hành trình này"
             description="Bạn có chắc chắn muốn xóa thông tin hành trình này?"
@@ -126,6 +135,59 @@ function JourneyListPage() {
           pagination={{ pageSize: 10, showSizeChanger: true }}
         />
       </div>
+
+      {/* Modal chi tiết */}
+      <Modal
+        title={`Chi tiết: ${journey?.diemDi ?? ""} → ${journey?.diemDen ?? ""}`}
+        open={open}
+        onCancel={() => setOpen(false)}
+        footer={<Button onClick={() => setOpen(false)}>Đóng</Button>}
+        width={700}
+      >
+        {journey && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div><p className="text-xs text-gray-400">Quãng Đường</p><p>{journey.quangDuong} km</p></div>
+              <div><p className="text-xs text-gray-400">Thời Gian Di Chuyển</p><p>{journey.thoiGianDiChuyen}</p></div>
+              <div><p className="text-xs text-gray-400">Giá Vé</p><p className="text-green-600 font-semibold">{Number(journey.price).toLocaleString("vi-VN")} đ</p></div>
+              <div>
+                <p className="text-xs text-gray-400">Trạng Thái</p>
+                <Tag color={journey.trangThai ? "green" : "red"}>
+                  {journey.trangThai ? "Hoạt động" : "Dừng hoạt động"}
+                </Tag>
+              </div>
+            </div>
+
+            <Divider />
+
+            <div>
+              <p className="font-medium mb-2">Điểm Đón ({journey.diemDon?.length} điểm)</p>
+              <div className="space-y-1">
+                {journey.diemDon?.map((diem: DiemType, index: number) => (
+                  <div key={diem._id || index} className="flex items-center gap-3">
+                    <Tag color="blue">{diem.thoiGian}</Tag>
+                    <span className="text-gray-700">{diem.diaDiem}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <Divider />
+
+            <div>
+              <p className="font-medium mb-2">Điểm Trả ({journey.diemTra?.length} điểm)</p>
+              <div className="space-y-1">
+                {journey.diemTra?.map((diem: DiemType, index: number) => (
+                  <div key={diem._id || index} className="flex items-center gap-3">
+                    <Tag color="orange">{diem.thoiGian}</Tag>
+                    <span className="text-gray-700">{diem.diaDiem}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
