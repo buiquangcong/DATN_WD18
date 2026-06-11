@@ -14,7 +14,7 @@ import AddPage from "./pages/admin/danhsachxe/AddPage";
 import EditPage from "./pages/admin/danhsachxe/EditPage";
 
 import StaffListPage from "./pages/admin/danhsachnhanvien/ListPage";
-// import StaffAddPage from "./pages/admin/danhsachnhanvien/AddPage";
+import StaffAddPage from "./pages/admin/danhsachnhanvien/AddPage";
 // import StaffEditPage from "./pages/admin/danhsachnhanvien/EditPage";
 
 // Lazy load template pages
@@ -162,8 +162,8 @@ function App() {
             <Route path="bus/edit/:id" element={<EditPage />} />
 
             <Route path="staff/list" element={<StaffListPage />} />
-            {/* <Route path="staff/add" element={<StaffAddPage />} />
-            <Route path="staff/edit/:id" element={<StaffEditPage />} /> */}
+            <Route path="staff/add" element={<StaffAddPage />} />
+            {/* <Route path="staff/edit/:id" element={<StaffEditPage />} /> */}
 
             <Route path="products" element={<ProductsPage />} />
             <Route path="blog" element={<BlogPage />} />
