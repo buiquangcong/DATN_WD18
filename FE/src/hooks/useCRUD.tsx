@@ -42,9 +42,10 @@ export const useCRUD = (resource: ResourceType) => {
     const Edit = useMutation({
         mutationFn: async (payload: any) => {
             const { _id, id, ...data } = payload
-            const targetId = _id || id 
+            const targetId = _id || id
 
-            const res = await axios.put(`${API}/update/${targetId}`, data)
+            const updatePath = resource === "staff" ? "edit" : "update"
+            const res = await axios.put(`${API}/${updatePath}/${targetId}`, data)
             return res.data
         },
         onSuccess: () => {
