@@ -14,6 +14,10 @@ import ListPage from "./pages/admin/danhsachxe/ListPage";
 import AddPage from "./pages/admin/danhsachxe/AddPage";
 import EditPage from "./pages/admin/danhsachxe/EditPage";
 
+import JourneyListPage from "./pages/admin/tuyenduong/ListPage"
+import JourneyAddPage from "./pages/admin/tuyenduong/AddPage"
+import JourneyEditPage from "./pages/admin/tuyenduong/EditPage"
+
 // Lazy load template pages
 const DashboardPage = lazy(() => import("./pages/admin/dashboard"));
 const BlogPage = lazy(() => import("./pages/admin/blog"));
@@ -164,6 +168,10 @@ function App() {
               <Route path="bus/list" element={<ListPage />} />
               <Route path="bus/add" element={<AddPage />} />
               <Route path="bus/edit/:id" element={<EditPage />} />
+             {/* Tuyến đường */}
+              <Route path="journey/list" element={<JourneyListPage />} />
+              <Route path="journey/add" element={<JourneyAddPage />} />
+              <Route path="journey/edit/:id" element={<JourneyEditPage />} />
 
               <Route path="products" element={<ProductsPage />} />
               <Route path="blog" element={<BlogPage />} />

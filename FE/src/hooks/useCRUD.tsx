@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom"
 
 const BASE_URL = "http://localhost:3000/api"
 
-type ResourceType = "staff" | "bus" | "route"
+type ResourceType = "staff" | "bus" | "route"|"journey"
 
 export const useCRUD = (resource: ResourceType) => {
     const queryClient = useQueryClient()
