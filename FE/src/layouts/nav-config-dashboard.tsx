@@ -29,7 +29,12 @@ export const navData = [
     icon: icon('ic-cart'),
   },
   {
-    title: 'Tuyến đường',
+    title: 'Danh sách chuyến đi',
+    path: '/admin/trip/list',
+    icon: icon('ic-blog'),
+  },
+  {
+    title: 'Danh sách tuyến đường',
     path: '/admin/journey/list',
     icon: icon('ic-blog'),
   },

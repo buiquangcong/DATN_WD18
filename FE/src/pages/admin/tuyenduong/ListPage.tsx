@@ -121,7 +121,7 @@ function JourneyListPage() {
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-semibold text-gray-800">Quản Lý Danh Sách Hành Trình</h1>
+        <h1 className="text-2xl font-semibold text-gray-800">Quản Lý Danh Sách tuyến đường</h1>
         <Button type="primary" size="large" onClick={() => navigate("/admin/journey/add")}>
           Thêm Hành Trình Mới
         </Button>

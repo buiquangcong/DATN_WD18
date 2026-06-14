@@ -23,10 +23,15 @@ import StaffListPage from "./pages/admin/danhsachnhanvien/ListPage";
 import StaffAddPage from "./pages/admin/danhsachnhanvien/AddPage";
 import StaffEditPage from "./pages/admin/danhsachnhanvien/EditPage";
 
+// Trip pages
+import TripListPage from "./pages/admin/trip/ListPage";
+
 // Lazy load template pages
 import KhachHangPage from "./pages/client/dashboard";
 import TaiXePage from "./pages/driver/dashboard";
 import DashboardPage from "./pages/admin/dashboard";
+import TripAddPage from "./pages/admin/trip/AddPage";
+import TripEditPage from "./pages/admin/trip/EditPage";
 const BlogPage = lazy(() => import("./pages/admin/blog"));
 const ProductsPage = lazy(() => import("./pages/admin/products"));
 const Page404 = lazy(() => import("./pages/page-not-found"));
@@ -184,6 +189,10 @@ function App() {
               <Route path="journey/add" element={<JourneyAddPage />} />
               <Route path="journey/edit/:id" element={<JourneyEditPage />} />
               {/* <Route path="journey/detail/:id" element={<JourneyDetailPage />} /> */}
+
+              <Route path="trip/list" element={<TripListPage />} />
+              <Route path="trip/add" element={<TripAddPage />} />
+              <Route path="trip/edit/:id" element={<TripEditPage />} />
 
               <Route path="products" element={<ProductsPage />} />
               <Route path="blog" element={<BlogPage />} />
