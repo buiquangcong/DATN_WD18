@@ -25,6 +25,7 @@ import StaffEditPage from "./pages/admin/danhsachnhanvien/EditPage";
 
 // Lazy load template pages
 import KhachHangPage from "./pages/client/dashboard";
+import Trip from "./pages/client/trip";
 import TaiXePage from "./pages/driver/dashboard";
 import DashboardPage from "./pages/admin/dashboard";
 const BlogPage = lazy(() => import("./pages/admin/blog"));
@@ -155,6 +156,7 @@ function App() {
 
             {/* Customer Route */}
             <Route path="/khachhang" element={<KhachHangPage />} />
+            <Route path="/khachhang/schedules" element={<Trip />} />
 
             {/* Driver Route */}
             <Route path="/taixe" element={<TaiXePage />} />
@@ -179,7 +181,7 @@ function App() {
               <Route path="staff/list" element={<StaffListPage />} />
               <Route path="staff/add" element={<StaffAddPage />} />
               <Route path="staff/edit/:id" element={<StaffEditPage />} />
-             {/* Tuyến đường */}
+              {/* Tuyến đường */}
               <Route path="journey/list" element={<JourneyListPage />} />
               <Route path="journey/add" element={<JourneyAddPage />} />
               <Route path="journey/edit/:id" element={<JourneyEditPage />} />

@@ -23,7 +23,7 @@ export function Navbar({ isDarkMode, toggleDarkMode }: NavbarProps) {
           </a>
           <a
             className="transition-colors duration-300 font-body-md text-secondary dark:text-secondary-fixed-dim hover:text-primary"
-            href="#"
+            href="khachhang/schedules"
           >
             Schedules
           </a>
