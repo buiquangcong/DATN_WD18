@@ -18,16 +18,21 @@ import JourneyListPage from "./pages/admin/tuyenduong/ListPage"
 import JourneyAddPage from "./pages/admin/tuyenduong/AddPage"
 import JourneyEditPage from "./pages/admin/tuyenduong/EditPage"
 // import JourneyDetailPage from "./pages/admin/tuyenduong/DetailPage";
+
+import StaffListPage from "./pages/admin/danhsachnhanvien/ListPage";
+// import StaffAddPage from "./pages/admin/danhsachnhanvien/AddPage";
+// import StaffEditPage from "./pages/admin/danhsachnhanvien/EditPage";
+
 // Lazy load template pages
-const DashboardPage = lazy(() => import("./pages/admin/dashboard"));
+const AdminDashboardPage = lazy(() => import("./pages/admin/dashboard"));
 const BlogPage = lazy(() => import("./pages/admin/blog"));
 const ProductsPage = lazy(() => import("./pages/admin/products"));
 const Page404 = lazy(() => import("./pages/page-not-found"));
 const LoginPage = lazy(() => import("./pages/admin/auth/Login"));
 
 // Lazy load customer and driver pages
-const KhachHangPage = lazy(() => import("./pages/KhachHangPage"));
-const TaiXePage = lazy(() => import("./pages/TaiXePage"));
+const ClientDashboard = lazy(() => import("./pages/client/dashboard"));
+const DriverDashboard = lazy(() => import("./pages/driver/dashboard"));
 
 const renderFallback = () => (
   <Box
@@ -186,6 +191,52 @@ function App() {
         </Suspense>
         <Toaster />
       </ConfigProvider>
+      <Suspense fallback={renderFallback()}>
+        <Routes>
+          {/* Redirect root to Customer page */}
+          <Route path="/" element={<Navigate to="/khachhang" replace />} />
+
+          {/* Portal Page to select roles */}
+          <Route path="/portal" element={<PortalPage />} />
+
+          {/* Customer Route */}
+          <Route path="/khachhang" element={<KhachHangPage />} />
+
+          {/* Driver Route */}
+          <Route path="/taixe" element={<TaiXePage />} />
+
+          {/* Admin Routes with Dashboard Layout */}
+          <Route
+            path="/admin"
+            element={
+              <DashboardLayout>
+                <Outlet />
+              </DashboardLayout>
+            }
+          >
+            {/* When path is /admin, show DashboardPage */}
+            <Route index element={<DashboardPage />} />
+
+            {/* Nested CRUD pages and template pages under /admin/ */}
+            <Route path="bus/list" element={<ListPage />} />
+            <Route path="bus/add" element={<AddPage />} />
+            <Route path="bus/edit/:id" element={<EditPage />} />
+
+            <Route path="staff/list" element={<StaffListPage />} />
+            {/* <Route path="staff/add" element={<StaffAddPage />} />
+            <Route path="staff/edit/:id" element={<StaffEditPage />} /> */}
+
+            <Route path="products" element={<ProductsPage />} />
+            <Route path="blog" element={<BlogPage />} />
+          </Route>
+
+          {/* Standalone pages */}
+          <Route path="/sign-in" element={<SignInPage />} />
+          <Route path="/404" element={<Page404 />} />
+          <Route path="*" element={<Navigate to="/404" replace />} />
+        </Routes>
+      </Suspense>
+      <Toaster />
     </ThemeProvider>
   );
 }
