@@ -15,15 +15,15 @@ import AddPage from "./pages/admin/danhsachxe/AddPage";
 import EditPage from "./pages/admin/danhsachxe/EditPage";
 
 // Lazy load template pages
-const DashboardPage = lazy(() => import("./pages/admin/dashboard"));
+const AdminDashboardPage = lazy(() => import("./pages/admin/dashboard"));
 const BlogPage = lazy(() => import("./pages/admin/blog"));
 const ProductsPage = lazy(() => import("./pages/admin/products"));
 const Page404 = lazy(() => import("./pages/page-not-found"));
 const LoginPage = lazy(() => import("./pages/admin/auth/Login"));
 
 // Lazy load customer and driver pages
-const KhachHangPage = lazy(() => import("./pages/KhachHangPage"));
-const TaiXePage = lazy(() => import("./pages/TaiXePage"));
+const ClientDashboard = lazy(() => import("./pages/client/dashboard"));
+const DriverDashboard = lazy(() => import("./pages/driver/dashboard"));
 
 const renderFallback = () => (
   <Box
@@ -143,10 +143,10 @@ function App() {
             <Route path="/portal" element={<PortalPage />} />
 
             {/* Customer Route */}
-            <Route path="/khachhang" element={<KhachHangPage />} />
+            <Route path="/khachhang" element={<ClientDashboard />} />
 
             {/* Driver Route */}
-            <Route path="/taixe" element={<TaiXePage />} />
+            <Route path="/taixe" element={<DriverDashboard />} />
 
             {/* Admin Routes with Dashboard Layout */}
             <Route
@@ -158,7 +158,7 @@ function App() {
               }
             >
               {/* When path is /admin, show DashboardPage */}
-              <Route index element={<DashboardPage />} />
+              <Route index element={<AdminDashboardPage />} />
 
               {/* Nested CRUD pages and template pages under /admin/ */}
               <Route path="bus/list" element={<ListPage />} />
