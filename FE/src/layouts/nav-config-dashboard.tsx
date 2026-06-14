@@ -35,7 +35,7 @@ export const navData = [
   },
   {
     title: 'Đăng nhập',
-    path: '/sign-in',
+    path: '/login',
     icon: icon('ic-lock'),
   },
   {

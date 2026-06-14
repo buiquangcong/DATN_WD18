@@ -1,4 +1,5 @@
 import { Toaster } from "react-hot-toast";
+import { ConfigProvider } from "antd";
 import { Navigate, Route, Routes, Outlet, Link } from "react-router-dom";
 import { lazy, Suspense } from "react";
 import { varAlpha } from "minimal-shared/utils";
@@ -18,15 +19,15 @@ import StaffListPage from "./pages/admin/danhsachnhanvien/ListPage";
 // import StaffEditPage from "./pages/admin/danhsachnhanvien/EditPage";
 
 // Lazy load template pages
-const DashboardPage = lazy(() => import("./pages/admin/dashboard"));
+const AdminDashboardPage = lazy(() => import("./pages/admin/dashboard"));
 const BlogPage = lazy(() => import("./pages/admin/blog"));
 const ProductsPage = lazy(() => import("./pages/admin/products"));
-const SignInPage = lazy(() => import("./pages/sign-in"));
 const Page404 = lazy(() => import("./pages/page-not-found"));
+const LoginPage = lazy(() => import("./pages/admin/auth/Login"));
 
 // Lazy load customer and driver pages
-const KhachHangPage = lazy(() => import("./pages/KhachHangPage"));
-const TaiXePage = lazy(() => import("./pages/TaiXePage"));
+const ClientDashboard = lazy(() => import("./pages/client/dashboard"));
+const DriverDashboard = lazy(() => import("./pages/driver/dashboard"));
 
 const renderFallback = () => (
   <Box
@@ -53,11 +54,11 @@ function PortalPage() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-center items-center p-6 relative overflow-hidden font-sans">
       {/* Decorative background glows */}
-      <div className="absolute top-1/4 left-1/4 w-80 h-80 bg-blue-600/10 rounded-full blur-3xl"></div>
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-emerald-600/10 rounded-full blur-3xl"></div>
+      <div className="absolute top-1/4 left-1/4 w-80 h-80 bg-emerald-600/10 rounded-full blur-3xl"></div>
+      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-green-600/10 rounded-full blur-3xl"></div>
 
       <div className="z-10 max-w-4xl w-full text-center space-y-4 mb-12">
-        <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight bg-linear-to-r from-emerald-400 via-teal-300 to-blue-500 bg-clip-text text-transparent">
+        <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight bg-linear-to-r from-emerald-400 via-green-300 to-emerald-500 bg-clip-text text-transparent">
           GOPRO TRANSPORT
         </h1>
         <p className="text-slate-400 text-sm md:text-base max-w-md mx-auto">
@@ -105,9 +106,9 @@ function PortalPage() {
         </div>
 
         {/* Admin Card */}
-        <div className="bg-slate-900/40 border border-slate-800 hover:border-blue-500/30 rounded-3xl p-6 transition-all hover:scale-[1.02] flex flex-col justify-between h-96 group shadow-xl">
+        <div className="bg-slate-900/40 border border-slate-800 hover:border-emerald-500/30 rounded-3xl p-6 transition-all hover:scale-[1.02] flex flex-col justify-between h-96 group shadow-xl">
           <div className="space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 text-2xl group-hover:bg-blue-500 group-hover:text-slate-950 transition-all duration-300">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 text-2xl group-hover:bg-emerald-500 group-hover:text-slate-950 transition-all duration-300">
               <Iconify icon="solar:settings-bold-duotone" />
             </div>
             <h2 className="text-xl font-bold text-slate-100">Cổng Quản trị (Admin)</h2>
@@ -117,7 +118,7 @@ function PortalPage() {
           </div>
           <Link
             to="/admin"
-            className="mt-6 w-full py-3 rounded-xl bg-slate-950 border border-slate-800 hover:bg-blue-500 hover:text-slate-950 hover:border-blue-500 text-xs font-bold text-blue-400 text-center transition-all cursor-pointer block"
+            className="mt-6 w-full py-3 rounded-xl bg-slate-950 border border-slate-800 hover:bg-emerald-500 hover:text-slate-950 hover:border-emerald-500 text-xs font-bold text-emerald-400 text-center transition-all cursor-pointer block"
           >
             Đăng nhập Admin
           </Link>
