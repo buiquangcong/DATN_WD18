@@ -26,6 +26,7 @@ import StaffEditPage from "./pages/admin/danhsachnhanvien/EditPage";
 // Lazy load template pages
 import KhachHangPage from "./pages/client/dashboard";
 import Trip from "./pages/client/trip";
+import SearchResults from "./pages/client/searchresults";
 import TaiXePage from "./pages/driver/dashboard";
 import DashboardPage from "./pages/admin/dashboard";
 const BlogPage = lazy(() => import("./pages/admin/blog"));
@@ -157,6 +158,7 @@ function App() {
             {/* Customer Route */}
             <Route path="/khachhang" element={<KhachHangPage />} />
             <Route path="/khachhang/schedules" element={<Trip />} />
+            <Route path="/khachhang/searchresults" element={<SearchResults />} />
 
             {/* Driver Route */}
             <Route path="/taixe" element={<TaiXePage />} />
