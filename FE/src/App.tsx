@@ -29,6 +29,7 @@ import TripListPage from "./pages/admin/trip/ListPage";
 // Lazy load template pages
 import KhachHangPage from "./pages/client/dashboard";
 import Trip from "./pages/client/trip";
+import SearchResults from "./pages/client/searchresults";
 import TaiXePage from "./pages/driver/dashboard";
 import DashboardPage from "./pages/admin/dashboard";
 import TripAddPage from "./pages/admin/trip/AddPage";
@@ -162,6 +163,7 @@ function App() {
             {/* Customer Route */}
             <Route path="/khachhang" element={<KhachHangPage />} />
             <Route path="/khachhang/schedules" element={<Trip />} />
+            <Route path="/khachhang/searchresults" element={<SearchResults />} />
 
             {/* Driver Route */}
             <Route path="/taixe" element={<TaiXePage />} />
