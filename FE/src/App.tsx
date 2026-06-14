@@ -13,6 +13,11 @@ import { Iconify } from "./components/iconify";
 import ListPage from "./pages/admin/danhsachxe/ListPage";
 import AddPage from "./pages/admin/danhsachxe/AddPage";
 import EditPage from "./pages/admin/danhsachxe/EditPage";
+// Tuyến đường
+import JourneyListPage from "./pages/admin/tuyenduong/ListPage"
+import JourneyAddPage from "./pages/admin/tuyenduong/AddPage"
+import JourneyEditPage from "./pages/admin/tuyenduong/EditPage"
+// import JourneyDetailPage from "./pages/admin/tuyenduong/DetailPage";
 
 import StaffListPage from "./pages/admin/danhsachnhanvien/ListPage";
 // import StaffAddPage from "./pages/admin/danhsachnhanvien/AddPage";
@@ -131,6 +136,61 @@ function PortalPage() {
 function App() {
   return (
     <ThemeProvider>
+      <ConfigProvider
+        theme={{
+          token: {
+            colorPrimary: "#00AB55",
+          },
+        }}
+      >
+        <Suspense fallback={renderFallback()}>
+          <Routes>
+            {/* Redirect root to Customer page */}
+            <Route path="/" element={<Navigate to="/khachhang" replace />} />
+
+            {/* Portal Page to select roles */}
+            <Route path="/portal" element={<PortalPage />} />
+
+            {/* Customer Route */}
+            <Route path="/khachhang" element={<KhachHangPage />} />
+
+            {/* Driver Route */}
+            <Route path="/taixe" element={<TaiXePage />} />
+
+            {/* Admin Routes with Dashboard Layout */}
+            <Route
+              path="/admin"
+              element={
+                <DashboardLayout>
+                  <Outlet />
+                </DashboardLayout>
+              }
+            >
+              {/* When path is /admin, show DashboardPage */}
+              <Route index element={<DashboardPage />} />
+
+              {/* Nested CRUD pages and template pages under /admin/ */}
+              <Route path="bus/list" element={<ListPage />} />
+              <Route path="bus/add" element={<AddPage />} />
+              <Route path="bus/edit/:id" element={<EditPage />} />
+             {/* Tuyến đường */}
+              <Route path="journey/list" element={<JourneyListPage />} />
+              <Route path="journey/add" element={<JourneyAddPage />} />
+              <Route path="journey/edit/:id" element={<JourneyEditPage />} />
+              {/* <Route path="journey/detail/:id" element={<JourneyDetailPage />} /> */}
+
+              <Route path="products" element={<ProductsPage />} />
+              <Route path="blog" element={<BlogPage />} />
+            </Route>
+
+            {/* Standalone pages */}
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/404" element={<Page404 />} />
+            <Route path="*" element={<Navigate to="/404" replace />} />
+          </Routes>
+        </Suspense>
+        <Toaster />
+      </ConfigProvider>
       <Suspense fallback={renderFallback()}>
         <Routes>
           {/* Redirect root to Customer page */}
