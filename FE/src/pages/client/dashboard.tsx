@@ -98,12 +98,12 @@ export default function ClientDashboard() {
         <div className="relative z-20 max-w-container-max mx-auto px-margin-desktop w-full grid grid-cols-1 lg:grid-cols-2 gap-gutter items-center py-12">
           <div className="text-white space-y-6">
             <h1 className="text-display-lg font-display-lg leading-tight">
-              Reliable Travel,<br />
-              <span className="text-primary-fixed">Eco-friendly Future.</span>
+              Du lịch đáng tin cậy,<br />
+              <span className="text-primary-fixed">Tương lai xanh.</span>
             </h1>
             <p className="text-body-lg max-w-lg opacity-90">
-              Experience the next generation of bus travel. Comfort, punctuality, and sustainability integrated into every
-              journey across Vietnam.
+              Trải nghiệm thế hệ tiếp theo của du lịch bằng xe khách. Sự thoải mái, đúng giờ và bền vững được tích hợp vào mỗi hành trình
+trên khắp Việt Nam.
             </p>
           </div>
 
