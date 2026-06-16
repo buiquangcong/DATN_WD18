@@ -1,19 +1,18 @@
 import mongoose from "mongoose";
 
-// Định nghĩa cấu trúc cho từng chỗ ngồi/giường nằm bên trong chuyến đi
 const seatStatusSchema = new mongoose.Schema({
-  seatCode: { type: String, required: true, trim: true }, // Ví dụ: A1D, B2T
-  rowIndex: { type: Number, required: true },            // Hàng thứ mấy
-  colIndex: { type: Number, required: true },            // Cột thứ mấy
-  floor: { type: Number, default: 1 },                   // Tầng 1 hoặc Tầng 2
+  seatCode: { type: String, required: true, trim: true }, 
+  rowIndex: { type: Number, required: true },            
+  colIndex: { type: Number, required: true },            
+  floor: { type: Number, default: 1 },                   
   status: { 
     type: String, 
     enum: ['AVAILABLE', 'HOLDING', 'BOOKED'], 
     default: 'AVAILABLE' 
-  }, // AVAILABLE: Ghế trống, HOLDING: Đang giữ tạm thời, BOOKED: Đã mua thành công
-  heldBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }, // ID khách hàng đang giữ ghế
-  expiresAt: { type: Date, default: null } // Thời gian hết hạn giữ ghế tạm thời (giữ trong 5-10 phút)
-}, { _id: false }); // Tắt _id con của từng ghế để tránh rác database
+  }, 
+  heldBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }, 
+  expiresAt: { type: Date, default: null } 
+}, { _id: false }); 
 
 const tripSchema = new mongoose.Schema(
   {
@@ -40,7 +39,7 @@ const tripSchema = new mongoose.Schema(
       default: "sắp chạy",
     },
 
-    // Trường lưu trữ danh sách sơ đồ ghế tự động sinh ra cho chuyến đi này
+    
     seats: [seatStatusSchema] 
   },
   {
