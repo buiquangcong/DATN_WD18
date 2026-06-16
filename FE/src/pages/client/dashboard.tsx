@@ -66,16 +66,10 @@ export default function ClientDashboard() {
     message.success(`Đang mở cổng đặt vé trực tuyến cho tuyến: ${route}`);
   };
 
-  const fleetTags = ["VIP 21 Cabin", "Dòng xe 32 giường", "Dòng xe 34 giường", "Dòng xe 38 giường"];
+  const fleetTags = ["Dòng xe 38 giường"];
 
   const getFleetImageUrl = (tag: string): string => {
     switch (tag) {
-      case "VIP 21 Cabin":
-        return "https://lh3.googleusercontent.com/aida/AP1WRLsvP4l8U_thq1UEmWSwygY7VuYzDuU6in4khm4VHJNZTqDK4-fCddnG5eAPC36K1BJ5AU9lv4H0PRwS2I-vlgVvcdJRtMMjsHPBTl30qQkIpastmNd6BRV47zv7sYTqQ5tR6J-ZBaMZR2-z5WyPUJEfWacv8xkNN_YWAAOSdAujXAAL4D-91bJOgsAOAcpFxd_kDhWNveH2c-pwN1OtJSmhCgBLEKEWCfsfoFGapXSc7lGa3RE_az8mL3o6";
-      case "Dòng xe 32 giường":
-        return "/netbus_exterior.png";
-      case "Dòng xe 34 giường":
-        return "https://lh3.googleusercontent.com/aida/AP1WRLsgSpTPnW9D96Y6AZiht-SdwBwdkrB4EBPDppNZ63mZzD3lRMnh9zMx-B8rxI2fODSJmyfVzvFK7jCFkG4O2Oy97tyinERr9grT3UGN6U2NSzJ_YgKx1lYkz0NgVGBj3VJrXv3FlLvgK0iQJb_2Dg956WeQRWSVR7qwHRspaOJ5s84hpB5l0CQCl-axMsG9vLqrqvBBhOE3KZunWR2Cx8qD9bCHQbHc9XfrlFuNvWW64pI_uLy9NoCbyIgk";
       case "Dòng xe 38 giường":
       default:
         return "/netbus_student_promo.png";
