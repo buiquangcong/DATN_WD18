@@ -41,6 +41,7 @@ import TripEditPage from "./pages/admin/trip/EditPage";
 import BookingSeats from "./pages/client/Booking";
 import LoginClientPage from "./pages/client/login";
 import TicketSuccessPage from "./pages/client/TicketSuccessPage";
+
 const BlogPage = lazy(() => import("./pages/admin/blog"));
 const ProductsPage = lazy(() => import("./pages/admin/products"));
 const Page404 = lazy(() => import("./pages/page-not-found"));
