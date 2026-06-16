@@ -32,7 +32,7 @@ import Trip from "./pages/client/trip";
 import SearchResults from "./pages/client/searchresults";
 import Contact from "./pages/client/contact";
 import TaiXePage from "./pages/driver/dashboard";
-// import ListTaixePage from "./pages/driver/listtaixe";
+import ListTaixePage from "./pages/driver/list";
 import Login from "./pages/driver/login";
 
 import DashboardPage from "./pages/admin/dashboard";
@@ -176,7 +176,7 @@ function App() {
 
             {/* Driver Route */}
             <Route path="/taixe" element={<TaiXePage />} />
-            {/* <Route path="/taixe/listtaixe" element={<ListTaixePage />} /> */}
+            <Route path="/taixe/list" element={<ListTaixePage />} />
             <Route path="/taixe/login" element={<Login />} />
 
             {/* Admin Routes with Dashboard Layout */}

@@ -18,16 +18,12 @@ export function Navbar({
       path: "/taixe",
     },
     {
-      title: "Routes",
-      path: "/taixe/listtaixe",
+      title: "Danh sách chuyến xe",
+      path: "/taixe/list",
     },
     {
-      title: "Sustainability",
-      path: "/sustainability",
-    },
-    {
-      title: "Help",
-      path: "/contact",
+      title: "Phản hồi chuyến xe",
+      path: "/taixe/feedback",
     },
   ];
 
