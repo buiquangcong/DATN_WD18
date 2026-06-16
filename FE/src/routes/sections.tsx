@@ -9,6 +9,9 @@ import LinearProgress, { linearProgressClasses } from '@mui/material/LinearProgr
 
 import { AuthLayout } from 'src/layouts/auth';
 import { DashboardLayout } from 'src/layouts/dashboard';
+// Giả sử bạn có ClientLayout, nếu không có thì chỉ cần dùng <Outlet />
+// import { ClientLayout } from 'src/layouts/client'; 
+
 import Trip from 'src/pages/client/trip';
 import BookingSeats from 'src/pages/client/Booking';
 
@@ -44,6 +47,7 @@ const renderFallback = () => (
 
 export const routesSection: RouteObject[] = [
   {
+    path: 'admin', 
     element: (
       <DashboardLayout>
         <Suspense fallback={renderFallback()}>
@@ -56,11 +60,23 @@ export const routesSection: RouteObject[] = [
       { path: 'user', element: <UserPage /> },
       { path: 'products', element: <ProductsPage /> },
       { path: 'blog', element: <BlogPage /> },
+    ],
+  },
+
+  {
+    path: 'khachhang', 
+    element: (
+      <Suspense fallback={renderFallback()}>
+        <Outlet /> 
+      </Suspense>
+    ),
+    children: [
       { path: 'searchresults', element: <SearchResultsPage /> },
       { path: 'trip', element: <Trip /> },
       { path: 'booking/:tripId', element: <BookingSeats /> },
     ],
   },
+
   {
     path: 'login',
     element: (
