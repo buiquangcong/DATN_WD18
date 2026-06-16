@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { Card, Row, Col, Button, Tag, Space, Typography, message, Spin, Alert } from "antd";
+import { Card, Row, Col, Button, Space, Typography, message, Spin, Alert, Flex } from "antd";
 import { ArrowLeftOutlined, CheckCircleOutlined } from "@ant-design/icons";
 import { ClientLayout } from "./layout";
 
-const { Title, Text } = Typography;
+const { Title, Text, Paragraph } = Typography;
 
 // Định nghĩa Interface dữ liệu giường/ghế
 interface Seat {
@@ -35,12 +35,13 @@ interface DetailedTrip {
 }
 
 export default function BookingSeats(): React.ReactElement {
-    // Lấy chính xác tham số :tripId từ cấu trúc /khachhang/booking/:tripId
+    // Lấy tham số :tripId từ URL hệ thống
     const { tripId } = useParams<{ tripId: string }>();
     const navigate = useNavigate();
 
     const [trip, setTrip] = useState<DetailedTrip | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
+    const [bookingLoading, setBookingLoading] = useState<boolean>(false); // State quản lý loading khi nhấn nút đặt vé
     const [chosenSeatCodes, setChosenSeatCodes] = useState<string[]>([]);
 
     useEffect(() => {
@@ -52,11 +53,8 @@ export default function BookingSeats(): React.ReactElement {
             }
 
             try {
-                // Gọi API đến Backend
+                // Gọi API lấy sơ đồ ghế từ Backend
                 const response = await axios.get(`http://localhost:3000/api/trip/${tripId}`);
-
-                // Đã sửa đổi để tương thích với dữ liệu thực tế từ Postman:
-                // Nếu Backend trả về dạng { data: { ... } } hoặc trả về trực tiếp object { _id, seats... }
                 if (response.data) {
                     if (response.data.data) {
                         setTrip(response.data.data);
@@ -66,7 +64,7 @@ export default function BookingSeats(): React.ReactElement {
                 }
             } catch (error) {
                 console.error("Lỗi chi tiết khi gọi API sơ đồ ghế:", error);
-                message.error("Không thể tải sơ đồ ghế. Vui lòng kiểm tra kết nối mạng hoặc CORS!");
+                message.error("Không thể tải sơ đồ ghế!");
             } finally {
                 setLoading(false);
             }
@@ -75,29 +73,67 @@ export default function BookingSeats(): React.ReactElement {
         fetchTripDetails();
     }, [tripId]);
 
-    const handleConfirmBooking = async (): Promise<void> => {
-        if (chosenSeatCodes.length === 0) {
-            message.warning("Vui lòng chọn ít nhất một giường trước khi tiếp tục!");
-            return;
-        }
+const handleConfirmBooking = async (): Promise<void> => {
+    if (chosenSeatCodes.length === 0) {
+        message.warning("Vui lòng chọn ít nhất một giường trước khi tiếp tục!");
+        return;
+    }
 
-        try {
-            const bookingBody = {
-                tripId: tripId,
-                seats: chosenSeatCodes,
-            };
-            const response = await axios.post("http://localhost:3000/api/booking/add", bookingBody);
+    // 1. Trích xuất thông tin người dùng đang đăng nhập từ localStorage
+    const userString = localStorage.getItem("user");
+    const userObj = userString ? JSON.parse(userString) : null;
 
-            if (response.data) {
-                message.success("Đặt vé thành công! Hệ thống đang chuyển hướng...");
-                navigate("/khachhang/profile/ve-da-dat");
-            }
-        } catch (error: any) {
-            console.error("Lỗi khi gọi API đặt vé:", error);
-            const errorMsg = error.response?.data?.message || "Đặt vé thất bại, vui lòng thử lại!";
-            message.error(errorMsg);
+    if (!userObj || !userObj._id) {
+        message.error("Vui lòng đăng nhập tài khoản trước khi thực hiện đặt vé!");
+        navigate("/login"); 
+        return;
+    }
+
+    setBookingLoading(true);
+
+    try {
+        // 2. Thiết lập Object Payload đồng bộ 100% với Backend yêu cầu
+        const bookingBody = {
+            user: userObj._id,       // ID người dùng thực tế
+            trip: tripId,            // Khớp trường 'trip' chuẩn chỉnh
+            seats: chosenSeatCodes,  // Mảng danh sách mã ghế lựa chọn
+        };
+
+        console.log("Gửi dữ liệu lên API đặt vé:", bookingBody);
+
+        // 3. Tiến hành POST dữ liệu vào đúng link api/booking/add của bạn
+        const response = await axios.post("http://localhost:3000/api/booking/add", bookingBody);
+
+        if (response.data && trip) {
+            // 🎲 TẠO MÃ VÉ NGẪU NHIÊN: NB-XXXXXX
+            const randomTicketCode = `NB-${Math.floor(100000 + Math.random() * 900000)}`;
+
+            message.success("Đặt vé thành công! Đang chuyển hướng hiển thị vé...");
+            
+            // 🌟 LẤY CHÍNH XÁC TỪ TRƯỜNG USERNAME (Nếu không có mới dự phòng chuỗi khác)
+            const customerName = userObj.username || "Khách hàng NETBUS";
+
+            // Điều hướng sang trang hiển thị vé thành công kèm theo dữ liệu qua state
+            navigate("/khachhang/booking/success", {
+                state: {
+                    ticketCode: randomTicketCode,
+                    customerName: customerName, // Truyền username qua đây
+                    busName: trip.bus?.name || "Xe NETBUS Luxury",
+                    journey: `${trip.journey?.diemDi} → ${trip.journey?.diemDen}`,
+                    seats: chosenSeatCodes,
+                    totalPrice: (trip.journey?.price || 0) * chosenSeatCodes.length,
+                    departureTime: trip.departureTime
+                }
+            });
         }
-    };
+    } catch (error: any) {
+        console.error("Lỗi khi gọi API đặt vé:", error);
+        const errorMsg = error.response?.data?.message || "Đặt vé thất bại, vui lòng thử lại!";
+        message.error(errorMsg);
+    } finally {
+        setBookingLoading(false);
+    }
+};
 
     const handleSeatClick = (seat: Seat): void => {
         if (seat.status !== "AVAILABLE") return;
@@ -118,9 +154,9 @@ export default function BookingSeats(): React.ReactElement {
     if (loading) {
         return (
             <ClientLayout>
-                <div style={{ textAlign: "center", padding: "100px 0", background: "#f5f7fa", minHeight: "100vh" }}>
+                <Flex align="center" justify="center" style={{ padding: "100px 0", background: "#f5f7fa", minHeight: "100vh" }}>
                     <Spin size="large" tip="Đang tải sơ đồ giường nằm..." />
-                </div>
+                </Flex>
             </ClientLayout>
         );
     }
@@ -144,12 +180,12 @@ export default function BookingSeats(): React.ReactElement {
                         Quay lại danh sách chuyến
                     </Button>
 
-                    <Row gutter={24}>
+                    <Row gutter={[24, 24]}>
                         {/* Cột trái: Sơ đồ ghế */}
                         <Col xs={24} lg={15}>
                             <Card title="Chọn vị trí giường nằm">
-                                <Row gutter={24} justify="center">
-                                    <Col span={12}>
+                                <Row gutter={[24, 24]} justify="center">
+                                    <Col xs={24} sm={12}>
                                         <div style={{ textAlign: "center", marginBottom: 12, fontWeight: 600, color: "#1890ff" }}>TẦNG DƯỚI (TẦNG 1)</div>
                                         <div style={{ background: "#fafafa", padding: 16, borderRadius: 8, border: "1px solid #f0f0f0" }}>
                                             <Row gutter={[12, 14]}>
@@ -170,7 +206,7 @@ export default function BookingSeats(): React.ReactElement {
 
                                     {/* Tầng 2 */}
                                     {trip.seats?.filter((s: Seat) => s.floor === 2).length > 0 && (
-                                        <Col span={12}>
+                                        <Col xs={24} sm={12}>
                                             <div style={{ textAlign: "center", marginBottom: 12, fontWeight: 600, color: "#722ed1" }}>TẦNG TRÊN (TẦNG 2)</div>
                                             <div style={{ background: "#fafafa", padding: 16, borderRadius: 8, border: "1px solid #f0f0f0" }}>
                                                 <Row gutter={[12, 14]}>
@@ -196,31 +232,38 @@ export default function BookingSeats(): React.ReactElement {
                         {/* Cột phải: Tính tiền */}
                         <Col xs={24} lg={9}>
                             <Card title="Thông tin đặt vé">
-                                <div style={{ marginBottom: 16 }}>
-                                    <Text type="secondary">Tên xe:</Text>
-                                    <div style={{ fontSize: 16, fontWeight: 600 }}>{trip.bus?.name || "Đang cập nhật..."}</div>
-                                </div>
-                                <div style={{ marginBottom: 16 }}>
-                                    <Text type="secondary">Hành trình:</Text>
-                                    <div style={{ fontSize: 15, fontWeight: 600 }}>{trip.journey?.diemDi} → {trip.journey?.diemDen}</div>
-                                </div>
-                                <div style={{ marginBottom: 16 }}>
-                                    <Text type="secondary">Giường chọn:</Text>
-                                    <div style={{ fontSize: 16, color: "#1890ff", fontWeight: 700 }}>
-                                        {chosenSeatCodes.join(", ") || "Chưa chọn"}
+                                <Space direction="vertical" size="middle" style={{ display: "flex", marginBottom: 24 }}>
+                                    <div>
+                                        <Text type="secondary">Tên xe:</Text>
+                                        <Title level={5} style={{ margin: 0 }}>{trip.bus?.name || "Đang cập nhật..."}</Title>
                                     </div>
-                                </div>
-                                <div style={{ marginBottom: 24, borderTop: "1px solid #f0f0f0", paddingTop: 16, display: "flex", justifyContent: "space-between" }}>
+                                    <div>
+                                        <Text type="secondary">Hành trình:</Text>
+                                        <Text strong style={{ display: "block", fontSize: "15px" }}>
+                                            {trip.journey?.diemDi} → {trip.journey?.diemDen}
+                                        </Text>
+                                    </div>
+                                    <div>
+                                        <Text type="secondary">Giường chọn:</Text>
+                                        <Text strong style={{ display: "block", fontSize: 16, color: "#1890ff" }}>
+                                            {chosenSeatCodes.join(", ") || "Chưa chọn"}
+                                        </Text>
+                                    </div>
+                                </Space>
+
+                                <Flex justify="space-between" align="center" style={{ marginBottom: 24, borderTop: "1px solid #f0f0f0", paddingTop: 16 }}>
                                     <Text strong>Tổng tiền:</Text>
-                                    <span style={{ fontSize: 20, color: "#ff4d4f", fontWeight: 800 }}>
+                                    <Text style={{ fontSize: 20, color: "#ff4d4f", fontWeight: 800 }}>
                                         {((trip.journey?.price || 0) * chosenSeatCodes.length).toLocaleString("vi-VN")}đ
-                                    </span>
-                                </div>
+                                    </Text>
+                                </Flex>
+
                                 <Button
                                     type="primary"
                                     size="large"
                                     block
                                     icon={<CheckCircleOutlined />}
+                                    loading={bookingLoading}
                                     disabled={chosenSeatCodes.length === 0}
                                     style={{
                                         background: chosenSeatCodes.length > 0 ? "#52c41a" : "#f5f5f5",
