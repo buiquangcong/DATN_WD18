@@ -17,25 +17,25 @@ export function Navbar({ isDarkMode, toggleDarkMode }: NavbarProps) {
         <div className="hidden md:flex gap-8 items-center">
           <a
             className="pb-1 font-body-md text-primary dark:text-inverse-primary border-b-[3px] border-primary dark:border-inverse-primary"
-            href="#"
+            href="/"
           >
-            Routes
+            Trang Chủ
           </a>
           <a
             className="transition-colors duration-300 font-body-md text-secondary dark:text-secondary-fixed-dim hover:text-primary"
-            href="khachhang/schedules"
+            href="/khachhang/trip"
           >
-            Schedules
+            Chuyến đi
           </a>
           <a
             className="transition-colors duration-300 font-body-md text-secondary dark:text-secondary-fixed-dim hover:text-primary"
-            href="khachhang/searchresults"
+            href="/khachhang/searchresults"
           >
-            Sustainability
+            Kết quả tìm kiếm
           </a>
           <a
             className="transition-colors duration-300 font-body-md text-secondary dark:text-secondary-fixed-dim hover:text-primary"
-            href="#"
+            href="/contact"
           >
             Help
           </a>

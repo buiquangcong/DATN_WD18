@@ -162,7 +162,7 @@ function App() {
 
             {/* Customer Route */}
             <Route path="/khachhang" element={<KhachHangPage />} />
-            <Route path="/khachhang/schedules" element={<Trip />} />
+            <Route path="/khachhang/trip" element={<Trip />} />
             <Route path="/khachhang/searchresults" element={<SearchResults />} />
 
             {/* Driver Route */}

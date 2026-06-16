@@ -9,6 +9,7 @@ import LinearProgress, { linearProgressClasses } from '@mui/material/LinearProgr
 
 import { AuthLayout } from 'src/layouts/auth';
 import { DashboardLayout } from 'src/layouts/dashboard';
+import Trip from 'src/pages/client/trip';
 
 // ----------------------------------------------------------------------
 
@@ -17,6 +18,7 @@ export const BlogPage = lazy(() => import('src/pages/admin/blog'));
 export const UserPage = lazy(() => import('src/pages/admin/user'));
 export const LoginPage = lazy(() => import('src/pages/admin/auth/Login'));
 export const ProductsPage = lazy(() => import('src/pages/admin/products'));
+export const SearchResultsPage = lazy(() => import('src/pages/client/searchresults'));
 export const Page404 = lazy(() => import('src/pages/page-not-found'));
 
 const renderFallback = () => (
@@ -53,6 +55,8 @@ export const routesSection: RouteObject[] = [
       { path: 'user', element: <UserPage /> },
       { path: 'products', element: <ProductsPage /> },
       { path: 'blog', element: <BlogPage /> },
+      { path: 'searchresults', element: <SearchResultsPage /> },
+      { path: 'trip', element: <Trip /> },
     ],
   },
   {
