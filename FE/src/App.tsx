@@ -39,6 +39,8 @@ import DashboardPage from "./pages/admin/dashboard";
 import TripAddPage from "./pages/admin/trip/AddPage";
 import TripEditPage from "./pages/admin/trip/EditPage";
 import BookingSeats from "./pages/client/Booking";
+import LoginClientPage from "./pages/client/login";
+import TicketSuccessPage from "./pages/client/TicketSuccessPage";
 const BlogPage = lazy(() => import("./pages/admin/blog"));
 const ProductsPage = lazy(() => import("./pages/admin/products"));
 const Page404 = lazy(() => import("./pages/page-not-found"));
@@ -169,11 +171,10 @@ function App() {
             <Route path="/khachhang" element={<KhachHangPage />} />
             <Route path="/khachhang/trip" element={<Trip />} />
             <Route path="/khachhang/searchresults" element={<SearchResults />} />
+            <Route path="/khachhang/contact" element={<Contact />} />
             <Route path="/khachhang/booking/:tripId" element={<BookingSeats />} />
-            <Route path="/khachhang/login" element={<LoginPage />} />
-            
-            <Route path="/contact" element={<Contact />} />
-
+            <Route path="/khachhang/booking/success" element={<TicketSuccessPage />} />
+            <Route path="/khachhang/login" element={<LoginClientPage />} />
             {/* Driver Route */}
             <Route path="/taixe" element={<TaiXePage />} />
             <Route path="/taixe/list" element={<ListTaixePage />} />
