@@ -33,7 +33,6 @@ export default function Trip() {
   return (
     <ClientLayout>
       <div>
-        {/* Hero */}
         <div
           style={{
             height: 350,
@@ -57,7 +56,6 @@ export default function Trip() {
           </div>
         </div>
 
-        {/* Search Box */}
         <div
           style={{
             maxWidth: 1200,
@@ -104,7 +102,6 @@ export default function Trip() {
           </Card>
         </div>
 
-        {/* Filter */}
         <div
           style={{
             maxWidth: 1200,
@@ -133,7 +130,6 @@ export default function Trip() {
           </Space>
         </div>
 
-        {/* Schedule List */}
         <div
           style={{
             maxWidth: 1200,
@@ -206,7 +202,6 @@ export default function Trip() {
           </div>
         </div>
 
-        {/* Feature Section */}
         <div
           style={{
             background: "#f5f5f5",
