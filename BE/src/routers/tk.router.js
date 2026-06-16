@@ -10,6 +10,6 @@ TkRouter.post("/add", createOne);
 
 TkRouter.put("/update/:id", updateOne);
 
-TkRouter.delete("/:id", deleteOne);
+TkRouter.delete("/delete/:id", deleteOne);
 
 export default TkRouter;
