@@ -58,7 +58,7 @@ function TripEditPage() {
     fetchData();
   }, []);
 
-  // Đổ dữ liệu lên form
+
   useEffect(() => {
     if (trip) {
       form.setFieldsValue({

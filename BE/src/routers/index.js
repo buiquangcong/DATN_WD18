@@ -7,6 +7,7 @@ import authRouter from "./auth.router";
 import tripRouter from "./trip.router";
 import carseatRouter from "./carseat.router";
 import bookingRouter from "./booking.router";
+import tkRouter from "./tk.router";
 const router = Router();
 
 router.use("/bus", busRouter);
@@ -17,5 +18,5 @@ router.use("/auth", authRouter);
 router.use("/trip", tripRouter);
 router.use("/carseat", carseatRouter);
 router.use("/booking", bookingRouter);
-
+router.use("/tk", tkRouter);
 export default router;
