@@ -1,7 +1,7 @@
 import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Card, Button, Result, Typography, Row, Col, Divider, Space, Flex } from "antd";
-import { HomeOutlined, QrcodeOutlined, PrinterOutlined } from "@ant-design/icons";
+import { Button, Result, Typography, Row, Col, Space, Flex, Tag } from "antd";
+import { HomeOutlined, QrcodeOutlined, PrinterOutlined, ClockCircleOutlined, UserOutlined, EnvironmentOutlined } from "@ant-design/icons";
 import { ClientLayout } from "./layout";
 
 const { Title, Text } = Typography;
@@ -10,7 +10,6 @@ export default function TicketSuccessPage(): React.ReactElement {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Nhận dữ liệu an toàn từ trang đặt vé chuyển sang kèm giá trị mặc định dự phòng
   const ticketData = location.state || {
     ticketCode: `NB-${Math.floor(100000 + Math.random() * 900000)}`,
     customerName: "Khách hàng NETBUS",
@@ -21,142 +20,242 @@ export default function TicketSuccessPage(): React.ReactElement {
     departureTime: "Đang cập nhật..."
   };
 
+  const parts = ticketData.journey.split("→");
+  const diemDi = parts[0]?.trim() || "Điểm đi";
+  const diemDen = parts[1]?.trim() || "Điểm đến";
+
   return (
     <ClientLayout>
-      <div style={{ background: "#f5f7fa", minHeight: "100vh", padding: "40px 0" }}>
-        <div style={{ maxWidth: 600, margin: "0 auto", padding: "0 20px" }}>
-          
-          <Result
-            status="success"
-            title={<Title level={3} style={{ margin: 0, color: "#52c41a" }}>ĐẶT VÉ THÀNH CÔNG!</Title>}
-            subTitle="Hệ thống đã ghi nhận mã đặt chỗ của bạn. Vui lòng kiểm tra thông tin vé dưới đây."
-            style={{ padding: "24px 0" }}
-          />
+      {/* 🌟 THÊM STYLE FIX LỖI IN ẤN */}
+      <style>{`
+        @media print {
+          /* Ép trình duyệt giữ nguyên màu nền và hình ảnh khi in */
+          body, div, card, img {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          /* Ẩn các nút quay về và nút in khi xuất file */
+          .no-print {
+            display: none !important;
+          }
+          /* Đảm bảo trang in không bị xén lề */
+          @page {
+            margin: 10mm;
+          }
+        }
+      `}</style>
 
-          {/* GIAO DIỆN CHIẾC VÉ (TICKET CARD) */}
-          <Card 
-            bordered={false} 
-            style={{ 
-              borderRadius: "16px", 
-              boxShadow: "0 10px 30px rgba(0,0,0,0.05)",
-              overflow: "hidden"
-            }}
-            styles={{ body: { padding: "32px" } }}
-          >
-            {/* 🌟 BANNER LOGO THƯƠNG HIỆU NETBUS & MÃ QR */}
-            <Flex justify="space-between" align="center" style={{ marginBottom: 20 }}>
-              {/* KHỐI LOGO BÊN TRÁI ĐÃ TÍCH HỢP ĐƯỜNG DẪN ẢNH CỦA BẠN */}
-              <Flex align="center" gap={12}>
-                <img 
-                  src="/assets/images/Logo.png" 
-                  alt="NETBUS Logo" 
-                  style={{ 
-                    height: "45px", 
-                    objectFit: "contain",
-                    display: "block"
-                  }} 
-                />
-                <Space direction="vertical" size={0}>
-                  <Text strong style={{ fontSize: "16px", color: "#166534", letterSpacing: "1px", lineHeight: 1.2 }}>
+      <div style={{ background: "#f1f5f9", minHeight: "100vh", padding: "40px 0" }}>
+        <div style={{ maxWidth: 450, margin: "0 auto", padding: "0 16px" }}>
+          
+          <div className="no-print">
+            <Result
+              status="success"
+              title={<Title level={4} style={{ margin: 0, color: "#16a34a" }}>ĐẶT VÉ THÀNH CÔNG!</Title>}
+              subTitle="Cảm ơn bạn đã lựa chọn NETBUS"
+              style={{ padding: "0 0 24px 0" }}
+            />
+          </div>
+
+          {/* KHỐI VÉ TOÀN DIỆN */}
+          <div style={{
+            borderRadius: "30px",
+            boxShadow: "0 10px 25px rgba(15, 23, 42, 0.08)",
+            overflow: "hidden",
+            background: "#ffffff"
+          }}>
+            
+            {/* PHẦN TRÊN CỦA VÉ - NỀN TỐI */}
+            <div style={{
+              background: "#1e293b", 
+              padding: "28px 24px 24px 24px",
+              color: "#ffffff"
+            }}>
+              {/* Header */}
+              <Flex justify="space-between" align="center" style={{ marginBottom: 24 }}>
+                <Flex align="center" gap={10}>
+                  <img 
+                    src="/assets/images/Logo.png" 
+                    alt="NETBUS Logo" 
+                    style={{ height: "32px", objectFit: "contain" }} 
+                  />
+                  <Text strong style={{ color: "#ffffff", fontSize: "16px", letterSpacing: "1px" }}>
                     NETBUS
                   </Text>
-                  <Text type="secondary" style={{ fontSize: "10px", letterSpacing: "0.5px" }}>
-                    HÀNH TRÌNH XANH
+                </Flex>
+                <Tag style={{ borderRadius: "20px",backgroundColor:"#16a34a", color: "#fff", border: "none", padding: "2px 12px", fontWeight: 600 }}>
+                  Đã xác nhận
+                </Tag>
+              </Flex>
+
+              {/* Thông tin chặng đi (ĐÃ TĂNG ĐỘ ĐẬM MÀU CHỮ ĐỂ KHI IN KHÔNG BỊ MỜ) */}
+              <Flex justify="space-between" align="center" style={{ marginBottom: 16 }}>
+                <Space direction="vertical" size={2}>
+                  <Text style={{ color: "#cbd5e1", fontSize: "12px", textTransform: "uppercase", fontWeight: 500 }}>
+                    Điểm đi
                   </Text>
+                  <Text strong style={{ color: "#ffffff", fontSize: "20px" }}>{diemDi}</Text>
+                </Space>
+
+                <div style={{ color: "#64748b", fontSize: "20px", fontWeight: 300 }}>➔</div>
+
+                <Space direction="vertical" size={2} style={{ textAlign: "right" }}>
+                  <Text style={{ color: "#cbd5e1", fontSize: "12px", textTransform: "uppercase", fontWeight: 500 }}>
+                    Điểm đến
+                  </Text>
+                  <Text strong style={{ color: "#ffffff", fontSize: "20px" }}>{diemDen}</Text>
                 </Space>
               </Flex>
 
-              {/* MÃ QR BÊN PHẢI */}
-              <QrcodeOutlined style={{ fontSize: "42px", color: "#166534" }} />
-            </Flex>
-
-            <Divider style={{ margin: "16px 0", borderColor: "#f0f0f0" }} />
-
-            {/* MÃ VÉ ĐIỆN TỬ */}
-            <div style={{ marginBottom: 20 }}>
-              <Text type="secondary" style={{ fontSize: "12px", letterSpacing: "1px" }}>MÃ VÉ ĐIỆN TỬ</Text>
-              <Title level={4} style={{ margin: 0, color: "#111827", letterSpacing: "1px" }}>
-                {ticketData.ticketCode}
-              </Title>
+              <Flex align="center" gap={8} style={{ color: "#cbd5e1", fontSize: "13px" }}>
+                <EnvironmentOutlined style={{ color: "#38bdf8" }} />
+                <Text style={{ color: "#cbd5e1" }}>Dịch vụ: <span style={{ color: "#ffffff", fontWeight: 500 }}>{ticketData.busName}</span></Text>
+              </Flex>
             </div>
 
-            <Divider style={{ margin: "16px 0", borderStyle: "dashed", borderColor: "#d9d9d9" }} />
+            {/* ✂️ ĐƯỜNG CẮT VÉ: ĐÃ FIX CỐ ĐỊNH CHIỀU CAO (KHÔNG BỊ NHẢY KHI IN) */}
+            <div style={{
+              background: "#ffffff",
+              position: "relative",
+              height: "24px",
+              overflow: "hidden", // Không cho vòng tròn tràn xuống phần dưới
+              display: "flex",
+              alignItems: "center"
+            }}>
+              {/* Lỗ khuyết bên trái */}
+              <div style={{
+                position: "absolute",
+                left: "-12px",
+                width: "24px",
+                height: "24px",
+                borderRadius: "50%",
+                background: "#f1f5f9" 
+              }}></div>
 
-            {/* CHI TIẾT NỘI DUNG VÉ */}
-            <Space direction="vertical" size="middle" style={{ display: "flex", width: "100%" }}>
-              
-              {/* Thông tin hành khách */}
-              <Row gutter={[16, 16]}>
-                <Col span={24}>
-                  <Text type="secondary" style={{ display: "block", marginBottom: 4 }}>Họ và tên hành khách</Text>
-                  <Text strong style={{ fontSize: "16px", color: "#111827", textTransform: "uppercase" }}>
-                    {ticketData.customerName}
+              {/* Đường đứt nét */}
+              <div style={{
+                width: "100%",
+                borderTop: "2px dashed #e2e8f0",
+                margin: "0 20px"
+              }}></div>
+
+              {/* Lỗ khuyết bên phải */}
+              <div style={{
+                position: "absolute",
+                right: "-12px",
+                width: "24px",
+                height: "24px",
+                borderRadius: "50%",
+                background: "#f1f5f9"
+              }}></div>
+            </div>
+
+            {/* PHẦN DƯỚI CỦA VÉ - NỀN TRẮNG */}
+            <div style={{
+              background: "#ffffff",
+              padding: "4px 24px 28px 24px"
+            }}>
+              <Row gutter={[16, 20]}>
+                <Col span={12}>
+                  <Space direction="vertical" size={2}>
+                    <Text type="secondary" style={{ fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                      Hành khách
+                    </Text>
+                    <Flex align="center" gap={6}>
+                      <UserOutlined style={{ color: "#64748b", fontSize: "13px" }} />
+                      <Text strong style={{ color: "#0f172a", fontSize: "14px" }}>
+                        {ticketData.customerName}
+                      </Text>
+                    </Flex>
+                  </Space>
+                </Col>
+
+                <Col span={12}>
+                  <Space direction="vertical" size={2}>
+                    <Text type="secondary" style={{ fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                      Thời gian đi
+                    </Text>
+                    <Flex align="center" gap={6}>
+                      <ClockCircleOutlined style={{ color: "#64748b", fontSize: "13px" }} />
+                      <Text strong style={{ color: "#0f172a", fontSize: "14px" }}>
+                        {ticketData.departureTime || "Đang cập nhật"}
+                      </Text>
+                    </Flex>
+                  </Space>
+                </Col>
+
+                <Col span={12}>
+                  <Space direction="vertical" size={2}>
+                    <Text type="secondary" style={{ fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                      Vị trí giường
+                    </Text>
+                    <Text strong style={{ color: "#0284c7", fontSize: "15px" }}>
+                      {ticketData.seats.join(", ")}
+                    </Text>
+                  </Space>
+                </Col>
+
+                <Col span={12}>
+                  <Space direction="vertical" size={2}>
+                    <Text type="secondary" style={{ fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                      Mã vé điện tử
+                    </Text>
+                    <Text strong style={{ color: "#334155", fontSize: "14px", letterSpacing: "0.5px" }}>
+                      {ticketData.ticketCode}
+                    </Text>
+                  </Space>
+                </Col>
+              </Row>
+
+              <div style={{ height: "1px", background: "#f1f5f9", margin: "24px 0 16px 0" }}></div>
+
+              {/* Phần tiền & Mã QR */}
+              <Flex justify="space-between" align="center">
+                <Space direction="vertical" size={2}>
+                  <Text type="secondary" style={{ fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                    Tổng tiền thanh toán
                   </Text>
-                </Col>
-              </Row>
+                  <Title level={3} style={{ margin: 0, color: "#ef4444", fontWeight: 800 }}>
+                    {ticketData.totalPrice.toLocaleString("vi-VN")}đ
+                  </Title>
+                </Space>
 
-              <Row gutter={[16, 16]}>
-                <Col span={12}>
-                  <Text type="secondary" style={{ display: "block", marginBottom: 4 }}>Chuyến xe</Text>
-                  <Text strong style={{ fontSize: "15px" }}>{ticketData.busName}</Text>
-                </Col>
-                <Col span={12}>
-                  <Text type="secondary" style={{ display: "block", marginBottom: 4 }}>Tuyến đường</Text>
-                  <Text strong style={{ fontSize: "15px" }}>{ticketData.journey}</Text>
-                </Col>
-              </Row>
+                <div style={{
+                  padding: "8px",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "14px",
+                  background: "#f8fafc"
+                }}>
+                  <QrcodeOutlined style={{ fontSize: "44px", color: "#0f172a" }} />
+                </div>
+              </Flex>
+            </div>
 
-              <Row gutter={[16, 16]}>
-                <Col span={12}>
-                  <Text type="secondary" style={{ display: "block", marginBottom: 4 }}>Thời gian khởi hành</Text>
-                  <Text strong>{ticketData.departureTime || "Xem trên lịch trình"}</Text>
-                </Col>
-                <Col span={12}>
-                  <Text type="secondary" style={{ display: "block", marginBottom: 4 }}>Vị trí giường/ghế</Text>
-                  <Text strong style={{ color: "#1890ff", fontSize: "16px" }}>
-                    {ticketData.seats.join(", ")}
-                  </Text>
-                </Col>
-              </Row>
-            </Space>
+          </div>
 
-            {/* Đường cắt răng cưa của vé */}
-            <Divider style={{ margin: "24px 0", borderStyle: "dashed", borderColor: "#166534", borderWidth: "1.5px" }} />
-
-            {/* Footer vé & Tính tiền */}
-            <Flex justify="space-between" align="center">
-              <Text strong style={{ fontSize: "16px" }}>Trạng thái thanh toán:</Text>
-              <Text strong style={{ color: "#52c41a", backgroundColor: "#f6ffed", border: "1px solid #b7eb8f", padding: "4px 12px", borderRadius: "4px" }}>
-                Đã xác nhận
-              </Text>
-            </Flex>
-
-            <Flex justify="space-between" align="center" style={{ marginTop: 16 }}>
-              <Text strong style={{ fontSize: "16px" }}>Tổng tiền thanh toán:</Text>
-              <Title level={3} style={{ margin: 0, color: "#ff4d4f", fontWeight: 800 }}>
-                {ticketData.totalPrice.toLocaleString("vi-VN")}đ
-              </Title>
-            </Flex>
-          </Card>
-
-          {/* CÁC NÚT TƯƠNG TÁC */}
-          <Space size="middle" style={{ display: "flex", justifyContent: "center", marginTop: 32 }}>
+          {/* NÚT TƯƠNG TÁC (SẼ TỰ ĐỘNG ẨN KHI IN) */}
+          <Space size="middle" className="no-print" style={{ display: "flex", justifyContent: "center", marginTop: 32 }}>
             <Button 
               icon={<HomeOutlined />} 
               size="large" 
               onClick={() => navigate("/khachhang/trip")}
-              style={{ borderRadius: "8px" }}
+              style={{ borderRadius: "12px", height: "44px" }}
             >
-              Quay về trang chủ
+              Về trang chủ
             </Button>
             <Button 
               type="primary" 
               icon={<PrinterOutlined />} 
               size="large" 
               onClick={() => window.print()}
-              style={{ borderRadius: "8px", background: "#166534", borderColor: "#166534" }}
+              style={{ 
+                borderRadius: "12px", 
+                background: "#166534", 
+                borderColor: "#166534",
+                height: "44px" 
+              }}
             >
-              In vé / Chụp màn hình
+              In / Chụp màn hình
             </Button>
           </Space>
 

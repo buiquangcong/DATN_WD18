@@ -39,7 +39,7 @@ export function Navbar({
           to="/"
           className="text-headline-lg font-headline-lg font-extrabold tracking-tight cursor-pointer text-primary dark:text-inverse-primary"
         >
-          NETBUS
+          <img src="/assets/images/logoxoanen.png" alt="NetBus Logo" className="h-12" />
         </NavLink>
 
         {/* Menu */}
