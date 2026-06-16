@@ -27,7 +27,7 @@ export function Navbar({
     },
     {
       title: "Trợ giúp",
-      path: "/contact",
+      path: "/khachhang/contact",
     },
   ];
 

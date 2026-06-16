@@ -44,6 +44,7 @@ const renderFallback = () => (
 
 export const routesSection: RouteObject[] = [
   {
+    path: 'admin',
     element: (
       <DashboardLayout>
         <Suspense fallback={renderFallback()}>
@@ -56,11 +57,24 @@ export const routesSection: RouteObject[] = [
       { path: 'user', element: <UserPage /> },
       { path: 'products', element: <ProductsPage /> },
       { path: 'blog', element: <BlogPage /> },
-      { path: 'searchresults', element: <SearchResultsPage /> },
+    ],
+  },
+
+
+  {
+    path: 'khachhang',
+    element: (
+      <Suspense fallback={renderFallback()}>
+        <Outlet />
+      </Suspense>
+    ),
+    children: [
       { path: 'trip', element: <Trip /> },
+      { path: 'searchresults', element: <SearchResultsPage /> },
       { path: 'booking/:tripId', element: <BookingSeats /> },
     ],
   },
+
   {
     path: 'login',
     element: (
@@ -73,5 +87,8 @@ export const routesSection: RouteObject[] = [
     path: '404',
     element: <Page404 />,
   },
-  { path: '*', element: <Page404 /> },
+  { 
+    path: '*', 
+    element: <Page404 /> 
+  },
 ];
