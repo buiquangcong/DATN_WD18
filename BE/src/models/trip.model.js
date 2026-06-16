@@ -27,7 +27,11 @@ const tripSchema = new mongoose.Schema(
       ref: "Bus",
       required: [true, "Xe là bắt buộc"],
     },
-
+    staff:{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Staff",
+      required: [true, "Nhân viên điều hành là bắt buộc"],
+    },
     departureTime: {
       type: Date,
       required: [true, "Thời gian khởi hành là bắt buộc"],

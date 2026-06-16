@@ -7,7 +7,9 @@ import generateSeats from "../utils/seatGenerator.js";
 export const getAll = asyncHandler(async (req, res) => {
     const trips = await Trip.find()
         .populate("journey")
-        .populate("bus");
+        .populate("bus")
+        .populate("staff");
+        ;
 
     return res.json(trips);
 });
@@ -15,7 +17,8 @@ export const getAll = asyncHandler(async (req, res) => {
 export const getOne = asyncHandler(async (req, res) => {
     const trip = await Trip.findById(req.params.id)
         .populate("journey")
-        .populate("bus");
+        .populate("bus")
+        .populate("staff");
 
     if (!trip) {
         return res.status(404).json({
@@ -29,7 +32,7 @@ export const getOne = asyncHandler(async (req, res) => {
 
 export const createOne = asyncHandler(async (req, res) => {
 
-    const { journey, bus, departureTime } = req.body; 
+    const { journey, bus,staff, departureTime } = req.body; 
 
   
     const busInfo = await Bus.findById(bus);
@@ -52,6 +55,7 @@ export const createOne = asyncHandler(async (req, res) => {
     const trip = await Trip.create({
         journey,
         bus,
+        staff,
         departureTime,
         seats: autoSeats 
     });
