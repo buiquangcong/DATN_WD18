@@ -30,6 +30,7 @@ import TripListPage from "./pages/admin/trip/ListPage";
 import KhachHangPage from "./pages/client/dashboard";
 import Trip from "./pages/client/trip";
 import SearchResults from "./pages/client/searchresults";
+import Contact from "./pages/client/contact";
 import TaiXePage from "./pages/driver/dashboard";
 import DashboardPage from "./pages/admin/dashboard";
 import TripAddPage from "./pages/admin/trip/AddPage";
@@ -168,6 +169,8 @@ function App() {
             <Route path="/khachhang/booking/:tripId" element={<BookingSeats />} />
             <Route path="/khachhang/login" element={<LoginPage />} />
             
+            <Route path="/contact" element={<Contact />} />
+
             {/* Driver Route */}
             <Route path="/taixe" element={<TaiXePage />} />
 

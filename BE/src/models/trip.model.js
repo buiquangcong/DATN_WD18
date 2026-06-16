@@ -1,5 +1,19 @@
 import mongoose from "mongoose";
 
+const seatStatusSchema = new mongoose.Schema({
+  seatCode: { type: String, required: true, trim: true }, 
+  rowIndex: { type: Number, required: true },            
+  colIndex: { type: Number, required: true },            
+  floor: { type: Number, default: 1 },                   
+  status: { 
+    type: String, 
+    enum: ['AVAILABLE', 'HOLDING', 'BOOKED'], 
+    default: 'AVAILABLE' 
+  }, 
+  heldBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }, 
+  expiresAt: { type: Date, default: null } 
+}, { _id: false }); 
+
 const tripSchema = new mongoose.Schema(
   {
     journey: {
@@ -24,6 +38,9 @@ const tripSchema = new mongoose.Schema(
       enum: ["sắp chạy", "đang chạy", "hoàn thành", "huỷ"],
       default: "sắp chạy",
     },
+
+    
+    seats: [seatStatusSchema] 
   },
   {
     timestamps: true,

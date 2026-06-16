@@ -71,15 +71,38 @@ export default function Trip(): React.ReactElement {
 
   return (
     <ClientLayout>
-      <div style={{ background: "#f5f7fa", minHeight: "100vh", paddingBottom: 50 }}>
-        {/* Hero Section */}
-        <div style={{ height: 220, background: "linear-gradient(rgba(22,110,0,.5), rgba(22,110,0,.5)), url('https://images.unsplash.com/photo-1570125909232-eb263c188f7e') center/cover", display: "flex", alignItems: "center", padding: "0 80px", color: "#fff" }}>
-          <Title style={{ color: "#fff", margin: 0 }}>Tìm Kiếm Chuyến Xe</Title>
+      <div>
+        <div
+          style={{
+            height: 350,
+            background:
+              "linear-gradient(rgba(22,110,0,.4), rgba(22,110,0,.4)), url('https://images.unsplash.com/photo-1570125909232-eb263c188f7e') center/cover",
+            display: "flex",
+            alignItems: "center",
+            padding: "0 80px",
+            color: "#fff",
+          }}
+        >
+          <div>
+            <Title style={{ color: "#fff", marginBottom: 10 }}>
+              Journey with <span style={{ color: "#93fb75" }}>Purpose</span>
+            </Title>
+
+            <Text style={{ color: "#fff", fontSize: 16 }}>
+              Reliable, eco-friendly transport connecting Hanoi, Nghe An,
+              Ha Tinh and beyond.
+            </Text>
+          </div>
         </div>
 
-        {/* Tìm kiếm */}
-        <div style={{ maxWidth: 1100, margin: "-30px auto 30px", padding: "0 20px" }}>
-          <Card style={{ borderRadius: 8, boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }}>
+        <div
+          style={{
+            maxWidth: 1200,
+            margin: "-50px auto 40px",
+            padding: "0 20px",
+          }}
+        >
+          <Card>
             <Row gutter={16}>
               <Col span={8}><Input prefix={<EnvironmentOutlined />} placeholder="Điểm đi" size="large" /></Col>
               <Col span={8}><Input prefix={<EnvironmentOutlined />} placeholder="Điểm đến" size="large" /></Col>
