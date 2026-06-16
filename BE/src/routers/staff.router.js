@@ -10,6 +10,7 @@ staffRouter.get("/detail/:id", getOne);
 
 staffRouter.post("/add",  createOne);
 staffRouter.put("/edit/:id",  updateOne);
+staffRouter.put("/update/:id",  updateOne);
 staffRouter.delete("/delete/:id", deleteOne);
 
 export default staffRouter;

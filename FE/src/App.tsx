@@ -13,17 +13,40 @@ import { Iconify } from "./components/iconify";
 import ListPage from "./pages/admin/danhsachxe/ListPage";
 import AddPage from "./pages/admin/danhsachxe/AddPage";
 import EditPage from "./pages/admin/danhsachxe/EditPage";
+// Tuyến đường
+import JourneyListPage from "./pages/admin/tuyenduong/ListPage"
+import JourneyAddPage from "./pages/admin/tuyenduong/AddPage"
+import JourneyEditPage from "./pages/admin/tuyenduong/EditPage"
+// import JourneyDetailPage from "./pages/admin/tuyenduong/DetailPage";
+
+import StaffListPage from "./pages/admin/danhsachnhanvien/ListPage";
+import StaffAddPage from "./pages/admin/danhsachnhanvien/AddPage";
+import StaffEditPage from "./pages/admin/danhsachnhanvien/EditPage";
+
+// Trip pages
+import TripListPage from "./pages/admin/trip/ListPage";
 
 // Lazy load template pages
-const DashboardPage = lazy(() => import("./pages/admin/dashboard"));
+import KhachHangPage from "./pages/client/dashboard";
+import Trip from "./pages/client/trip";
+import SearchResults from "./pages/client/searchresults";
+import Contact from "./pages/client/contact";
+import TaiXePage from "./pages/driver/dashboard";
+import ListTaixePage from "./pages/driver/list";
+import Login from "./pages/driver/login";
+
+import DashboardPage from "./pages/admin/dashboard";
+import TripAddPage from "./pages/admin/trip/AddPage";
+import TripEditPage from "./pages/admin/trip/EditPage";
+import BookingSeats from "./pages/client/Booking";
 const BlogPage = lazy(() => import("./pages/admin/blog"));
 const ProductsPage = lazy(() => import("./pages/admin/products"));
 const Page404 = lazy(() => import("./pages/page-not-found"));
 const LoginPage = lazy(() => import("./pages/admin/auth/Login"));
 
 // Lazy load customer and driver pages
-const KhachHangPage = lazy(() => import("./pages/KhachHangPage"));
-const TaiXePage = lazy(() => import("./pages/TaiXePage"));
+const ClientDashboard = lazy(() => import("./pages/client/dashboard"));
+const DriverDashboard = lazy(() => import("./pages/driver/dashboard"));
 
 const renderFallback = () => (
   <Box
@@ -144,9 +167,17 @@ function App() {
 
             {/* Customer Route */}
             <Route path="/khachhang" element={<KhachHangPage />} />
+            <Route path="/khachhang/trip" element={<Trip />} />
+            <Route path="/khachhang/searchresults" element={<SearchResults />} />
+            <Route path="/khachhang/booking/:tripId" element={<BookingSeats />} />
+            <Route path="/khachhang/login" element={<LoginPage />} />
+            
+            <Route path="/contact" element={<Contact />} />
 
             {/* Driver Route */}
             <Route path="/taixe" element={<TaiXePage />} />
+            <Route path="/taixe/list" element={<ListTaixePage />} />
+            <Route path="/taixe/login" element={<Login />} />
 
             {/* Admin Routes with Dashboard Layout */}
             <Route
@@ -164,6 +195,19 @@ function App() {
               <Route path="bus/list" element={<ListPage />} />
               <Route path="bus/add" element={<AddPage />} />
               <Route path="bus/edit/:id" element={<EditPage />} />
+              {/* Nhân viên */}
+              <Route path="staff/list" element={<StaffListPage />} />
+              <Route path="staff/add" element={<StaffAddPage />} />
+              <Route path="staff/edit/:id" element={<StaffEditPage />} />
+              {/* Tuyến đường */}
+              <Route path="journey/list" element={<JourneyListPage />} />
+              <Route path="journey/add" element={<JourneyAddPage />} />
+              <Route path="journey/edit/:id" element={<JourneyEditPage />} />
+              {/* <Route path="journey/detail/:id" element={<JourneyDetailPage />} /> */}
+
+              <Route path="trip/list" element={<TripListPage />} />
+              <Route path="trip/add" element={<TripAddPage />} />
+              <Route path="trip/edit/:id" element={<TripEditPage />} />
 
               <Route path="products" element={<ProductsPage />} />
               <Route path="blog" element={<BlogPage />} />
