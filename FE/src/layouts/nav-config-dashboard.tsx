@@ -39,6 +39,11 @@ export const navData = [
     icon: icon('ic-blog'),
   },
   {
+ title: 'Danh sách tài khoản',
+ path: '/admin/tk/list',
+  icon: icon('ic-blog'),
+  },
+  {
     title: 'Blog',
     path: '/admin/blog',
     icon: icon('ic-blog'),

@@ -26,6 +26,9 @@ import StaffEditPage from "./pages/admin/danhsachnhanvien/EditPage";
 // Trip pages
 import TripListPage from "./pages/admin/trip/ListPage";
 
+//cap quyen
+import UserListPage from "./pages/admin/capquyen/ListPage";
+import UserEditPage from "./pages/admin/capquyen/EditPage";
 // Lazy load template pages
 import KhachHangPage from "./pages/client/dashboard";
 import Trip from "./pages/client/trip";
@@ -38,6 +41,7 @@ import Login from "./pages/driver/login";
 import DashboardPage from "./pages/admin/dashboard";
 import TripAddPage from "./pages/admin/trip/AddPage";
 import TripEditPage from "./pages/admin/trip/EditPage";
+import UserAddPage from "./pages/admin/capquyen/AddPage";
 import BookingSeats from "./pages/client/Booking";
 import LoginClientPage from "./pages/client/login";
 import TicketSuccessPage from "./pages/client/TicketSuccessPage";
@@ -210,7 +214,10 @@ function App() {
               <Route path="trip/list" element={<TripListPage />} />
               <Route path="trip/add" element={<TripAddPage />} />
               <Route path="trip/edit/:id" element={<TripEditPage />} />
-
+              {/* Cấp quyền */}
+              <Route path="tk/list" element={<UserListPage />} />
+              <Route path="tk/add" element={<UserAddPage />} />
+              <Route path="tk/edit/:id" element={<UserEditPage />} />
               <Route path="products" element={<ProductsPage />} />
               <Route path="blog" element={<BlogPage />} />
             </Route>
