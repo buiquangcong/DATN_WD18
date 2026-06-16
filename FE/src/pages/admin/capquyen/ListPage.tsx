@@ -6,7 +6,7 @@ interface UserType {
   _id: string;
   username: string;
   email: string;
-  role: "admin" | "user" | "Driver"| "Staff";
+  role: "admin" | "user" | "driver" | "staff";
   createdAt: string;
 }
 function UserListPage() {
@@ -25,7 +25,7 @@ function UserListPage() {
       title: "Vai trò",
       dataIndex: "role",
       render: (role:string)=>(
-        <Tag color={role === "admin" ? "red" : role === "Driver" ? "orange" : role === "Staff" ? "green" : "blue"}>
+        <Tag color={role === "admin" ? "red" : role === "driver" ? "orange" : role === "staff" ? "green" : "blue"}>
           {role}
         </Tag>
       )

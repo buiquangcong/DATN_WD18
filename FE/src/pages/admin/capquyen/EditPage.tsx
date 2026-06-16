@@ -80,8 +80,8 @@ function UserEditPage() {
                                 value: "admin"
                             },
                              {
-                                label: "Driver",
-                                value: "Driver"
+                                label: "driver",
+                                value: "driver"
                             },
                             {
                                 label: "staff",

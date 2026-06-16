@@ -68,8 +68,8 @@ function UserAddPage() {
                 value:"user"
               },
               {
-                label:"Driver",
-                value:"Driver"
+                label:"driver",
+                value:"driver"
               },
               {
                 label:"staff",
