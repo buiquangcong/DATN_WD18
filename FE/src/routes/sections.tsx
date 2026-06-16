@@ -10,6 +10,7 @@ import LinearProgress, { linearProgressClasses } from '@mui/material/LinearProgr
 import { AuthLayout } from 'src/layouts/auth';
 import { DashboardLayout } from 'src/layouts/dashboard';
 import Trip from 'src/pages/client/trip';
+import BookingSeats from 'src/pages/client/Booking';
 
 // ----------------------------------------------------------------------
 
@@ -57,6 +58,7 @@ export const routesSection: RouteObject[] = [
       { path: 'blog', element: <BlogPage /> },
       { path: 'searchresults', element: <SearchResultsPage /> },
       { path: 'trip', element: <Trip /> },
+      { path: 'booking/:tripId', element: <BookingSeats /> },
     ],
   },
   {
