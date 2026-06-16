@@ -30,6 +30,7 @@ import TripListPage from "./pages/admin/trip/ListPage";
 import KhachHangPage from "./pages/client/dashboard";
 import Trip from "./pages/client/trip";
 import SearchResults from "./pages/client/searchresults";
+import Contact from "./pages/client/contact";
 import TaiXePage from "./pages/driver/dashboard";
 import DashboardPage from "./pages/admin/dashboard";
 import TripAddPage from "./pages/admin/trip/AddPage";
@@ -164,6 +165,7 @@ function App() {
             <Route path="/khachhang" element={<KhachHangPage />} />
             <Route path="/khachhang/trip" element={<Trip />} />
             <Route path="/khachhang/searchresults" element={<SearchResults />} />
+            <Route path="/contact" element={<Contact />} />
 
             {/* Driver Route */}
             <Route path="/taixe" element={<TaiXePage />} />
