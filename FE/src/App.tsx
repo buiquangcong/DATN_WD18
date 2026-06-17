@@ -31,6 +31,7 @@ import KhachHangPage from "./pages/client/dashboard";
 import Trip from "./pages/client/trip";
 import SearchResults from "./pages/client/searchresults";
 import TaiXePage from "./pages/driver/dashboard";
+import Feedback from "./pages/driver/feedback";
 import DashboardPage from "./pages/admin/dashboard";
 import TripAddPage from "./pages/admin/trip/AddPage";
 import TripEditPage from "./pages/admin/trip/EditPage";
@@ -167,6 +168,7 @@ function App() {
 
             {/* Driver Route */}
             <Route path="/taixe" element={<TaiXePage />} />
+            <Route path="/taixe/feedback" element={<Feedback />} />
 
             {/* Admin Routes with Dashboard Layout */}
             <Route
