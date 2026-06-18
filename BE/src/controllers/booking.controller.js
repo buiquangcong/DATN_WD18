@@ -9,7 +9,8 @@ export const getAll = asyncHandler(async (req, res) => {
             path: "trip",
             populate: [
                 { path: "journey" },
-                { path: "bus" }
+                { path: "bus" },
+                {path: "staff"}
             ]
         });
 
@@ -23,7 +24,8 @@ export const getOne = asyncHandler(async (req, res) => {
             path: "trip",
             populate: [
                 { path: "journey" },
-                { path: "bus" }
+                { path: "bus" },
+                {path: "staff"}
             ]
         });
 

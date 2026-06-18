@@ -38,6 +38,11 @@ import TaiXePage from "./pages/driver/dashboard";
 import ListTaixePage from "./pages/driver/list";
 import Login from "./pages/driver/login";
 
+import BookingListPage from "./pages/admin/booking/ListPage";
+import BookingEditPage from "./pages/admin/booking/EditPage";
+import BookingAddPage from "./pages/admin/booking/AddPage";
+
+
 import DashboardPage from "./pages/admin/dashboard";
 import TripAddPage from "./pages/admin/trip/AddPage";
 import TripEditPage from "./pages/admin/trip/EditPage";
@@ -45,6 +50,8 @@ import UserAddPage from "./pages/admin/capquyen/AddPage";
 import BookingSeats from "./pages/client/Booking";
 import LoginClientPage from "./pages/client/login";
 import TicketSuccessPage from "./pages/client/TicketSuccessPage";
+
+
 
 const BlogPage = lazy(() => import("./pages/admin/blog"));
 const ProductsPage = lazy(() => import("./pages/admin/products"));
@@ -218,6 +225,12 @@ function App() {
               <Route path="tk/list" element={<UserListPage />} />
               <Route path="tk/add" element={<UserAddPage />} />
               <Route path="tk/edit/:id" element={<UserEditPage />} />
+
+              {/* Booking management route */}
+              <Route path="booking/list" element={<BookingListPage />} />
+              <Route path="booking/add" element={<BookingAddPage />} />
+              <Route path="booking/edit/:id" element={<BookingEditPage />} />
+
               <Route path="products" element={<ProductsPage />} />
               <Route path="blog" element={<BlogPage />} />
             </Route>

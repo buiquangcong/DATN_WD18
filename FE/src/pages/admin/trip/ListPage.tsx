@@ -25,6 +25,11 @@ interface TripType {
   staff: staffType;
   departureTime: string;
   status: "sắp chạy" | "đang chạy" | "hoàn thành" | "huỷ";
+
+  seats: {
+    seatCode: string;
+    status: "AVAILABLE" | "HOLDING" | "BOOKED";
+  }[];
 }
 interface staffType {
   _id: string;
@@ -95,6 +100,24 @@ function TripListPage() {
         </span>
       ),
     },
+    {
+  title: "Số ghế",
+  render: (_, record) => {
+    const booked =
+      record.seats?.filter(
+        (seat) => seat.status === "BOOKED"
+      ).length || 0;
+
+    const total =
+      record.bus?.capacity || 0;
+
+    return (
+      <Tag color="blue">
+        {booked}/{total}
+      </Tag>
+    );
+  },
+},
     {
   title: "Nhân viên",
   render: (_, record) => (
