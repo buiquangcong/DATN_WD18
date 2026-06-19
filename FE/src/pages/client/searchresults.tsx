@@ -35,7 +35,6 @@ export default function SearchResults() {
   return (
     <ClientLayout>
     <div style={{ paddingTop: 100 }}>
-      {/* Banner */}
       <div
         style={{
           height: 300,
@@ -58,7 +57,6 @@ export default function SearchResults() {
         </div>
       </div>
 
-      {/* Search */}
       <div
         style={{
           maxWidth: 1200,
@@ -105,7 +103,6 @@ export default function SearchResults() {
         </Card>
       </div>
 
-      {/* Filter */}
       <div
         style={{
           maxWidth: 1200,
@@ -121,7 +118,6 @@ export default function SearchResults() {
         </Space>
       </div>
 
-      {/* Danh sách chuyến */}
       <div
         style={{
           maxWidth: 1200,

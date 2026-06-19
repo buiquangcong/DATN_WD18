@@ -22,10 +22,23 @@ interface TripType {
   _id: string;
   journey: JourneyType;
   bus: BusType;
+  staff: staffType;
   departureTime: string;
   status: "sắp chạy" | "đang chạy" | "hoàn thành" | "huỷ";
-}
 
+  seats: {
+    seatCode: string;
+    status: "AVAILABLE" | "HOLDING" | "BOOKED";
+  }[];
+}
+interface staffType {
+  _id: string;
+  ten: string;
+  email: string;
+  sdt: string;
+  cccd:string;
+  chucVu:string;
+}
 function TripListPage() {
   const navigate = useNavigate();
   const { list, Delete } = useCRUD("trip");
@@ -87,6 +100,32 @@ function TripListPage() {
         </span>
       ),
     },
+    {
+  title: "Số ghế",
+  render: (_, record) => {
+    const booked =
+      record.seats?.filter(
+        (seat) => seat.status === "BOOKED"
+      ).length || 0;
+
+    const total =
+      record.bus?.capacity || 0;
+
+    return (
+      <Tag color="blue">
+        {booked}/{total}
+      </Tag>
+    );
+  },
+},
+    {
+  title: "Nhân viên",
+  render: (_, record) => (
+    <span>
+      {record.staff?.ten || "Chưa phân công"}
+    </span>
+  ),
+},
     {
       title: "Trạng thái",
       dataIndex: "status",
@@ -280,7 +319,51 @@ function TripListPage() {
       </div>
 
       <Divider />
+<Divider />
 
+<div>
+  <h3 className="font-semibold mb-2">
+    Nhân viên phụ trách
+  </h3>
+
+  <div className="grid grid-cols-2 gap-3">
+
+    <div>
+      <p className="text-xs text-gray-400">
+        Họ tên
+      </p>
+      <p>{trip.staff?.ten}</p>
+    </div>
+
+    <div>
+      <p className="text-xs text-gray-400">
+        Email
+      </p>
+      <p>{trip.staff?.email}</p>
+    </div>
+
+    <div>
+      <p className="text-xs text-gray-400">
+        Số điện thoại
+      </p>
+      <p>{trip.staff?.sdt}</p>
+    </div>
+
+    <div>
+      <p className="text-xs text-gray-400">
+        CCCD
+      </p>
+      <p>{trip.staff?.cccd}</p>
+    </div>
+    <div>
+      <p className="text-xs text-gray-400">
+       chức vụ
+      </p>
+      <p>{trip.staff?.chucVu}</p>
+    </div>
+
+  </div>
+</div>
       
 
     </div>

@@ -1,39 +1,77 @@
-import { Card, Row, Col, Input, DatePicker, Button, Tag, Space, Typography, } from "antd";
-
-import { EnvironmentOutlined, SearchOutlined, } from "@ant-design/icons";
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import { useNavigate } from "react-router-dom"; // Dùng để chuyển hướng trang
+import { Card, Row, Col, Input, DatePicker, Button, Tag, Space, Typography, message } from "antd";
+import { EnvironmentOutlined, SearchOutlined, ArrowRightOutlined } from "@ant-design/icons";
 import { ClientLayout } from "./layout";
 
 const { Title, Text } = Typography;
 
-const schedules = [
-  {
-    departure: "06:00",
-    arrival: "11:30",
-    type: "VIP 21 Cabin",
-    price: "540.000đ",
-    seats: 12,
-  },
-  {
-    departure: "08:30",
-    arrival: "14:30",
-    type: "32 Giường",
-    price: "350.000đ",
-    seats: 24,
-  },
-  {
-    departure: "22:00",
-    arrival: "06:30",
-    type: "34 Giường VIP",
-    price: "450.000đ",
-    seats: 6,
-  },
-];
+interface Journey {
+  diemDi: string;
+  diemDen: string;
+  thoiGianDiChuyen: string;
+  price: number;
+}
 
-export default function Trip() {
+interface Bus {
+  name: string;
+  type: string;
+}
+
+interface Seat {
+  status: string;
+}
+
+interface TripData {
+  _id: string;
+  journey: Journey;
+  bus: Bus;
+  departureTime: string;
+  status: string;
+  seats: Seat[];
+}
+
+export default function Trip(): React.ReactElement {
+  const [trips, setTrips] = useState<TripData[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const navigate = useNavigate(); // Hook chuyển hướng của React Router V6
+
+  const fetchTrips = async (): Promise<void> => {
+    setLoading(true);
+    try {
+      const response = await axios.get<{ data?: TripData[] } & TripData[]>("http://localhost:3000/api/trip");
+      if (response.data && "data" in response.data && Array.isArray(response.data.data)) {
+        setTrips(response.data.data);
+      } else if (Array.isArray(response.data)) {
+        setTrips(response.data as unknown as TripData[]);
+      }
+    } catch (error) {
+      console.error("Lỗi lấy danh sách chuyến:", error);
+      message.error("Không thể kết nối đến máy chủ!");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTrips();
+  }, []);
+
+  const formatTime = (dateString: string): string => {
+    if (!dateString) return "--:--";
+    const date = new Date(dateString);
+    return date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+  };
+
+  const getAvailableSeatsCount = (seatsArray: Seat[]): number => {
+    if (!seatsArray) return 0;
+    return seatsArray.filter(seat => seat.status === "AVAILABLE").length;
+  };
+
   return (
     <ClientLayout>
       <div>
-        {/* Hero */}
         <div
           style={{
             height: 350,
@@ -57,7 +95,6 @@ export default function Trip() {
           </div>
         </div>
 
-        {/* Search Box */}
         <div
           style={{
             maxWidth: 1200,
@@ -67,201 +104,71 @@ export default function Trip() {
         >
           <Card>
             <Row gutter={16}>
-              <Col span={7}>
-                <Input
-                  prefix={<EnvironmentOutlined />}
-                  placeholder="Hà Nội"
-                  size="large"
-                />
-              </Col>
-
-              <Col span={7}>
-                <Input
-                  prefix={<EnvironmentOutlined />}
-                  placeholder="Nghệ An"
-                  size="large"
-                />
-              </Col>
-
-              <Col span={5}>
-                <DatePicker
-                  style={{ width: "100%" }}
-                  size="large"
-                />
-              </Col>
-
-              <Col span={5}>
-                <Button
-                  type="primary"
-                  icon={<SearchOutlined />}
-                  size="large"
-                  block
-                >
-                  Find Schedules
-                </Button>
+              <Col span={8}><Input prefix={<EnvironmentOutlined />} placeholder="Điểm đi" size="large" /></Col>
+              <Col span={8}><Input prefix={<EnvironmentOutlined />} placeholder="Điểm đến" size="large" /></Col>
+              <Col span={4}><DatePicker style={{ width: "100%" }} size="large" /></Col>
+              <Col span={4}>
+                <Button type="primary" icon={<SearchOutlined />} size="large" block loading={loading} onClick={fetchTrips}>Tìm kiếm</Button>
               </Col>
             </Row>
           </Card>
         </div>
 
-        {/* Filter */}
-        <div
-          style={{
-            maxWidth: 1200,
-            margin: "0 auto",
-            padding: "0 20px",
-          }}
-        >
-          <Space wrap>
-            <Text strong>Filter by Bus:</Text>
-
-            <Button type="primary" shape="round">
-              All Types
-            </Button>
-
-            <Button shape="round">
-              VIP 21 Cabin
-            </Button>
-
-            <Button shape="round">
-              32 Giường
-            </Button>
-
-            <Button shape="round">
-              38 Giường
-            </Button>
-          </Space>
-        </div>
-
-        {/* Schedule List */}
-        <div
-          style={{
-            maxWidth: 1200,
-            margin: "30px auto",
-            padding: "0 20px",
-          }}
-        >
-          <Space
-            direction="vertical"
-            size="large"
-            style={{ width: "100%" }}
-          >
-            {schedules.map((item, index) => (
-              <Card key={index}>
-                <Row align="middle">
-                  <Col span={4}>
-                    <Title level={3}>{item.departure}</Title>
-                    <Text>Departure</Text>
-                  </Col>
-
-                  <Col span={4}>
-                    <Title level={3}>{item.arrival}</Title>
-                    <Text>Arrival</Text>
-                  </Col>
-
-                  <Col span={6}>
-                    <Title level={5}>{item.type}</Title>
-
-                    <Tag color="green">
-                      ECO FRIENDLY
-                    </Tag>
-                  </Col>
-
+        {/* Danh sách chuyến */}
+        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 20px" }}>
+          <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+            {trips.map((item: TripData) => (
+              <Card 
+                key={item._id}
+                style={{ borderRadius: 8, overflow: "hidden", border: "1px solid #eef2f6" }}
+                bodyStyle={{ padding: "20px 24px" }}
+              >
+                <Row align="middle" justify="space-between">
+                  {/* Thời gian & Lộ trình */}
                   <Col span={5}>
-                    <Title
-                      level={4}
-                      style={{ color: "#166e00" }}
-                    >
-                      {item.price}
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <div>
+                        <Title level={3} style={{ margin: 0, color: "#1a1a1a" }}>{formatTime(item.departureTime)}</Title>
+                        <Text strong style={{ color: "#555" }}>{item.journey?.diemDi || "Hà Nội"}</Text>
+                      </div>
+                      <ArrowRightOutlined style={{ color: "#ccc" }} />
+                      <div>
+                        <Title level={3} style={{ margin: 0, color: "#1a1a1a" }}>--:--</Title>
+                        <Text strong style={{ color: "#555" }}>{item.journey?.diemDen || "Phú Thọ"}</Text>
+                      </div>
+                    </div>
+                  </Col>
+
+                  {/* Thông tin Xe */}
+                  <Col span={5} style={{ textAlign: "center" }}>
+                    <Text strong style={{ fontSize: 15, display: "block", marginBottom: 4 }}>{item.bus?.name}</Text>
+                    <Tag color="blue" style={{ borderRadius: 4 }}>{item.bus?.type === "Sleeper" ? "Giường nằm" : "Ghế ngồi"}</Tag>
+                  </Col>
+
+                  {/* Giá & Chỗ trống */}
+                  <Col span={5} style={{ textAlign: "center" }}>
+                    <Title level={4} style={{ color: "#ff4d4f", margin: 0, fontWeight: 700 }}>
+                      {item.journey?.price ? `${item.journey.price.toLocaleString("vi-VN")}đ` : "0đ"}
                     </Title>
-
-                    <Text>
-                      {item.seats} seats left
-                    </Text>
+                    <Text type="secondary" style={{ fontSize: 13 }}>{getAvailableSeatsCount(item.seats)} chỗ trống</Text>
                   </Col>
 
-                  <Col span={5}>
-                    <Button
-                      type="primary"
-                      size="large"
+                  {/* Hành động */}
+                  <Col span={4}>
+                    <Button 
+                      type="primary" 
+                      size="large" 
                       block
+                      style={{ borderRadius: 6, fontWeight: 600, height: 44, background: "#166e00", borderColor: "#166e00" }}
+                      onClick={() => navigate(`/khachhang/booking/${item._id}`)} // Chuyển hướng sang trang độc lập
                     >
-                      Select
+                      Đặt vé
                     </Button>
                   </Col>
                 </Row>
               </Card>
             ))}
           </Space>
-
-          <div
-            style={{
-              textAlign: "center",
-              marginTop: 30,
-            }}
-          >
-            <Button size="large">
-              Load Later Schedules
-            </Button>
-          </div>
-        </div>
-
-        {/* Feature Section */}
-        <div
-          style={{
-            background: "#f5f5f5",
-            padding: "80px 0",
-            marginTop: 50,
-          }}
-        >
-          <Row
-            gutter={32}
-            style={{
-              maxWidth: 1200,
-              margin: "0 auto",
-              padding: "0 20px",
-            }}
-          >
-            <Col span={8}>
-              <Card>
-                <Title level={4}>
-                  Safety First
-                </Title>
-
-                <Text>
-                  Over 12 Golden Steering Wheel
-                  awards for safety and
-                  operational excellence.
-                </Text>
-              </Card>
-            </Col>
-
-            <Col span={8}>
-              <Card>
-                <Title level={4}>
-                  Eco-Friendly
-                </Title>
-
-                <Text>
-                  Electric vehicles and
-                  carbon-offset programs.
-                </Text>
-              </Card>
-            </Col>
-
-            <Col span={8}>
-              <Card>
-                <Title level={4}>
-                  Free Transit
-                </Title>
-
-                <Text>
-                  Complimentary shuttle
-                  services in major cities.
-                </Text>
-              </Card>
-            </Col>
-          </Row>
         </div>
       </div>
     </ClientLayout>
