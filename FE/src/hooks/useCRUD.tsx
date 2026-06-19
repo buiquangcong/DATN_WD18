@@ -50,7 +50,7 @@ export const useCRUD = (resource: ResourceType) => {
             toast.error("Thêm mới thất bại")
         }
     })
-
+    
     const Edit = useMutation({
         mutationFn: async (payload: any) => {
             const { _id, id, ...data } = payload

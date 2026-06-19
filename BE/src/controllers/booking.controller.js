@@ -114,7 +114,7 @@ export const updateOne = asyncHandler(async (req, res) => {
 });
 
 export const deleteOne = asyncHandler(async (req, res) => {
-    const booking = await Booking.findByIdAndDelete(
+    const booking = await Booking.findById(
         req.params.id
     );
 
@@ -124,7 +124,30 @@ export const deleteOne = asyncHandler(async (req, res) => {
         });
     }
 
+    const trip = await Trip.findById(
+        booking.trip
+    );
+
+    if (trip) {
+        trip.seats.forEach((seat) => {
+            if (
+                booking.seats.includes(
+                    seat.seatCode
+                )
+            ) {
+                seat.status = "AVAILABLE";
+            }
+        });
+
+        await trip.save();
+    }
+
+    await Booking.findByIdAndDelete(
+        req.params.id
+    );
+
     return res.json({
-        message: "Xóa đơn đặt vé thành công"
+        message:
+            "Xóa đơn đặt vé thành công"
     });
 });

@@ -13,11 +13,20 @@ function JourneyEditPage() {
     const record = list?.find((item: any) => item._id === id);
     if (record) form.setFieldsValue(record);
   }, [list, id]);
-
+ const onFinish = (values: any) => {
+    Edit({
+      _id: id,
+      ...values,
+    });
+  };
   return (
     <div className="p-6 max-w-3xl">
       <h1 className="text-2xl font-semibold mb-6">Chỉnh Sửa Hành Trình</h1>
-      <Form form={form} layout="vertical" onFinish={(values) => Edit(id!, values)}>
+       <Form
+        form={form}
+        layout="vertical"
+        onFinish={onFinish}
+      >
 
         <Form.Item label="Điểm Đi" name="diemDi" rules={[{ required: true, message: "Vui lòng nhập điểm đi" }]}>
           <Input placeholder="VD: Hà Nội" />

@@ -42,15 +42,11 @@ function BookingListPage() {
 
   const { list, Delete } = useCRUD("booking");
 
-  const [selectedId, setSelectedId] =
-    useState<string>();
+  const [selectedId, setSelectedId] =useState<string>();
 
   const [open, setOpen] = useState(false);
 
-  const { data: booking } = useDetail(
-    "booking",
-    selectedId
-  );
+  const { data: booking } = useDetail("booking",selectedId );
 
   useEffect(() => {
     if (booking) {
