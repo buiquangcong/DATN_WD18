@@ -26,11 +26,15 @@ const bookingSchema = new mongoose.Schema(
       required: true,
     },
 
-    status: {
-      type: String,
-      enum: ["Pending", "Confirmed", "Cancelled"],
-      default: "Pending",
-    },
+   status: {
+  type: String,
+  enum: [
+    "Chờ xác nhận",
+    "Đã xác nhận",
+    "Đã huỷ",
+  ],
+  default: "Chờ xác nhận",
+},
   },
   {
     timestamps: true,

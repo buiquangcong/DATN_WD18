@@ -44,6 +44,11 @@ export const navData = [
   icon: icon('ic-blog'),
   },
   {
+ title: 'Danh sách Booking',
+ path: '/admin/booking/list',
+  icon: icon('ic-blog'),
+  },
+  {
     title: 'Blog',
     path: '/admin/blog',
     icon: icon('ic-blog'),
