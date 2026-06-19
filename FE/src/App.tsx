@@ -35,6 +35,7 @@ import Trip from "./pages/client/trip";
 import SearchResults from "./pages/client/searchresults";
 import Contact from "./pages/client/contact";
 import TaiXePage from "./pages/driver/dashboard";
+import Feedback from "./pages/driver/feedback";
 import ListTaixePage from "./pages/driver/list";
 import Login from "./pages/driver/login";
 
@@ -189,6 +190,7 @@ function App() {
             <Route path="/khachhang/login" element={<LoginClientPage />} />
             {/* Driver Route */}
             <Route path="/taixe" element={<TaiXePage />} />
+            <Route path="/taixe/feedback" element={<Feedback />} />
             <Route path="/taixe/list" element={<ListTaixePage />} />
             <Route path="/taixe/login" element={<Login />} />
 
