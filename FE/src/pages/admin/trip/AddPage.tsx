@@ -1,8 +1,8 @@
-import { Button, Form, Select, DatePicker, message } from "antd";
+import { Button, Form, Select, DatePicker, message,Input,Checkbox } from "antd";
 import { useEffect, useState } from "react";
 import { useCRUD } from "../../../hooks/useCRUD";
 import axios from "axios";
-
+import { useNavigate } from "react-router-dom";
 type Journey = {
   _id: string;
   diemDi: string;
@@ -28,7 +28,7 @@ function TripAddPage() {
   const [form] = Form.useForm();
 
   const { Add } = useCRUD("trip");
-
+  const navigate = useNavigate();
   const [journeys, setJourneys] = useState<Journey[]>([]);
   const [buses, setBuses] = useState<Bus[]>([]);
   const [staffs, setStaffs] = useState<Staff[]>([]);
@@ -53,19 +53,35 @@ function TripAddPage() {
     fetchData();
   }, []);
 
-  const onFinish = (values: any) => {
-    const payload = {
-      journey: values.journey,
-      bus: values.bus,
-      staff: values.staff,
-      status: values.status || "sắp chạy",
-      departureTime: values.departureTime?.toISOString(),
-    };
-
-    Add(payload);
-
-    form.resetFields();
+ const onFinish = async (values: any) => {
+  const payload = {
+    journey: values.journey,
+    bus: values.bus,
+    staff: values.staff,
+    departureHour: values.departureTime,
+    arrivalHour: values.arrivalTime,
+    weekdays: values.weekdays,
+    startDate: values.startDate?.format("YYYY-MM-DD"),
+    endDate: values.endDate?.format("YYYY-MM-DD"),
+    status: values.status,
   };
+
+  try {
+  const res = await axios.post(
+    "http://localhost:3000/api/trip/generate",
+    payload
+  );
+
+  message.success(res.data.message);
+
+  navigate("/admin/trip/list");
+} catch (error: any) {
+  message.error(
+    error.response?.data?.message ||
+      "Tạo lịch thất bại"
+  );
+}
+};
 
   return (
     <div className="p-6 max-w-2xl">
@@ -147,24 +163,50 @@ function TripAddPage() {
           </Select>
         </Form.Item>
 
-        {/* Thời gian khởi hành */}
-        <Form.Item
-          name="departureTime"
-          label="Thời gian khởi hành"
-          rules={[
-            {
-              required: true,
-              message: "Chọn thời gian",
-            },
-          ]}
-        >
-          <DatePicker
-            showTime
-            className="w-full"
-            format="YYYY-MM-DD HH:mm"
-          />
-        </Form.Item>
+    <Form.Item
+  name="departureTime"
+  label="Giờ khởi hành"
+>
+  <Input placeholder="07:00" />
+</Form.Item>
 
+<Form.Item
+  name="arrivalTime"
+  label="Giờ đến"
+>
+  <Input placeholder="10:00" />
+</Form.Item>
+
+<Form.Item
+  name="weekdays"
+  label="Các ngày chạy"
+>
+  <Checkbox.Group
+    options={[
+      { label: "Thứ 2", value: 1 },
+      { label: "Thứ 3", value: 2 },
+      { label: "Thứ 4", value: 3 },
+      { label: "Thứ 5", value: 4 },
+      { label: "Thứ 6", value: 5 },
+      { label: "Thứ 7", value: 6 },
+      { label: "CN", value: 0 },
+    ]}
+  />
+</Form.Item>
+
+<Form.Item
+  name="startDate"
+  label="Từ ngày"
+>
+  <DatePicker className="w-full" />
+</Form.Item>
+
+<Form.Item
+  name="endDate"
+  label="Đến ngày"
+>
+  <DatePicker className="w-full" />
+</Form.Item>
         {/* Trạng thái */}
         <Form.Item
           name="status"

@@ -59,35 +59,43 @@ function TripEditPage() {
   }, []);
 
 
-  useEffect(() => {
-    if (trip) {
-      form.setFieldsValue({
-        journey: trip.journey?._id,
-        bus: trip.bus?._id,
-        staff: trip.staff?._id,
-        status: trip.status,
-        departureTime: trip.departureTime
-          ? dayjs(trip.departureTime)
-          : null,
-      });
-    }
-  }, [trip, form]);
+useEffect(() => {
+  if (trip) {
+    form.setFieldsValue({
+      journey: trip.journey?._id,
+      bus: trip.bus?._id,
+      staff: trip.staff?._id,
+      status: trip.status,
+
+      departureTime: trip.departureTime
+        ? dayjs(trip.departureTime)
+        : undefined,
+
+      arrivalTime: trip.arrivalTime
+        ? dayjs(trip.arrivalTime)
+        : undefined,
+    });
+  }
+}, [trip, form]);
 
   // Submit
-  const onFinish = (values: any) => {
-    const payload = {
-      _id: id,
-      journey: values.journey,
-      bus: values.bus,
-      staff: values.staff,
-      status: values.status,
-      departureTime: values.departureTime
-        ? values.departureTime.toISOString()
-        : null,
-    };
+const onFinish = async (values: any) => {
+  const payload = {
+    _id: id,
+    journey: values.journey,
+    bus: values.bus,
+    staff: values.staff,
+    status: values.status,
 
-    Edit(payload);
+    departureTime:
+      values.departureTime?.toDate().toISOString(),
+
+    arrivalTime:
+      values.arrivalTime?.toDate().toISOString(),
   };
+
+  Edit(payload);
+};
 
   if (isLoading) {
     return (
@@ -194,7 +202,21 @@ function TripEditPage() {
             format="YYYY-MM-DD HH:mm"
           />
         </Form.Item>
-
+        <Form.Item
+          name="arrivalTime"
+          label="Thời gian đến"
+          rules={[
+            {
+              required: true,
+              message: "Chọn thời gian đến",
+            },
+          ]}
+        >
+          <DatePicker
+            showTime
+            className="w-full"
+          />
+        </Form.Item>
         {/* TRẠNG THÁI */}
         <Form.Item
           name="status"
