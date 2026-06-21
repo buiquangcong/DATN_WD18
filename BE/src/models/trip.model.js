@@ -1,18 +1,18 @@
 import mongoose from "mongoose";
 
 const seatStatusSchema = new mongoose.Schema({
-  seatCode: { type: String, required: true, trim: true }, 
-  rowIndex: { type: Number, required: true },            
-  colIndex: { type: Number, required: true },            
-  floor: { type: Number, default: 1 },                   
-  status: { 
-    type: String, 
-    enum: ['AVAILABLE', 'HOLDING', 'BOOKED'], 
-    default: 'AVAILABLE' 
-  }, 
-  heldBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }, 
-  expiresAt: { type: Date, default: null } 
-}, { _id: false }); 
+  seatCode: { type: String, required: true, trim: true },
+  rowIndex: { type: Number, required: true },
+  colIndex: { type: Number, required: true },
+  floor: { type: Number, default: 1 },
+  status: {
+    type: String,
+    enum: ['AVAILABLE', 'HOLDING', 'BOOKED'],
+    default: 'AVAILABLE'
+  },
+  heldBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  expiresAt: { type: Date, default: null }
+}, { _id: false });
 
 const tripSchema = new mongoose.Schema(
   {
@@ -27,7 +27,7 @@ const tripSchema = new mongoose.Schema(
       ref: "Bus",
       required: [true, "Xe là bắt buộc"],
     },
-    staff:{
+    staff: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Staff",
       required: [true, "Nhân viên điều hành là bắt buộc"],
@@ -37,14 +37,18 @@ const tripSchema = new mongoose.Schema(
       required: [true, "Thời gian khởi hành là bắt buộc"],
     },
 
+    arrivalTime: {
+      type: Date,
+      required: [true, "Thời gian đến là bắt buộc"],
+    },
     status: {
       type: String,
       enum: ["sắp chạy", "đang chạy", "hoàn thành", "huỷ"],
       default: "sắp chạy",
     },
 
-    
-    seats: [seatStatusSchema] 
+
+    seats: [seatStatusSchema]
   },
   {
     timestamps: true,

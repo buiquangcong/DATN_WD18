@@ -32,7 +32,7 @@ export const getOne = asyncHandler(async (req, res) => {
 
 export const createOne = asyncHandler(async (req, res) => {
 
-    const { journey, bus,staff, departureTime } = req.body; 
+    const { journey, bus,staff, departureTime, arrivalTime } = req.body; 
 
   
     const busInfo = await Bus.findById(bus);
@@ -57,6 +57,7 @@ export const createOne = asyncHandler(async (req, res) => {
         bus,
         staff,
         departureTime,
+        arrivalTime,
         seats: autoSeats 
     });
 
@@ -98,4 +99,126 @@ export const deleteOne = asyncHandler(async (req, res) => {
     return res.json({
         message: "Xóa chuyến xe thành công"
     });
+});
+
+export const createSchedule = asyncHandler(async (req, res) => {
+  const {
+    journey,
+    bus,
+    staff,
+    departureHour,
+    arrivalHour,
+    weekdays,
+    startDate,
+    endDate,
+    status,
+  } = req.body;
+
+  const busInfo = await Bus.findById(bus);
+
+  if (!busInfo) {
+    return res.status(404).json({
+      message: "Không tìm thấy xe",
+    });
+  }
+
+  const autoSeats = generateSeats(
+    busInfo.capacity,
+    busInfo.type
+  );
+
+  if (!autoSeats.length) {
+    return res.status(400).json({
+      message: "Không thể sinh ghế",
+    });
+  }
+
+  const trips = [];
+  const duplicateTrips = [];
+
+  let current = new Date(startDate);
+  const end = new Date(endDate);
+
+  while (current <= end) {
+    if (weekdays.includes(current.getDay())) {
+
+      const departureTime = new Date(current);
+
+      const [depHour, depMinute] =
+        departureHour.split(":");
+
+      departureTime.setHours(
+        Number(depHour),
+        Number(depMinute),
+        0,
+        0
+      );
+
+      const arrivalTime = new Date(current);
+
+      const [arrHour, arrMinute] =
+        arrivalHour.split(":");
+
+      arrivalTime.setHours(
+        Number(arrHour),
+        Number(arrMinute),
+        0,
+        0
+      );
+
+      // kiểm tra trùng xe cùng khoảng thời gian
+      const existedTrip = await Trip.findOne({
+        bus,
+        departureTime: {
+          $lt: arrivalTime,
+        },
+        arrivalTime: {
+          $gt: departureTime,
+        },
+      });
+
+      if (existedTrip) {
+        duplicateTrips.push(
+          departureTime.toLocaleString("vi-VN")
+        );
+      } else {
+        trips.push({
+          journey,
+          bus,
+          staff,
+          departureTime,
+          arrivalTime,
+          status: status || "sắp chạy",
+          seats: JSON.parse(
+            JSON.stringify(autoSeats)
+          ),
+        });
+      }
+    }
+
+    current.setDate(
+      current.getDate() + 1
+    );
+  }
+
+  if (duplicateTrips.length > 0) {
+    return res.status(400).json({
+      message:
+        "Xe đã có lịch chạy tại: " +
+        duplicateTrips.join(", "),
+    });
+  }
+
+  if (trips.length === 0) {
+    return res.status(400).json({
+      message: "Không có chuyến nào được tạo",
+    });
+  }
+
+  const result = await Trip.insertMany(trips);
+
+  return res.status(201).json({
+    message: `Đã tạo ${result.length} chuyến`,
+    data: result,
+  });
 });
