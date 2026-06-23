@@ -92,40 +92,31 @@ const handleConfirmBooking = async (): Promise<void> => {
     setBookingLoading(true);
 
     try {
-        // 2. Thiết lập Object Payload đồng bộ 100% với Backend yêu cầu
+        const totalAmount = (trip?.journey?.price || 0) * chosenSeatCodes.length;
+
         const bookingBody = {
-            user: userObj._id,       // ID người dùng thực tế
-            trip: tripId,            // Khớp trường 'trip' chuẩn chỉnh
-            seats: chosenSeatCodes,  // Mảng danh sách mã ghế lựa chọn
+            user: userObj._id,       
+            trip: tripId,            
+            seats: chosenSeatCodes,  
+            totalPrice: totalAmount  
         };
 
-        console.log("Gửi dữ liệu lên API đặt vé:", bookingBody);
+        console.log("Gửi dữ liệu lên API đặt vé và tạo hóa đơn QR:", bookingBody);
 
-        // 3. Tiến hành POST dữ liệu vào đúng link api/booking/add của bạn
+        // 2. Gọi API tạo đơn hàng và tạo link PayOS
         const response = await axios.post("http://localhost:3000/api/booking/add", bookingBody);
 
-        if (response.data && trip) {
-            // 🎲 TẠO MÃ VÉ NGẪU NHIÊN: NB-XXXXXX
-            const randomTicketCode = `NB-${Math.floor(100000 + Math.random() * 900000)}`;
-
-            message.success("Đặt vé thành công! Đang chuyển hướng hiển thị vé...");
+        // 🌟 CẬP NHẬT LUỒNG CHUYỂN HƯỚNG SANG PAYOS TẠI ĐÂY
+        if (response.data && response.data.checkoutUrl) {
+            message.success("Khởi tạo hóa đơn thành công! Đang chuyển hướng đến cổng thanh toán...");
             
-            // 🌟 LẤY CHÍNH XÁC TỪ TRƯỜNG USERNAME (Nếu không có mới dự phòng chuỗi khác)
-            const customerName = userObj.username || "Khách hàng NETBUS";
-
-            // Điều hướng sang trang hiển thị vé thành công kèm theo dữ liệu qua state
-            navigate("/khachhang/booking/success", {
-                state: {
-                    ticketCode: randomTicketCode,
-                    customerName: customerName, // Truyền username qua đây
-                    busName: trip.bus?.name || "Xe NETBUS Luxury",
-                    journey: `${trip.journey?.diemDi} → ${trip.journey?.diemDen}`,
-                    seats: chosenSeatCodes,
-                    totalPrice: (trip.journey?.price || 0) * chosenSeatCodes.length,
-                    departureTime: trip.departureTime
-                }
-            });
+            // 🚀 Ép trình duyệt chuyển hướng hẳn sang trang quét mã QR của PayOS
+            window.location.href = response.data.checkoutUrl;
+            return; 
+        } else {
+            message.error("Đơn hàng đã được tạo nhưng không nhận được link thanh toán QR!");
         }
+
     } catch (error: any) {
         console.error("Lỗi khi gọi API đặt vé:", error);
         const errorMsg = error.response?.data?.message || "Đặt vé thất bại, vui lòng thử lại!";
@@ -134,7 +125,6 @@ const handleConfirmBooking = async (): Promise<void> => {
         setBookingLoading(false);
     }
 };
-
     const handleSeatClick = (seat: Seat): void => {
         if (seat.status !== "AVAILABLE") return;
         if (chosenSeatCodes.includes(seat.seatCode)) {
