@@ -24,6 +24,7 @@ interface TripType {
   bus: BusType;
   staff: staffType;
   departureTime: string;
+  arrivalTime: string;
   status: "sắp chạy" | "đang chạy" | "hoàn thành" | "huỷ";
 
   seats: {
@@ -92,6 +93,13 @@ function TripListPage() {
         <span>{new Date(time).toLocaleString("vi-VN")}</span>
       ),
     },
+    {
+  title: "Thời gian đến",
+  render: (_, record) =>
+    new Date(
+      record.arrivalTime
+    ).toLocaleString("vi-VN"),
+},
     {
       title: "Giá vé",
       render: (_, record) => (
