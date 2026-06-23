@@ -49,6 +49,11 @@ export const navData = [
   icon: icon('ic-blog'),
   },
   {
+    title: 'Danh sách giá vé',
+    path: '/admin/giave/list',
+    icon: icon('ic-blog'),
+  },
+  {
     title: 'Blog',
     path: '/admin/blog',
     icon: icon('ic-blog'),

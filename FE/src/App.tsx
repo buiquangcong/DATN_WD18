@@ -25,7 +25,10 @@ import StaffEditPage from "./pages/admin/danhsachnhanvien/EditPage";
 
 // Trip pages
 import TripListPage from "./pages/admin/trip/ListPage";
-
+// giave
+import FareRuleListPage from "./pages/admin/giave/ListPage";
+import FareRuleEditPage from "./pages/admin/giave/EditPage";
+import FareRuleAddPage from "./pages/admin/giave/AddPage";
 //cap quyen
 import UserListPage from "./pages/admin/capquyen/ListPage";
 import UserEditPage from "./pages/admin/capquyen/EditPage";
@@ -51,6 +54,7 @@ import UserAddPage from "./pages/admin/capquyen/AddPage";
 import BookingSeats from "./pages/client/Booking";
 import LoginClientPage from "./pages/client/login";
 import TicketSuccessPage from "./pages/client/TicketSuccessPage";
+
 
 
 
@@ -227,7 +231,10 @@ function App() {
               <Route path="tk/list" element={<UserListPage />} />
               <Route path="tk/add" element={<UserAddPage />} />
               <Route path="tk/edit/:id" element={<UserEditPage />} />
-
+              {/* Giá vé */}
+              <Route path="giave/list" element={<FareRuleListPage />} />
+              <Route path="giave/add" element={<FareRuleAddPage />} />
+              <Route path="giave/edit/:id" element={<FareRuleEditPage />} />
               {/* Booking management route */}
               <Route path="booking/list" element={<BookingListPage />} />
               <Route path="booking/add" element={<BookingAddPage />} />

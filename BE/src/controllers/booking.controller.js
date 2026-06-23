@@ -10,7 +10,8 @@ export const getAll = asyncHandler(async (req, res) => {
             populate: [
                 { path: "journey" },
                 { path: "bus" },
-                {path: "staff"}
+                {path: "staff"},
+                { path: "fareRule" }
             ]
         });
 
@@ -25,7 +26,8 @@ export const getOne = asyncHandler(async (req, res) => {
             populate: [
                 { path: "journey" },
                 { path: "bus" },
-                {path: "staff"}
+                {path: "staff"},
+                { path: "fareRule" }
             ]
         });
 
@@ -42,7 +44,8 @@ export const createOne = asyncHandler(async (req, res) => {
     const { user, trip, seats } = req.body;
 
     const tripData = await Trip.findById(trip)
-        .populate("journey");
+        .populate("journey")
+        .populate("fareRule");
 
     if (!tripData) {
         return res.status(404).json({
@@ -78,8 +81,23 @@ export const createOne = asyncHandler(async (req, res) => {
 
     await tripData.save();
 
-    const totalPrice =
-        tripData.journey.price * seats.length;
+const departureDate = new Date(
+  tripData.departureTime
+);
+
+let ticketPrice =
+  tripData.fareRule.weekdayPrice;
+
+if (
+  departureDate.getDay() === 0 ||
+  departureDate.getDay() === 6
+) {
+  ticketPrice =
+    tripData.fareRule.weekendPrice;
+}
+
+const totalPrice =
+  ticketPrice * seats.length;
 
     const booking = await Booking.create({
         user,

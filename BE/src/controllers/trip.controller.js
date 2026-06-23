@@ -8,8 +8,8 @@ export const getAll = asyncHandler(async (req, res) => {
     const trips = await Trip.find()
         .populate("journey")
         .populate("bus")
-        .populate("staff");
-        ;
+        .populate("staff")
+        .populate("fareRule");
 
     return res.json(trips);
 });
@@ -18,7 +18,8 @@ export const getOne = asyncHandler(async (req, res) => {
     const trip = await Trip.findById(req.params.id)
         .populate("journey")
         .populate("bus")
-        .populate("staff");
+        .populate("staff")
+        .populate("fareRule");
 
     if (!trip) {
         return res.status(404).json({
@@ -32,7 +33,7 @@ export const getOne = asyncHandler(async (req, res) => {
 
 export const createOne = asyncHandler(async (req, res) => {
 
-    const { journey, bus,staff, departureTime, arrivalTime } = req.body; 
+    const { journey, bus,staff, departureTime, arrivalTime, fareRule } = req.body; 
 
   
     const busInfo = await Bus.findById(bus);
@@ -56,6 +57,7 @@ export const createOne = asyncHandler(async (req, res) => {
         journey,
         bus,
         staff,
+        fareRule,
         departureTime,
         arrivalTime,
         seats: autoSeats 
@@ -102,17 +104,19 @@ export const deleteOne = asyncHandler(async (req, res) => {
 });
 
 export const createSchedule = asyncHandler(async (req, res) => {
-  const {
+   console.log(req.body);
+ const {
     journey,
     bus,
     staff,
+    fareRule,
     departureHour,
     arrivalHour,
     weekdays,
     startDate,
     endDate,
     status,
-  } = req.body;
+} = req.body;
 
   const busInfo = await Bus.findById(bus);
 
@@ -182,17 +186,18 @@ export const createSchedule = asyncHandler(async (req, res) => {
           departureTime.toLocaleString("vi-VN")
         );
       } else {
-        trips.push({
-          journey,
-          bus,
-          staff,
-          departureTime,
-          arrivalTime,
-          status: status || "sắp chạy",
-          seats: JSON.parse(
-            JSON.stringify(autoSeats)
-          ),
-        });
+       trips.push({
+    journey,
+    bus,
+    staff,
+    fareRule,
+    departureTime,
+    arrivalTime,
+    status: status || "sắp chạy",
+    seats: JSON.parse(
+        JSON.stringify(autoSeats)
+    ),
+});
       }
     }
 
