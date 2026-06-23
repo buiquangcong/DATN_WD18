@@ -1,4 +1,11 @@
-import { Button, Form, Select, DatePicker, message, Spin } from "antd";
+import {
+  Button,
+  Form,
+  Select,
+  DatePicker,
+  message,
+  Spin,
+} from "antd";
 import { useEffect, useState } from "react";
 import { useCRUD, useDetail } from "../../../hooks/useCRUD";
 import axios from "axios";
@@ -26,6 +33,14 @@ type Staff = {
   chucVu: string;
 };
 
+type FareRule = {
+  _id: string;
+  weekdayPrice: number;
+  weekendPrice: number;
+  holidayPrice: number;
+  capacity: number;
+};
+
 function TripEditPage() {
   const [form] = Form.useForm();
   const { id } = useParams();
@@ -36,21 +51,23 @@ function TripEditPage() {
   const [journeys, setJourneys] = useState<Journey[]>([]);
   const [buses, setBuses] = useState<Bus[]>([]);
   const [staffs, setStaffs] = useState<Staff[]>([]);
+  const [fareRules, setFareRules] = useState<FareRule[]>([]);
 
-  // Load dữ liệu
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [j, b, s] = await Promise.all([
+        const [j, b, s, f] = await Promise.all([
           axios.get("http://localhost:3000/api/journey"),
           axios.get("http://localhost:3000/api/bus"),
           axios.get("http://localhost:3000/api/staff"),
+          axios.get("http://localhost:3000/api/giave"),
         ]);
 
         setJourneys(j.data);
         setBuses(b.data);
         setStaffs(s.data);
-      } catch (err) {
+        setFareRules(f.data);
+      } catch (error) {
         message.error("Load dữ liệu thất bại");
       }
     };
@@ -58,44 +75,45 @@ function TripEditPage() {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    if (trip) {
+      form.setFieldsValue({
+        journey: trip.journey?._id,
+        bus: trip.bus?._id,
+        staff: trip.staff?._id,
+        fareRule: trip.fareRule?._id,
+        status: trip.status,
 
-useEffect(() => {
-  if (trip) {
-    form.setFieldsValue({
-      journey: trip.journey?._id,
-      bus: trip.bus?._id,
-      staff: trip.staff?._id,
-      status: trip.status,
+        departureTime: trip.departureTime
+          ? dayjs(trip.departureTime)
+          : undefined,
 
-      departureTime: trip.departureTime
-        ? dayjs(trip.departureTime)
-        : undefined,
+        arrivalTime: trip.arrivalTime
+          ? dayjs(trip.arrivalTime)
+          : undefined,
+      });
+    }
+  }, [trip, form]);
 
-      arrivalTime: trip.arrivalTime
-        ? dayjs(trip.arrivalTime)
-        : undefined,
-    });
-  }
-}, [trip, form]);
+  const onFinish = (values: any) => {
+    const payload = {
+      _id: id,
 
-  // Submit
-const onFinish = async (values: any) => {
-  const payload = {
-    _id: id,
-    journey: values.journey,
-    bus: values.bus,
-    staff: values.staff,
-    status: values.status,
+      journey: values.journey,
+      bus: values.bus,
+      staff: values.staff,
+      fareRule: values.fareRule,
+      status: values.status,
 
-    departureTime:
-      values.departureTime?.toDate().toISOString(),
+      departureTime:
+        values.departureTime?.toDate().toISOString(),
 
-    arrivalTime:
-      values.arrivalTime?.toDate().toISOString(),
+      arrivalTime:
+        values.arrivalTime?.toDate().toISOString(),
+    };
+
+    Edit(payload);
   };
-
-  Edit(payload);
-};
 
   if (isLoading) {
     return (
@@ -116,7 +134,6 @@ const onFinish = async (values: any) => {
         layout="vertical"
         onFinish={onFinish}
       >
-        {/* TUYẾN */}
         <Form.Item
           name="journey"
           label="Tuyến đường"
@@ -127,7 +144,7 @@ const onFinish = async (values: any) => {
             },
           ]}
         >
-          <Select placeholder="Chọn tuyến">
+          <Select placeholder="Chọn tuyến đường">
             {journeys.map((j) => (
               <Select.Option
                 key={j._id}
@@ -139,7 +156,6 @@ const onFinish = async (values: any) => {
           </Select>
         </Form.Item>
 
-        {/* XE */}
         <Form.Item
           name="bus"
           label="Xe"
@@ -162,7 +178,6 @@ const onFinish = async (values: any) => {
           </Select>
         </Form.Item>
 
-        {/* NHÂN VIÊN */}
         <Form.Item
           name="staff"
           label="Nhân viên phụ trách"
@@ -185,14 +200,35 @@ const onFinish = async (values: any) => {
           </Select>
         </Form.Item>
 
-        {/* THỜI GIAN */}
+        <Form.Item
+          name="fareRule"
+          label="Bảng giá"
+          rules={[
+            {
+              required: true,
+              message: "Chọn bảng giá",
+            },
+          ]}
+        >
+          <Select placeholder="Chọn bảng giá">
+            {fareRules.map((f) => (
+              <Select.Option
+                key={f._id}
+                value={f._id}
+              >
+                {f.weekdayPrice?.toLocaleString("vi-VN")} đ
+              </Select.Option>
+            ))}
+          </Select>
+        </Form.Item>
+
         <Form.Item
           name="departureTime"
           label="Thời gian khởi hành"
           rules={[
             {
               required: true,
-              message: "Chọn thời gian",
+              message: "Chọn thời gian khởi hành",
             },
           ]}
         >
@@ -202,6 +238,7 @@ const onFinish = async (values: any) => {
             format="YYYY-MM-DD HH:mm"
           />
         </Form.Item>
+
         <Form.Item
           name="arrivalTime"
           label="Thời gian đến"
@@ -215,9 +252,10 @@ const onFinish = async (values: any) => {
           <DatePicker
             showTime
             className="w-full"
+            format="YYYY-MM-DD HH:mm"
           />
         </Form.Item>
-        {/* TRẠNG THÁI */}
+
         <Form.Item
           name="status"
           label="Trạng thái"
