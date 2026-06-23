@@ -5,7 +5,7 @@ import { Card, Row, Col, Button, Space, Typography, message, Spin, Alert, Flex }
 import { ArrowLeftOutlined, CheckCircleOutlined } from "@ant-design/icons";
 import { ClientLayout } from "./layout";
 
-const { Title, Text, Paragraph } = Typography;
+const { Title, Text } = Typography;
 
 // Định nghĩa Interface dữ liệu giường/ghế
 interface Seat {
@@ -18,6 +18,11 @@ interface Seat {
     expiresAt: string | null;
 }
 
+interface FareRule {
+    weekdayPrice: number;
+    weekendPrice: number;
+}
+
 interface DetailedTrip {
     _id: string;
     departureTime: string;
@@ -26,6 +31,7 @@ interface DetailedTrip {
         diemDen: string;
         price: number;
     };
+    fareRule?: FareRule; // 🌟 Thêm fareRule từ Backend để đồng bộ tính giá vé
     bus: {
         name: string;
         type: string;
@@ -35,13 +41,12 @@ interface DetailedTrip {
 }
 
 export default function BookingSeats(): React.ReactElement {
-    // Lấy tham số :tripId từ URL hệ thống
     const { tripId } = useParams<{ tripId: string }>();
     const navigate = useNavigate();
 
     const [trip, setTrip] = useState<DetailedTrip | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
-    const [bookingLoading, setBookingLoading] = useState<boolean>(false); // State quản lý loading khi nhấn nút đặt vé
+    const [bookingLoading, setBookingLoading] = useState<boolean>(false); 
     const [chosenSeatCodes, setChosenSeatCodes] = useState<string[]>([]);
 
     useEffect(() => {
@@ -53,7 +58,6 @@ export default function BookingSeats(): React.ReactElement {
             }
 
             try {
-                // Gọi API lấy sơ đồ ghế từ Backend
                 const response = await axios.get(`http://localhost:3000/api/trip/${tripId}`);
                 if (response.data) {
                     if (response.data.data) {
@@ -73,58 +77,110 @@ export default function BookingSeats(): React.ReactElement {
         fetchTripDetails();
     }, [tripId]);
 
-const handleConfirmBooking = async (): Promise<void> => {
-    if (chosenSeatCodes.length === 0) {
-        message.warning("Vui lòng chọn ít nhất một giường trước khi tiếp tục!");
-        return;
-    }
+    // 🌟 HÀM TÍNH ĐƠN GIÁ VÉ THỰC TẾ DỰA TRÊN NGÀY ĐI (ĐỒNG BỘ VỚI DANH SÁCH CHUYẾN)
+    const getSingleTicketPrice = (): number => {
+        if (!trip) return 0;
+        if (!trip.departureTime) return trip.journey?.price || 0;
 
-    // 1. Trích xuất thông tin người dùng đang đăng nhập từ localStorage
-    const userString = localStorage.getItem("user");
-    const userObj = userString ? JSON.parse(userString) : null;
+        const departureDate = new Date(trip.departureTime);
 
-    if (!userObj || !userObj._id) {
-        message.error("Vui lòng đăng nhập tài khoản trước khi thực hiện đặt vé!");
-        navigate("/login"); 
-        return;
-    }
+        if (trip.fareRule) {
+            // Thứ 7 (6) hoặc Chủ Nhật (0) áp dụng giá cuối tuần
+            if (departureDate.getDay() === 0 || departureDate.getDay() === 6) {
+                return trip.fareRule.weekendPrice;
+            } else {
+                return trip.fareRule.weekdayPrice;
+            }
+        }
+        return trip.journey?.price || 0;
+    };
 
-    setBookingLoading(true);
+    // Tính toán tổng số tiền dựa trên đơn giá chuẩn và số lượng ghế chọn
+    const calculatedTotalAmount = getSingleTicketPrice() * chosenSeatCodes.length;
 
-    try {
-        const totalAmount = (trip?.journey?.price || 0) * chosenSeatCodes.length;
-
-        const bookingBody = {
-            user: userObj._id,       
-            trip: tripId,            
-            seats: chosenSeatCodes,  
-            totalPrice: totalAmount  
-        };
-
-        console.log("Gửi dữ liệu lên API đặt vé và tạo hóa đơn QR:", bookingBody);
-
-        // 2. Gọi API tạo đơn hàng và tạo link PayOS
-        const response = await axios.post("http://localhost:3000/api/booking/add", bookingBody);
-
-        // 🌟 CẬP NHẬT LUỒNG CHUYỂN HƯỚNG SANG PAYOS TẠI ĐÂY
-        if (response.data && response.data.checkoutUrl) {
-            message.success("Khởi tạo hóa đơn thành công! Đang chuyển hướng đến cổng thanh toán...");
-            
-            // 🚀 Ép trình duyệt chuyển hướng hẳn sang trang quét mã QR của PayOS
-            window.location.href = response.data.checkoutUrl;
-            return; 
-        } else {
-            message.error("Đơn hàng đã được tạo nhưng không nhận được link thanh toán QR!");
+    const handleConfirmBooking = async (): Promise<void> => {
+        if (chosenSeatCodes.length === 0) {
+            message.warning("Vui lòng chọn ít nhất một giường trước khi tiếp tục!");
+            return;
         }
 
-    } catch (error: any) {
-        console.error("Lỗi khi gọi API đặt vé:", error);
-        const errorMsg = error.response?.data?.message || "Đặt vé thất bại, vui lòng thử lại!";
-        message.error(errorMsg);
-    } finally {
-        setBookingLoading(false);
-    }
-};
+        const userString = localStorage.getItem("user");
+        const userObj = userString ? JSON.parse(userString) : null;
+
+        if (!userObj || !userObj._id) {
+            message.error("Vui lòng đăng nhập tài khoản trước khi thực hiện đặt vé!");
+            navigate("/login"); 
+            return;
+        }
+
+        setBookingLoading(true);
+
+        try {
+            // --- BƯỚC 1: GỬI THÔNG TIN LÊN ĐỂ TẠO ĐƠN BOOKING & GIỮ GHẾ TẠM THỜI ---
+            const bookingBody = {
+                user: userObj._id,      
+                trip: tripId,            
+                seats: chosenSeatCodes
+            };
+
+            console.log("Bước 1: Gọi API tạo đơn đặt vé:", bookingBody);
+            const bookingResponse = await axios.post("http://localhost:3000/api/booking/add", bookingBody);
+
+            const createdBookingId = bookingResponse.data?.data?._id;
+            // Lấy mã orderCode từ phản hồi của API Booking (nếu có trả về kèm)
+            const serverOrderCode = bookingResponse.data?.data?.orderCode;
+
+            if (!createdBookingId) {
+                throw new Error("Không nhận được mã đơn hàng từ hệ thống!");
+            }
+
+            // --- BƯỚC 2: DÙNG BOOKING ID VỪA TẠO ĐỂ LẤY LINK QR THANH TOÁN PAYOS ---
+            console.log("Bước 2: Gọi API lấy link QR PayOS cho đơn hàng:", createdBookingId);
+            const paymentResponse = await axios.post("http://localhost:3000/api/payment/create-link", {
+                bookingId: createdBookingId
+            });
+
+            // --- BƯỚC 3: CHUYỂN HƯỚNG SANG CỔNG THANH TOÁN & ĐỒNG BỘ DỮ LIỆU SANG VÉ CHUYỂN TIẾP ---
+            if (paymentResponse.data && paymentResponse.data.checkoutUrl) {
+                message.success("Đặt vé thành công! Đang chuyển hướng đến cổng thanh toán trực tuyến...");
+                
+                // Trích xuất mã hiển thị hóa đơn (Lấy từ PayOS hoặc Backend Booking, hoặc cắt từ đuôi ID nếu trống)
+                const myOrderCode = paymentResponse.data?.orderCode || serverOrderCode || createdBookingId.slice(-6).toUpperCase();
+
+                const ticketStorageData = {
+                    ticketCode: `NB-${myOrderCode}`,
+                    customerName: userObj?.name || "Hành khách NETBUS",
+                    busName: trip?.bus?.name || "Xe NETBUS Luxury",
+                    journey: `${trip?.journey?.diemDi || "Điểm đi"} → ${trip?.journey?.diemDen || "Điểm đến"}`,
+                    seats: chosenSeatCodes,
+                    totalPrice: calculatedTotalAmount, // Tổng tiền thật tính dựa trên FareRule
+                    departureTime: trip?.departureTime 
+                        ? new Date(trip.departureTime).toLocaleString("vi-VN", {
+                            dateStyle: "short",
+                            timeStyle: "short"
+                          })
+                        : "Đang cập nhật..."
+                };
+
+                // Lưu gói dữ liệu gọn gàng vào localStorage để TicketSuccessPage bốc lên trực tiếp
+                localStorage.setItem("latest_ticket_success", JSON.stringify(ticketStorageData));
+
+                // Thực hiện chuyển hướng người dùng sang trang thanh toán của PayOS
+                window.location.href = paymentResponse.data.checkoutUrl;
+                return; 
+            } else {
+                message.error("Đơn hàng đã tạo nhưng hệ thống không phản hồi link QR thanh toán!");
+            }
+
+        } catch (error: any) {
+            console.error("Lỗi trong luồng đặt vé và thanh toán:", error);
+            const errorMsg = error.response?.data?.message || error.message || "Xử lý đặt vé thất bại, vui lòng thử lại!";
+            message.error(errorMsg);
+        } finally {
+            setBookingLoading(false);
+        }
+    };
+
     const handleSeatClick = (seat: Seat): void => {
         if (seat.status !== "AVAILABLE") return;
         if (chosenSeatCodes.includes(seat.seatCode)) {
@@ -172,10 +228,10 @@ const handleConfirmBooking = async (): Promise<void> => {
 
                     <Row gutter={[24, 24]}>
                         {/* Cột trái: Sơ đồ ghế */}
-                        <Col xs={24} lg={15}>
+                        <Col span={24} lg={15}>
                             <Card title="Chọn vị trí giường nằm">
                                 <Row gutter={[24, 24]} justify="center">
-                                    <Col xs={24} sm={12}>
+                                    <Col span={24} sm={12}>
                                         <div style={{ textAlign: "center", marginBottom: 12, fontWeight: 600, color: "#1890ff" }}>TẦNG DƯỚI (TẦNG 1)</div>
                                         <div style={{ background: "#fafafa", padding: 16, borderRadius: 8, border: "1px solid #f0f0f0" }}>
                                             <Row gutter={[12, 14]}>
@@ -196,7 +252,7 @@ const handleConfirmBooking = async (): Promise<void> => {
 
                                     {/* Tầng 2 */}
                                     {trip.seats?.filter((s: Seat) => s.floor === 2).length > 0 && (
-                                        <Col xs={24} sm={12}>
+                                        <Col span={24} sm={12}>
                                             <div style={{ textAlign: "center", marginBottom: 12, fontWeight: 600, color: "#722ed1" }}>TẦNG TRÊN (TẦNG 2)</div>
                                             <div style={{ background: "#fafafa", padding: 16, borderRadius: 8, border: "1px solid #f0f0f0" }}>
                                                 <Row gutter={[12, 14]}>
@@ -220,17 +276,23 @@ const handleConfirmBooking = async (): Promise<void> => {
                         </Col>
 
                         {/* Cột phải: Tính tiền */}
-                        <Col xs={24} lg={9}>
+                        <Col span={24} lg={9}>
                             <Card title="Thông tin đặt vé">
                                 <Space direction="vertical" size="middle" style={{ display: "flex", marginBottom: 24 }}>
                                     <div>
                                         <Text type="secondary">Tên xe:</Text>
-                                        <Title level={5} style={{ margin: 0 }}>{trip.bus?.name || "Đang cập nhật..."}</Title>
+                                        <Title level={5} style={{ margin: 0 }}>{trip.bus?.name || "Xe NETBUS Luxury"}</Title>
                                     </div>
                                     <div>
                                         <Text type="secondary">Hành trình:</Text>
                                         <Text strong style={{ display: "block", fontSize: "15px" }}>
                                             {trip.journey?.diemDi} → {trip.journey?.diemDen}
+                                        </Text>
+                                    </div>
+                                    <div>
+                                        <Text type="secondary">Đơn giá vé:</Text>
+                                        <Text strong style={{ display: "block", fontSize: "15px", color: "#52c41a" }}>
+                                            {getSingleTicketPrice().toLocaleString("vi-VN")}đ / vé
                                         </Text>
                                     </div>
                                     <div>
@@ -243,9 +305,9 @@ const handleConfirmBooking = async (): Promise<void> => {
 
                                 <Flex justify="space-between" align="center" style={{ marginBottom: 24, borderTop: "1px solid #f0f0f0", paddingTop: 16 }}>
                                     <Text strong>Tổng tiền:</Text>
-                                    <Text style={{ fontSize: 20, color: "#ff4d4f", fontWeight: 800 }}>
-                                        {((trip.journey?.price || 0) * chosenSeatCodes.length).toLocaleString("vi-VN")}đ
-                                    </Text>
+                                    <Title level={3} style={{ fontSize: 22, color: "#ff4d4f", fontWeight: 800, margin: 0 }}>
+                                        {calculatedTotalAmount.toLocaleString("vi-VN")}đ
+                                    </Title>
                                 </Flex>
 
                                 <Button

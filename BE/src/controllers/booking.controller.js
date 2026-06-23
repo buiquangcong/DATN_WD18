@@ -1,7 +1,8 @@
-import { PayOS } from "@payos/node";
 import asyncHandler from "../utils/asyncHandler.js";
 import Booking from "../models/booking.model.js";
 import Trip from "../models/trip.model.js";
+
+import { PayOS } from "@payos/node";
 
 const payos = new PayOS({
     clientId: process.env.PAYOS_CLIENT_ID || "6128c402-d9dc-48c1-9869-ba88b911c9ac",
@@ -17,8 +18,7 @@ export const getAll = asyncHandler(async (req, res) => {
             populate: [
                 { path: "journey" },
                 { path: "bus" },
-                { path: "staff" }
-                {path: "staff"},
+                { path: "staff" },
                 { path: "fareRule" }
             ]
         });
@@ -33,8 +33,7 @@ export const getOne = asyncHandler(async (req, res) => {
             populate: [
                 { path: "journey" },
                 { path: "bus" },
-                { path: "staff" }
-                {path: "staff"},
+                { path: "staff" },
                 { path: "fareRule" }
             ]
         });
@@ -45,11 +44,10 @@ export const getOne = asyncHandler(async (req, res) => {
     return res.json(booking);
 });
 
-// 🌟 ĐÃ CẬP NHẬT: Hàm tạo đơn hàng tích hợp PayOS
+// 🌟 ĐÃ CẬP NHẬT: Hàm tạo đơn, giữ ghế tạm thời, tính FareRule và tách biệt luồng cổng thanh toán
 export const createOne = asyncHandler(async (req, res) => {
     const { user, trip, seats } = req.body;
 
-    const tripData = await Trip.findById(trip).populate("journey");
     const tripData = await Trip.findById(trip)
         .populate("journey")
         .populate("fareRule");
@@ -58,7 +56,7 @@ export const createOne = asyncHandler(async (req, res) => {
         return res.status(404).json({ message: "Không tìm thấy chuyến xe" });
     }
 
-    // 1. Kiểm tra ghế xem có tồn tại hoặc đang bị ĐẶT/GIỮ không
+    // 1. Kiểm tra trạng thái ghế trống (Chặn cả BOOKED lẫn HOLDING)
     for (const seatCode of seats) {
         const seat = tripData.seats.find(s => s.seatCode === seatCode);
 
@@ -66,35 +64,29 @@ export const createOne = asyncHandler(async (req, res) => {
             return res.status(400).json({ message: `Ghế ${seatCode} không tồn tại` });
         }
 
-        // Chặn nếu ghế đã bị BOOKED hoặc đang được người khác HOLDING
         if (seat.status === "BOOKED" || seat.status === "HOLDING") {
             return res.status(400).json({ message: `Ghế ${seatCode} đã có người đặt hoặc đang được giữ` });
         }
     }
 
-    // 2. Tính toán tổng tiền dựa trên Database gốc
-    const totalPrice = tripData.journey.price * seats.length;
+    // 2. Tính toán đơn giá dựa trên quy định FareRule (Ngày thường vs Cuối tuần)
+    const departureDate = new Date(tripData.departureTime);
+    let ticketPrice = tripData.journey?.price || 0;
 
-    // 3. Sinh mã số đơn hàng ngẫu nhiên kiểu số (Bắt buộc cho PayOS)
+    if (tripData.fareRule) {
+        if (departureDate.getDay() === 0 || departureDate.getDay() === 6) {
+            ticketPrice = tripData.fareRule.weekendPrice;
+        } else {
+            ticketPrice = tripData.fareRule.weekdayPrice;
+        }
+    }
+    const totalPrice = ticketPrice * seats.length;
+
+    // Sinh mã số đơn hàng ngẫu nhiên kiểu số để đồng bộ với cổng PayOS
     const myOrderCode = Math.floor(100000 + Math.random() * 900000);
 
-    // 4. Cấu hình nội dung chuyển khoản QR chứa Số Ghế (Tối đa 25 ký tự)
-    const seatString = seats.join("-");
-    const customDescription = `Ghe-${seatString}`.slice(0, 25);
-
-    const paymentBody = {
-        orderCode: myOrderCode,
-        amount: totalPrice,
-        description: customDescription,
-        cancelUrl: "http://localhost:5173/khachhang/booking/cancel",
-        returnUrl: `http://localhost:5173/khachhang/booking/success?orderCode=${myOrderCode}`
-    };
-
-    // Gọi API PayOS tạo link thanh toán trước để đảm bảo an toàn
-    const paymentLinkData = await payos.paymentRequests.create(paymentBody);
-
-    // 5. Nếu PayOS tạo link thành công -> Đổi trạng thái các ghế sang "HOLDING" (Giữ ghế)
-    const minutesToHold = 5; // Giữ ghế trong 5 phút
+    // 3. Đổi trạng thái các ghế sang "HOLDING" (Giữ ghế tạm thời)
+    const minutesToHold = 5; 
     tripData.seats.forEach(seat => {
         if (seats.includes(seat.seatCode)) {
             seat.status = "HOLDING";
@@ -104,25 +96,7 @@ export const createOne = asyncHandler(async (req, res) => {
     });
     await tripData.save();
 
-    // 6. Tạo đơn Booking mới vào MongoDB với trạng thái mặc định "Chờ xác nhận"
-const departureDate = new Date(
-  tripData.departureTime
-);
-
-let ticketPrice =
-  tripData.fareRule.weekdayPrice;
-
-if (
-  departureDate.getDay() === 0 ||
-  departureDate.getDay() === 6
-) {
-  ticketPrice =
-    tripData.fareRule.weekendPrice;
-}
-
-const totalPrice =
-  ticketPrice * seats.length;
-
+    // 4. Khởi tạo đơn Booking mới vào MongoDB với trạng thái mặc định "Chờ xác nhận"
     const booking = await Booking.create({
         user,
         trip,
@@ -132,16 +106,21 @@ const totalPrice =
         status: "Chờ xác nhận"
     });
 
-    // 🌟 7. LUỒNG TỰ ĐỘNG NHẢ GHẾ SAU 5 PHÚT NẾU CHƯA THANH TOÁN
-    setTimeout(async () => {
+    // 5. 🌟 ĐÃ CẬP NHẬT: Luồng chạy ngầm tự động nhả ghế + Hủy link PayOS sau 5 phút
+   setTimeout(async () => {
         try {
             const checkBooking = await Booking.findById(booking._id);
-            // Nếu quá 5 phút mà trạng thái đơn vẫn chưa chuyển sang "Đã xác nhận"
-            if (checkBooking && checkBooking.status === "Chờ xác nhận") {
-                checkBooking.status = "Đã hủy";
-                await checkBooking.save();
+            
+            // Nếu quá 5 phút mà đơn vẫn ở trạng thái chờ xử lý ban đầu
+            if (checkBooking && (checkBooking.status === "Chờ xác nhận" || checkBooking.status === "PENDING")) {
+                
+                // 🌟 SỬA TẠI ĐÂY: Dùng updateOne chọc thẳng lõi DB để không bị Mongoose báo lỗi enum Validator
+                await Booking.updateOne(
+                    { _id: booking._id },
+                    { $set: { status: "Đã hủy" } } // Hoặc đổi thành "CANCELLED" nếu DB của bạn dùng tiếng Anh
+                );
 
-                // Giải phóng ghế trong Trip về AVAILABLE
+                // 5.2 Trả các ghế về trạng thái trống "AVAILABLE"
                 await Trip.updateOne(
                     { _id: booking.trip },
                     { 
@@ -153,68 +132,28 @@ const totalPrice =
                     },
                     { arrayFilters: [{ "elem.seatCode": { $in: booking.seats } }] }
                 );
-                console.log(`[Hết hạn 5p] Đơn hàng ${myOrderCode} đã quá hạn. Hệ thống tự động nhả ghế.`);
+
+                // 5.3 Hủy bỏ link thanh toán từ xa trên PayOS
+                try {
+                    await payos.cancelPaymentLink(myOrderCode, "Quá hạn 5 phút không thanh toán");
+                    console.log(`[PayOS Hủy Link] Đã đóng link QR thành công cho mã đơn: ${myOrderCode}`);
+                } catch (payosCancelError) {
+                    console.error("Lỗi khi gửi yêu cầu hủy link lên hệ thống PayOS:", payosCancelError.message);
+                }
+
+                console.log(`[Hết hạn 5p] Đơn hàng ${myOrderCode} tự động giải phóng cụm ghế [${seats.join(", ")}].`);
             }
         } catch (timeoutError) {
-            console.error("Lỗi trong quá trình tự động nhả ghế:", timeoutError);
+            console.error("Lỗi trong quá trình xử lý đếm ngược tự động nhả ghế:", timeoutError);
         }
     }, minutesToHold * 60 * 1000);
 
-    // 8. Trả checkoutUrl về cho React chuyển hướng
+    // 6. Trả data về cho React (React sẽ lấy data._id gọi tiếp sang Payment API tạo link QR)
     return res.status(201).json({
-        message: "Khởi tạo thanh toán thành công",
-        checkoutUrl: paymentLinkData.checkoutUrl,
+        message: "Đặt vé thành công, đang chờ thanh toán",
         data: booking
     });
 });
-
-export const handlePayOSWebhook = asyncHandler(async (req, res) => {
-    try {
-        // 1. Giải mã dữ liệu an toàn từ PayOS
-        const webhookData = payos.webhooks.verify(req.body);
-        
-        // 2. Ép mã đơn hàng về dạng Number/String đồng bộ để truy vấn chắc chắn
-        const orderCodeReceived = webhookData.orderCode;
-
-        console.log(`[PayOS Webhook Triggered] Đang xử lý cho mã đơn: ${orderCodeReceived}`);
-
-        // 3. Sử dụng update trực tiếp vào DB để đảm bảo cập nhật vĩnh viễn
-        const booking = await Booking.findOneAndUpdate(
-            { orderCode: orderCodeReceived, status: "Chờ xác nhận" },
-            { $set: { status: "Đã xác nhận" } },
-            { new: true } // Trả về dữ liệu sau khi đã update
-        );
-
-        // Nếu tìm thấy đơn hàng cần cập nhật
-        if (booking) {
-            // 4. Cập nhật trạng thái ghế vĩnh viễn thành "BOOKED" trong bảng Trip sử dụng toán tử Mongo
-            // Cách này tối ưu hơn forEach vì tác động thẳng vào lõi Database
-            await Trip.updateOne(
-                { _id: booking.trip },
-                { 
-                    $set: { 
-                        "seats.$[elem].status": "BOOKED",
-                        "seats.$[elem].expiresAt": null
-                    } 
-                },
-                { 
-                    arrayFilters: [{ "elem.seatCode": { $in: booking.seats } }] 
-                }
-            );
-
-            console.log(`[PayOS Webhook Thành Công] Đơn ${orderCodeReceived} và các ghế [${booking.seats.join(", ")}] đã chuyển sang BOOKED.`);
-        } else {
-            console.log(`[PayOS Webhook Bỏ Qua] Đơn ${orderCodeReceived} không tồn tại hoặc đã được xử lý từ trước.`);
-        }
-        
-        // BẮT BUỘC: Phải trả về trạng thái 200 OK để PayOS biết hệ thống của bạn đã xử lý xong và không gửi lại webhook nữa
-        return res.status(200).json({ success: true });
-    } catch (error) {
-        console.error("[PayOS Webhook Error]:", error);
-        return res.status(400).send("Invalid webhook signature");
-    }
-});
-
 export const updateOne = asyncHandler(async (req, res) => {
     const booking = await Booking.findByIdAndUpdate(
         req.params.id,
@@ -226,7 +165,10 @@ export const updateOne = asyncHandler(async (req, res) => {
         return res.status(404).json({ message: "Không tìm thấy đơn đặt vé" });
     }
 
-    return res.json({ message: "Cập nhật thành công", data: booking });
+    return res.json({
+        message: "Cập nhật thành công",
+        data: booking
+    });
 });
 
 export const deleteOne = asyncHandler(async (req, res) => {
@@ -242,6 +184,8 @@ export const deleteOne = asyncHandler(async (req, res) => {
         trip.seats.forEach((seat) => {
             if (booking.seats.includes(seat.seatCode)) {
                 seat.status = "AVAILABLE";
+                seat.heldBy = null;
+                seat.expiresAt = null;
             }
         });
         await trip.save();
