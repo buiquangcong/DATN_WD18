@@ -125,12 +125,11 @@ export const createSchedule = asyncHandler(async (req, res) => {
       message: "Không tìm thấy xe",
     });
   }
-
   const autoSeats = generateSeats(
     busInfo.capacity,
     busInfo.type
   );
-
+console.log(autoSeats);
   if (!autoSeats.length) {
     return res.status(400).json({
       message: "Không thể sinh ghế",

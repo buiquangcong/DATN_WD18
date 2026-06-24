@@ -1,17 +1,8 @@
-import {
-  Button,
-  Form,
-  Select,
-  DatePicker,
-  message,
-  Input,
-  Checkbox,
-  Card,
-} from "antd";
+import { Button, Form, Select, DatePicker, message, Input, Checkbox, Card, } from "antd";
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-
+import dayjs from "dayjs";
 type Journey = {
   _id: string;
   diemDi: string;
@@ -163,11 +154,13 @@ function TripAddPage() {
     } catch (error: any) {
       message.error(
         error.response?.data?.message ||
-          "Tạo lịch thất bại"
+        "Tạo lịch thất bại"
       );
     }
   };
-
+  const disabledPastDate = (current: any) => {
+    return current && current < new Date().setHours(0, 0, 0, 0);
+  };
   return (
     <div className="p-6">
       <Card>
@@ -276,8 +269,8 @@ function TripAddPage() {
               value={
                 selectedFareRule
                   ? `${selectedFareRule.weekdayPrice.toLocaleString(
-                      "vi-VN"
-                    )} đ`
+                    "vi-VN"
+                  )} đ`
                   : ""
               }
             />
@@ -362,12 +355,14 @@ function TripAddPage() {
             rules={[
               {
                 required: true,
-                message:
-                  "Chọn ngày bắt đầu",
+                message: "Chọn ngày bắt đầu",
               },
             ]}
           >
-            <DatePicker className="w-full" />
+            <DatePicker
+              className="w-full"
+              disabledDate={disabledPastDate}
+            />
           </Form.Item>
 
           <Form.Item
@@ -376,12 +371,29 @@ function TripAddPage() {
             rules={[
               {
                 required: true,
-                message:
-                  "Chọn ngày kết thúc",
+                message: "Chọn ngày kết thúc",
               },
             ]}
           >
-            <DatePicker className="w-full" />
+            <DatePicker
+              className="w-full"
+              disabledDate={(current) => {
+                const startDate =
+                  form.getFieldValue("startDate");
+
+                if (!startDate) {
+                  return (
+                    current &&
+                    current < dayjs().startOf("day")
+                  );
+                }
+
+                return (
+                  current &&
+                  current < startDate.startOf("day")
+                );
+              }}
+            />
           </Form.Item>
 
           <Form.Item
