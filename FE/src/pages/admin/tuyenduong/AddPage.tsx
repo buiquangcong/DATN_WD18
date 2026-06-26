@@ -1,57 +1,211 @@
-import { Button, Form, Input, InputNumber, Select, Space } from "antd";
-import { MinusCircleOutlined, PlusOutlined } from "@ant-design/icons";
+import {Button,Form,Input,InputNumber,Select,Space,message,} from "antd";
+import {MinusCircleOutlined,PlusOutlined,} from "@ant-design/icons";
 import { useCRUD } from "../../../hooks/useCRUD";
 
 function JourneyAddPage() {
   const { Add } = useCRUD("journey");
-
+  const onFinish = (values: any) => {
+    if (
+      values.diemDi.trim().toLowerCase() ===
+      values.diemDen.trim().toLowerCase()
+    ) {
+      message.error(
+        "Điểm đi và điểm đến không được trùng nhau"
+      );
+      return;
+    }
+    Add(values);
+  };
   return (
     <div className="p-6 max-w-3xl">
-      <h1 className="text-2xl font-semibold mb-6">Thêm Hành Trình Mới</h1>
-      <Form layout="vertical" onFinish={(values) => Add(values)}>
-
-        <Form.Item label="Điểm Đi" name="diemDi" rules={[{ required: true, message: "Vui lòng nhập điểm đi" }]}>
+      <h1 className="text-2xl font-semibold mb-6">
+        Thêm Hành Trình Mới
+      </h1>
+      <Form
+        layout="vertical"
+        onFinish={onFinish}
+      >
+        <Form.Item
+          label="Điểm Đi"
+          name="diemDi"
+          rules={[
+            {
+              required: true,
+              message:
+                "Vui lòng nhập điểm đi",
+            },
+            {
+              min: 2,
+              message:
+                "Điểm đi tối thiểu 2 ký tự",
+            },
+            {
+              max: 100,
+              message:
+                "Điểm đi tối đa 100 ký tự",
+            },
+          ]}
+        >
           <Input placeholder="VD: Hà Nội" />
         </Form.Item>
 
-        <Form.Item label="Điểm Đến" name="diemDen" rules={[{ required: true, message: "Vui lòng nhập điểm đến" }]}>
+        <Form.Item
+          label="Điểm Đến"
+          name="diemDen"
+          rules={[
+            {
+              required: true,
+              message:
+                "Vui lòng nhập điểm đến",
+            },
+            {
+              min: 2,
+              message:
+                "Điểm đến tối thiểu 2 ký tự",
+            },
+            {
+              max: 100,
+              message:
+                "Điểm đến tối đa 100 ký tự",
+            },
+          ]}
+        >
           <Input placeholder="VD: Hải Phòng" />
         </Form.Item>
 
-        <Form.Item label="Quãng Đường (km)" name="quangDuong" rules={[{ required: true, message: "Vui lòng nhập quãng đường" }]}>
-          <InputNumber className="w-full" min={1} placeholder="VD: 120" />
+        <Form.Item
+          label="Quãng Đường (km)"
+          name="quangDuong"
+          rules={[
+            {
+              required: true,
+              message:
+                "Vui lòng nhập quãng đường",
+            },
+          ]}
+        >
+          <InputNumber
+            className="w-full"
+            min={1}
+            max={3000}
+            placeholder="VD: 120"
+          />
         </Form.Item>
 
-        <Form.Item label="Thời Gian Di Chuyển" name="thoiGianDiChuyen" rules={[{ required: true, message: "Vui lòng nhập thời gian di chuyển" }]}>
+        <Form.Item
+          label="Thời Gian Di Chuyển"
+          name="thoiGianDiChuyen"
+          rules={[
+            {
+              required: true,
+              message:
+                "Vui lòng nhập thời gian di chuyển",
+            },
+            {
+              min: 3,
+              message:
+                "Thời gian di chuyển không hợp lệ",
+            },
+          ]}
+        >
           <Input placeholder="VD: 2 giờ 40 phút" />
         </Form.Item>
 
         {/* Điểm Đón */}
         <div className="mb-4">
-          <p className="font-medium mb-2">Điểm Đón</p>
+          <p className="font-medium mb-2">
+            Điểm Đón
+          </p>
+
           <Form.List name="diemDon">
-            {(fields, { add, remove }) => (
+            {(
+              fields,
+              { add, remove }
+            ) => (
               <>
-                {fields.map(({ key, name, ...restField }) => (
-                  <Space key={key} className="flex mb-2" align="baseline">
-                    <Form.Item
-                      {...restField}
-                      name={[name, "thoiGian"]}
-                      rules={[{ required: true, message: "Nhập giờ" }]}
+                {fields.map(
+                  ({
+                    key,
+                    name,
+                    ...restField
+                  }) => (
+                    <Space
+                      key={key}
+                      className="flex mb-2"
+                      align="baseline"
                     >
-                      <Input placeholder="Giờ (VD: 14:00)" style={{ width: 130 }} />
-                    </Form.Item>
-                    <Form.Item
-                      {...restField}
-                      name={[name, "diaDiem"]}
-                      rules={[{ required: true, message: "Nhập địa điểm" }]}
-                    >
-                      <Input placeholder="Địa điểm đón" style={{ width: 340 }} />
-                    </Form.Item>
-                    <MinusCircleOutlined onClick={() => remove(name)} className="text-red-500" />
-                  </Space>
-                ))}
-                <Button type="dashed" onClick={() => add()} icon={<PlusOutlined />}>
+                      <Form.Item
+                        {...restField}
+                        name={[
+                          name,
+                          "thoiGian",
+                        ]}
+                        rules={[
+                          {
+                            required: true,
+                            message:
+                              "Nhập giờ",
+                          },
+                          {
+                            pattern:
+                              /^([01]\d|2[0-3]):([0-5]\d)$/,
+                            message:
+                              "Định dạng HH:mm",
+                          },
+                        ]}
+                      >
+                        <Input
+                          placeholder="07:00"
+                          style={{
+                            width: 130,
+                          }}
+                        />
+                      </Form.Item>
+
+                      <Form.Item
+                        {...restField}
+                        name={[
+                          name,
+                          "diaDiem",
+                        ]}
+                        rules={[
+                          {
+                            required: true,
+                            message:
+                              "Nhập địa điểm đón",
+                          },
+                          {
+                            min: 3,
+                            message:
+                              "Địa điểm quá ngắn",
+                          },
+                        ]}
+                      >
+                        <Input
+                          placeholder="Bến xe Mỹ Đình"
+                          style={{
+                            width: 340,
+                          }}
+                        />
+                      </Form.Item>
+
+                      <MinusCircleOutlined
+                        onClick={() =>
+                          remove(name)
+                        }
+                        className="text-red-500"
+                      />
+                    </Space>
+                  )
+                )}
+
+                <Button
+                  type="dashed"
+                  onClick={() => add()}
+                  icon={
+                    <PlusOutlined />
+                  }
+                >
                   Thêm điểm đón
                 </Button>
               </>
@@ -61,30 +215,99 @@ function JourneyAddPage() {
 
         {/* Điểm Trả */}
         <div className="mb-4">
-          <p className="font-medium mb-2">Điểm Trả</p>
+          <p className="font-medium mb-2">
+            Điểm Trả
+          </p>
+
           <Form.List name="diemTra">
-            {(fields, { add, remove }) => (
+            {(
+              fields,
+              { add, remove }
+            ) => (
               <>
-                {fields.map(({ key, name, ...restField }) => (
-                  <Space key={key} className="flex mb-2" align="baseline">
-                    <Form.Item
-                      {...restField}
-                      name={[name, "thoiGian"]}
-                      rules={[{ required: true, message: "Nhập giờ" }]}
+                {fields.map(
+                  ({
+                    key,
+                    name,
+                    ...restField
+                  }) => (
+                    <Space
+                      key={key}
+                      className="flex mb-2"
+                      align="baseline"
                     >
-                      <Input placeholder="Giờ (VD: 16:00)" style={{ width: 130 }} />
-                    </Form.Item>
-                    <Form.Item
-                      {...restField}
-                      name={[name, "diaDiem"]}
-                      rules={[{ required: true, message: "Nhập địa điểm" }]}
-                    >
-                      <Input placeholder="Địa điểm trả" style={{ width: 340 }} />
-                    </Form.Item>
-                    <MinusCircleOutlined onClick={() => remove(name)} className="text-red-500" />
-                  </Space>
-                ))}
-                <Button type="dashed" onClick={() => add()} icon={<PlusOutlined />}>
+                      <Form.Item
+                        {...restField}
+                        name={[
+                          name,
+                          "thoiGian",
+                        ]}
+                        rules={[
+                          {
+                            required: true,
+                            message:
+                              "Nhập giờ",
+                          },
+                          {
+                            pattern:
+                              /^([01]\d|2[0-3]):([0-5]\d)$/,
+                            message:
+                              "Định dạng HH:mm",
+                          },
+                        ]}
+                      >
+                        <Input
+                          placeholder="09:30"
+                          style={{
+                            width: 130,
+                          }}
+                        />
+                      </Form.Item>
+
+                      <Form.Item
+                        {...restField}
+                        name={[
+                          name,
+                          "diaDiem",
+                        ]}
+                        rules={[
+                          {
+                            required: true,
+                            message:
+                              "Nhập địa điểm trả",
+                          },
+                          {
+                            min: 3,
+                            message:
+                              "Địa điểm quá ngắn",
+                          },
+                        ]}
+                      >
+                        <Input
+                          placeholder="Bến xe Thượng Lý"
+                          style={{
+                            width: 340,
+                          }}
+                        />
+                      </Form.Item>
+
+                      <MinusCircleOutlined
+                        onClick={() =>
+                          remove(name)
+                        }
+                        className="text-red-500"
+                      />
+                    </Space>
+                  )
+                )}
+
+                <Button
+                  type="dashed"
+                  onClick={() => add()}
+                  icon={
+                    <PlusOutlined />
+                  }
+                >
                   Thêm điểm trả
                 </Button>
               </>
@@ -92,16 +315,40 @@ function JourneyAddPage() {
           </Form.List>
         </div>
 
-        <Form.Item label="Trạng Thái" name="trangThai" initialValue={true} rules={[{ required: true }]}>
+        <Form.Item
+          label="Trạng Thái"
+          name="trangThai"
+          initialValue={true}
+          rules={[
+            {
+              required: true,
+              message:
+                "Vui lòng chọn trạng thái",
+            },
+          ]}
+        >
           <Select
             options={[
-              { value: true, label: "Hoạt động" },
-              { value: false, label: "Dừng hoạt động" },
+              {
+                value: true,
+                label:
+                  "Hoạt động",
+              },
+              {
+                value: false,
+                label:
+                  "Dừng hoạt động",
+              },
             ]}
           />
         </Form.Item>
 
-        <Button type="primary" htmlType="submit">Thêm Hành Trình</Button>
+        <Button
+          type="primary"
+          htmlType="submit"
+        >
+          Thêm Hành Trình
+        </Button>
       </Form>
     </div>
   );
