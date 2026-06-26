@@ -54,7 +54,7 @@ function TripAddPage() {
         const [j, b, s, f] = await Promise.all([
           axios.get("http://localhost:3000/api/journey"),
           axios.get("http://localhost:3000/api/bus"),
-          axios.get("http://localhost:3000/api/staff"),
+          axios.get("http://localhost:3000/api/trip/drivers"),
           axios.get("http://localhost:3000/api/giave"),
         ]);
 
@@ -232,30 +232,27 @@ function TripAddPage() {
             </Select>
           </Form.Item>
 
-          <Form.Item
-            label="Nhân viên phụ trách"
-            name="staff"
-            rules={[
-              {
-                required: true,
-                message:
-                  "Chọn nhân viên",
-              },
-            ]}
-          >
-            <Select placeholder="Chọn nhân viên">
-              {staffs.map((item) => (
-                <Select.Option
-                  key={item._id}
-                  value={item._id}
-                >
-                  {item.ten} -{" "}
-                  {item.chucVu}
-                </Select.Option>
-              ))}
-            </Select>
-          </Form.Item>
-
+         <Form.Item
+  label="Tài xế"
+  name="staff"
+  rules={[
+    {
+      required: true,
+      message: "Chọn tài xế",
+    },
+  ]}
+>
+  <Select placeholder="Chọn tài xế">
+    {staffs.map((item) => (
+      <Select.Option
+        key={item._id}
+        value={item._id}
+      >
+        {item.ten}
+      </Select.Option>
+    ))}
+  </Select>
+</Form.Item>
           <Form.Item
             name="fareRule"
             hidden
