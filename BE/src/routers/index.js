@@ -10,6 +10,7 @@ import bookingRouter from "./booking.router";
 import tkRouter from "./tk.router";
 import giaveRouter from "./giave.router.js";
 import paymentRouter from "./payment.router.js";
+import newsRouter from "./new.router.js";
 
 const router = Router();
 
@@ -24,5 +25,6 @@ router.use("/booking", bookingRouter);
 router.use("/tk", tkRouter);
 router.use("/giave", giaveRouter);
 router.use("/payment", paymentRouter);
+router.use("/news",newsRouter)
 
 export default router;
