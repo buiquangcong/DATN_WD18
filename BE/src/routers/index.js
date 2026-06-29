@@ -11,6 +11,7 @@ import tkRouter from "./tk.router";
 import giaveRouter from "./giave.router.js";
 import otpRouter from "./otp.router.js";
 import paymentRouter from "./payment.router.js";
+import newsRouter from "./new.router.js";
 
 const router = Router();
 
@@ -27,5 +28,6 @@ router.use("/giave", giaveRouter);
 router.use("/mail", otpRouter);
 
 router.use("/payment", paymentRouter);
+router.use("/news",newsRouter)
 
 export default router;
