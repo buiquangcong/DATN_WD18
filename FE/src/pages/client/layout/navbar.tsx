@@ -29,6 +29,10 @@ export function Navbar({
       title: "Trợ giúp",
       path: "/khachhang/contact",
     },
+    {
+      title:"Tin Tức",
+      path:"/khachhang/tintuc",
+    }
   ];
 
   return (
