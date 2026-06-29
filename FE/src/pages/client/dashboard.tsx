@@ -11,6 +11,8 @@ import {
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { ClientLayout } from "./layout";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
 
 interface BookingFormValues {
   origin: string;
@@ -22,9 +24,36 @@ interface BookingFormValues {
 export default function ClientDashboard() {
   const [tripType, setTripType] = useState<"one-way" | "round-trip">("one-way");
   const [selectedFleetTag, setSelectedFleetTag] = useState("VIP 21 Cabin");
+  const navigate = useNavigate();
+
+  const [departures, setDepartures] = useState<string[]>(["Hà Nội", "Nghệ An", "Đà Nẵng", "Quảng Trị"]);
+  const [destinations, setDestinations] = useState<string[]>(["Hà Nội", "Nghệ An", "Đà Nẵng", "Quảng Trị"]);
 
   // Refs for Scroll Reveal animation
   const sectionsRef = useRef<HTMLElement[]>([]);
+
+  useEffect(() => {
+    const fetchUniqueRoutes = async () => {
+      try {
+        const response = await axios.get("http://localhost:3000/api/trip");
+        let data: any[] = [];
+        if (response.data && "data" in response.data && Array.isArray(response.data.data)) {
+          data = response.data.data;
+        } else if (Array.isArray(response.data)) {
+          data = response.data;
+        }
+        
+        const uniqueDepartures = Array.from(new Set(data.map((t: any) => t.journey?.diemDi).filter(Boolean))) as string[];
+        const uniqueDestinations = Array.from(new Set(data.map((t: any) => t.journey?.diemDen).filter(Boolean))) as string[];
+        
+        if (uniqueDepartures.length > 0) setDepartures(uniqueDepartures);
+        if (uniqueDestinations.length > 0) setDestinations(uniqueDestinations);
+      } catch (err) {
+        console.error("Lỗi lấy thông tin tuyến đường cho trang chủ:", err);
+      }
+    };
+    fetchUniqueRoutes();
+  }, []);
 
   useEffect(() => {
     const observerOptions = {
@@ -53,13 +82,11 @@ export default function ClientDashboard() {
   }, []);
 
   const handleSearch = (values: BookingFormValues) => {
-    const depStr = values.departureDate ? values.departureDate.format("DD/MM/YYYY") : "Hôm nay";
-    const retStr = values.returnDate ? values.returnDate.format("DD/MM/YYYY") : "Chưa chọn";
-    
-    message.success(
-      `Tìm kiếm vé xe thành công!\nĐiểm đi: ${values.origin} → Điểm đến: ${values.destination}\nNgày đi: ${depStr}` +
-      (tripType === "round-trip" ? `\nNgày về: ${retStr}` : "")
-    );
+    const params = new URLSearchParams();
+    if (values.origin) params.append("diemDi", values.origin);
+    if (values.destination) params.append("diemDen", values.destination);
+    if (values.departureDate) params.append("ngayDi", values.departureDate.format("YYYY-MM-DD"));
+    navigate(`/khachhang/searchresults?${params.toString()}`);
   };
 
   const handleBookNow = (route: string) => {
@@ -144,12 +171,7 @@ trên khắp Việt Nam.
                     size="large"
                     suffixIcon={<EnvironmentOutlined className="text-outline" />}
                     className="w-full h-12"
-                    options={[
-                      { value: "Hà Nội", label: "Hà Nội" },
-                      { value: "Nghệ An", label: "Nghệ An" },
-                      { value: "Đà Nẵng", label: "Đà Nẵng" },
-                      { value: "Quảng Trị", label: "Quảng Trị" },
-                    ]}
+                    options={departures.map(d => ({ value: d, label: d }))}
                   />
                 </Form.Item>
 
@@ -162,12 +184,7 @@ trên khắp Việt Nam.
                     size="large"
                     suffixIcon={<CompassOutlined className="text-outline" />}
                     className="w-full h-12"
-                    options={[
-                      { value: "Hà Nội", label: "Hà Nội" },
-                      { value: "Nghệ An", label: "Nghệ An" },
-                      { value: "Đà Nẵng", label: "Đà Nẵng" },
-                      { value: "Quảng Trị", label: "Quảng Trị" },
-                    ]}
+                    options={destinations.map(d => ({ value: d, label: d }))}
                   />
                 </Form.Item>
               </div>
