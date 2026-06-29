@@ -14,4 +14,5 @@ bookingRouter.delete("/delete/:id", deleteOne);
 
 bookingRouter.get("/:id", getOne);
 
+
 export default bookingRouter;

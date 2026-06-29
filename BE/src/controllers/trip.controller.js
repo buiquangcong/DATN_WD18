@@ -2,7 +2,7 @@ import asyncHandler from "../utils/asyncHandler.js";
 import Trip from "../models/trip.model.js";
 import Bus from "../models/bus.model.js"; 
 import generateSeats from "../utils/seatGenerator.js"; 
-
+import Staff from "../models/staff.model.js";
 
 export const getAll = asyncHandler(async (req, res) => {
     const trips = await Trip.find()
@@ -30,6 +30,13 @@ export const getOne = asyncHandler(async (req, res) => {
     return res.json(trip);
 });
 
+export const getDrivers = asyncHandler(async (req, res) => {
+    const drivers = await Staff.find({
+        chucVu: "Driver",
+    });
+
+    res.json(drivers);
+});
 
 export const createOne = asyncHandler(async (req, res) => {
 
@@ -125,12 +132,11 @@ export const createSchedule = asyncHandler(async (req, res) => {
       message: "Không tìm thấy xe",
     });
   }
-
   const autoSeats = generateSeats(
     busInfo.capacity,
     busInfo.type
   );
-
+console.log(autoSeats);
   if (!autoSeats.length) {
     return res.status(400).json({
       message: "Không thể sinh ghế",
