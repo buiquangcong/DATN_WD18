@@ -7,11 +7,16 @@ import { ClientLayout } from "./layout";
 
 const { Title, Text } = Typography;
 
+interface FareRule {
+  weekdayPrice: number;
+  weekendPrice: number;
+}
+
 interface Journey {
   diemDi: string;
   diemDen: string;
   thoiGianDiChuyen: string;
-  price: number;
+  price: number; 
 }
 
 interface Bus {
@@ -26,8 +31,10 @@ interface Seat {
 interface TripData {
   _id: string;
   journey: Journey;
+  fareRule: FareRule; // Nhận cấu trúc dữ liệu fareRule từ Backend gộp qua
   bus: Bus;
   departureTime: string;
+  arrivalTime: string;
   status: string;
   seats: Seat[];
 }
@@ -69,9 +76,30 @@ export default function Trip(): React.ReactElement {
     return seatsArray.filter(seat => seat.status === "AVAILABLE").length;
   };
 
+  // 🌟 HÀM TÍNH TOÁN GIÁ VÉ THỰC TẾ ĐỒNG BỘ VỚI BACKEND
+  const getTicketPrice = (item: TripData): number => {
+    if (!item.departureTime) return item.journey?.price || 0;
+    
+    const departureDate = new Date(item.departureTime);
+    
+    // Nếu có cấu hình fareRule từ hệ thống
+    if (item.fareRule) {
+      // getDay() trả về 0 (Chủ Nhật) và 6 (Thứ 7) -> Tính giá cuối tuần
+      if (departureDate.getDay() === 0 || departureDate.getDay() === 6) {
+        return item.fareRule.weekendPrice;
+      } else {
+        return item.fareRule.weekdayPrice;
+      }
+    }
+    
+    // Phương án dự phòng nếu chưa kịp cập nhật hoặc không tìm thấy fareRule
+    return item.journey?.price || 0;
+  };
+
   return (
     <ClientLayout>
       <div>
+        {/* Banner */}
         <div
           style={{
             height: 350,
@@ -95,6 +123,7 @@ export default function Trip(): React.ReactElement {
           </div>
         </div>
 
+        {/* Thanh tìm kiếm nhanh */}
         <div
           style={{
             maxWidth: 1200,
@@ -114,53 +143,72 @@ export default function Trip(): React.ReactElement {
           </Card>
         </div>
 
-        {/* Danh sách chuyến */}
+        {/* Danh sách chuyến xe đổ về */}
         <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 20px" }}>
           <Space direction="vertical" size="middle" style={{ width: "100%" }}>
             {trips.map((item: TripData) => (
               <Card 
                 key={item._id}
                 style={{ borderRadius: 8, overflow: "hidden", border: "1px solid #eef2f6" }}
-                bodyStyle={{ padding: "20px 24px" }}
+                styles={{ body: { padding: "20px 24px" } }}
               >
                 <Row align="middle" justify="space-between">
                   {/* Thời gian & Lộ trình */}
-                  <Col span={5}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <Col span={8}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
                       <div>
-                        <Title level={3} style={{ margin: 0, color: "#1a1a1a" }}>{formatTime(item.departureTime)}</Title>
-                        <Text strong style={{ color: "#555" }}>{item.journey?.diemDi || "Hà Nội"}</Text>
+                        <Title level={3} style={{ margin: 0, color: "#1a1a1a", fontSize: "22px" }}>
+                          {formatTime(item.departureTime)}
+                        </Title>
+                        <Text strong style={{ color: "#777", display: "block", marginTop: 4 }}>
+                          {item.journey?.diemDi || "Hà Nội"}
+                        </Text>
                       </div>
-                      <ArrowRightOutlined style={{ color: "#ccc" }} />
+                      
+                      <div style={{ display: "flex", alignItems: "center", minWidth: 30 }}>
+                        <ArrowRightOutlined style={{ color: "#bfbfbf", fontSize: "16px" }} />
+                      </div>
+                      
                       <div>
-                        <Title level={3} style={{ margin: 0, color: "#1a1a1a" }}>--:--</Title>
-                        <Text strong style={{ color: "#555" }}>{item.journey?.diemDen || "Phú Thọ"}</Text>
+                        <Title level={3} style={{ margin: 0, color: "#1a1a1a", fontSize: "22px" }}>
+                          {formatTime(item.arrivalTime)}
+                        </Title>
+                        <Text strong style={{ color: "#777", display: "block", marginTop: 4 }}>
+                          {item.journey?.diemDen || "Phú Thọ"}
+                        </Text>
                       </div>
                     </div>
                   </Col>
 
-                  {/* Thông tin Xe */}
-                  <Col span={5} style={{ textAlign: "center" }}>
-                    <Text strong style={{ fontSize: 15, display: "block", marginBottom: 4 }}>{item.bus?.name}</Text>
-                    <Tag color="blue" style={{ borderRadius: 4 }}>{item.bus?.type === "Sleeper" ? "Giường nằm" : "Ghế ngồi"}</Tag>
+                  {/* Thông tin kết cấu loại xe */}
+                  <Col span={4} style={{ textAlign: "center" }}>
+                    <Text strong style={{ fontSize: 15, display: "block", marginBottom: 4 }}>
+                      {item.bus?.name || "Xe NETBUS Luxury"}
+                    </Text>
+                    <Tag color="blue" style={{ borderRadius: 4, padding: "2px 8px" }}>
+                      {item.bus?.type === "Sleeper" ? "Giường nằm" : "Ghế ngồi"}
+                    </Tag>
                   </Col>
 
-                  {/* Giá & Chỗ trống */}
-                  <Col span={5} style={{ textAlign: "center" }}>
-                    <Title level={4} style={{ color: "#ff4d4f", margin: 0, fontWeight: 700 }}>
-                      {item.journey?.price ? `${item.journey.price.toLocaleString("vi-VN")}đ` : "0đ"}
+                  {/* Giá thực tế (Tính theo FareRule) & Quỹ ghế trống */}
+                  <Col span={4} style={{ textAlign: "center" }}>
+                    <Title level={3} style={{ color: "#ff4d4f", margin: 0, fontWeight: 700, fontSize: "20px" }}>
+                      {/* 🌟 ĐÃ SỬA: Gọi hàm getTicketPrice thay cho item.journey.price */}
+                      {`${getTicketPrice(item).toLocaleString("vi-VN")}đ`}
                     </Title>
-                    <Text type="secondary" style={{ fontSize: 13 }}>{getAvailableSeatsCount(item.seats)} chỗ trống</Text>
+                    <Text type="secondary" style={{ fontSize: 13, display: "block", marginTop: 4 }}>
+                      {getAvailableSeatsCount(item.seats)} chỗ trống
+                    </Text>
                   </Col>
 
-                  {/* Hành động */}
+                  {/* Nút đặt vé */}
                   <Col span={4}>
                     <Button 
                       type="primary" 
                       size="large" 
                       block
                       style={{ borderRadius: 6, fontWeight: 600, height: 44, background: "#166e00", borderColor: "#166e00" }}
-                      onClick={() => navigate(`/khachhang/booking/${item._id}`)} // Chuyển hướng sang trang độc lập
+                      onClick={() => navigate(`/khachhang/booking/${item._id}`)}
                     >
                       Đặt vé
                     </Button>
