@@ -1,8 +1,8 @@
-import { Button, Form, Select, DatePicker, message } from "antd";
+import { Button, Form, Select, DatePicker, message, Input, Checkbox, Card, } from "antd";
 import { useEffect, useState } from "react";
-import { useCRUD } from "../../../hooks/useCRUD";
 import axios from "axios";
-
+import { useNavigate } from "react-router-dom";
+import dayjs from "dayjs";
 type Journey = {
   _id: string;
   diemDi: string;
@@ -11,195 +11,423 @@ type Journey = {
 
 type Bus = {
   _id: string;
-  name?: string;
-  bienSo?: string;
+  name: string;
+  licensePlates: string;
+  capacity: number;
 };
 
 type Staff = {
   _id: string;
   ten: string;
-  email: string;
-  sdt: string;
-  cccd: string;
   chucVu: string;
+};
+
+type FareRule = {
+  _id: string;
+  capacity: number;
+  weekdayPrice: number;
+  weekendPrice: number;
+  holidayPrice: number;
+
+  journey?: {
+    _id: string;
+    diemDi: string;
+    diemDen: string;
+  };
 };
 
 function TripAddPage() {
   const [form] = Form.useForm();
-
-  const { Add } = useCRUD("trip");
+  const navigate = useNavigate();
 
   const [journeys, setJourneys] = useState<Journey[]>([]);
   const [buses, setBuses] = useState<Bus[]>([]);
   const [staffs, setStaffs] = useState<Staff[]>([]);
+  const [fareRules, setFareRules] = useState<FareRule[]>([]);
+
+  const [selectedFareRule, setSelectedFareRule] =
+    useState<FareRule | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [j, b, s] = await Promise.all([
+        const [j, b, s, f] = await Promise.all([
           axios.get("http://localhost:3000/api/journey"),
           axios.get("http://localhost:3000/api/bus"),
-          axios.get("http://localhost:3000/api/staff"),
+          axios.get("http://localhost:3000/api/trip/drivers"),
+          axios.get("http://localhost:3000/api/giave"),
         ]);
 
         setJourneys(j.data);
         setBuses(b.data);
         setStaffs(s.data);
+        setFareRules(f.data);
       } catch (error) {
-        message.error("Load dữ liệu thất bại");
+        message.error("Không thể tải dữ liệu");
       }
     };
 
     fetchData();
   }, []);
 
-  const onFinish = (values: any) => {
-    const payload = {
-      journey: values.journey,
-      bus: values.bus,
-      staff: values.staff,
-      status: values.status || "sắp chạy",
-      departureTime: values.departureTime?.toISOString(),
-    };
+  const handleFindFareRule = () => {
+    const journeyId =
+      form.getFieldValue("journey");
 
-    Add(payload);
+    const busId =
+      form.getFieldValue("bus");
 
-    form.resetFields();
+    if (!journeyId || !busId) return;
+
+    const bus = buses.find(
+      (x) => x._id === busId
+    );
+
+    if (!bus) return;
+
+    const rule = fareRules.find(
+      (f) =>
+        f.journey?._id === journeyId &&
+        f.capacity === bus.capacity
+    );
+
+    if (rule) {
+      setSelectedFareRule(rule);
+
+      form.setFieldValue(
+        "fareRule",
+        rule._id
+      );
+    } else {
+      setSelectedFareRule(null);
+
+      form.setFieldValue(
+        "fareRule",
+        undefined
+      );
+
+      message.warning(
+        "Không tìm thấy bảng giá phù hợp"
+      );
+    }
   };
 
+  const onFinish = async (values: any) => {
+    try {
+      const payload = {
+        journey: values.journey,
+        bus: values.bus,
+        staff: values.staff,
+        fareRule: values.fareRule,
+
+        departureHour:
+          values.departureHour,
+
+        arrivalHour:
+          values.arrivalHour,
+
+        weekdays: values.weekdays,
+
+        startDate:
+          values.startDate?.format(
+            "YYYY-MM-DD"
+          ),
+
+        endDate:
+          values.endDate?.format(
+            "YYYY-MM-DD"
+          ),
+
+        status: values.status,
+      };
+
+      const res = await axios.post(
+        "http://localhost:3000/api/trip/generate",
+        payload
+      );
+
+      message.success(
+        res.data.message
+      );
+
+      navigate("/admin/trip/list");
+    } catch (error: any) {
+      message.error(
+        error.response?.data?.message ||
+        "Tạo lịch thất bại"
+      );
+    }
+  };
+  const disabledPastDate = (current: any) => {
+    return current && current < new Date().setHours(0, 0, 0, 0);
+  };
   return (
-    <div className="p-6 max-w-2xl">
-      <h1 className="text-xl font-bold mb-6">
-        Thêm Chuyến Xe
-      </h1>
+    <div className="p-6">
+      <Card>
+        <h1 className="text-2xl font-semibold mb-6">
+          Thêm lịch chạy xe
+        </h1>
 
-      <Form
-        form={form}
-        layout="vertical"
-        onFinish={onFinish}
-      >
-        {/* Tuyến đường */}
-        <Form.Item
-          name="journey"
-          label="Tuyến đường"
-          rules={[
-            {
-              required: true,
-              message: "Chọn tuyến đường",
-            },
-          ]}
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={onFinish}
         >
-          <Select placeholder="Chọn tuyến đường">
-            {journeys.map((j) => (
-              <Select.Option
-                key={j._id}
-                value={j._id}
-              >
-                {j.diemDi} → {j.diemDen}
-              </Select.Option>
-            ))}
-          </Select>
-        </Form.Item>
-
-        {/* Xe */}
-        <Form.Item
-          name="bus"
-          label="Xe"
-          rules={[
-            {
-              required: true,
-              message: "Chọn xe",
-            },
-          ]}
-        >
-          <Select placeholder="Chọn xe">
-            {buses.map((b) => (
-              <Select.Option
-                key={b._id}
-                value={b._id}
-              >
-                {b.name || b.bienSo || "Xe"}
-              </Select.Option>
-            ))}
-          </Select>
-        </Form.Item>
-
-        {/* Nhân viên */}
-        <Form.Item
-          name="staff"
-          label="Nhân viên phụ trách"
-          rules={[
-            {
-              required: true,
-              message: "Chọn nhân viên phụ trách",
-            },
-          ]}
-        >
-          <Select placeholder="Chọn nhân viên">
-            {staffs.map((s) => (
-              <Select.Option
-                key={s._id}
-                value={s._id}
-              >
-                {s.ten} - {s.chucVu}
-              </Select.Option>
-            ))}
-          </Select>
-        </Form.Item>
-
-        {/* Thời gian khởi hành */}
-        <Form.Item
-          name="departureTime"
-          label="Thời gian khởi hành"
-          rules={[
-            {
-              required: true,
-              message: "Chọn thời gian",
-            },
-          ]}
-        >
-          <DatePicker
-            showTime
-            className="w-full"
-            format="YYYY-MM-DD HH:mm"
-          />
-        </Form.Item>
-
-        {/* Trạng thái */}
-        <Form.Item
-          name="status"
-          label="Trạng thái"
-          initialValue="sắp chạy"
-        >
-          <Select
-            options={[
+          <Form.Item
+            label="Tuyến đường"
+            name="journey"
+            rules={[
               {
-                value: "sắp chạy",
-                label: "Sắp chạy",
-              },
-              {
-                value: "đang chạy",
-                label: "Đang chạy",
-              },
-              {
-                value: "hoàn thành",
-                label: "Hoàn thành",
-              },
-              {
-                value: "huỷ",
-                label: "Huỷ",
+                required: true,
+                message:
+                  "Chọn tuyến đường",
               },
             ]}
-          />
-        </Form.Item>
+          >
+            <Select
+              placeholder="Chọn tuyến"
+              onChange={
+                handleFindFareRule
+              }
+            >
+              {journeys.map((item) => (
+                <Select.Option
+                  key={item._id}
+                  value={item._id}
+                >
+                  {item.diemDi} →{" "}
+                  {item.diemDen}
+                </Select.Option>
+              ))}
+            </Select>
+          </Form.Item>
 
-        <Button
-          type="primary"
-          htmlType="submit"
-        >
-          Thêm chuyến xe
-        </Button>
-      </Form>
+          <Form.Item
+            label="Xe"
+            name="bus"
+            rules={[
+              {
+                required: true,
+                message: "Chọn xe",
+              },
+            ]}
+          >
+            <Select
+              placeholder="Chọn xe"
+              onChange={
+                handleFindFareRule
+              }
+            >
+              {buses.map((item) => (
+                <Select.Option
+                  key={item._id}
+                  value={item._id}
+                >
+                  {item.name} -{" "}
+                  {
+                    item.licensePlates
+                  }
+                </Select.Option>
+              ))}
+            </Select>
+          </Form.Item>
+
+         <Form.Item
+  label="Tài xế"
+  name="staff"
+  rules={[
+    {
+      required: true,
+      message: "Chọn tài xế",
+    },
+  ]}
+>
+  <Select placeholder="Chọn tài xế">
+    {staffs.map((item) => (
+      <Select.Option
+        key={item._id}
+        value={item._id}
+      >
+        {item.ten}
+      </Select.Option>
+    ))}
+  </Select>
+</Form.Item>
+          <Form.Item
+            name="fareRule"
+            hidden
+          >
+            <Input />
+          </Form.Item>
+
+          <Form.Item label="Giá vé áp dụng">
+            <Input
+              disabled
+              value={
+                selectedFareRule
+                  ? `${selectedFareRule.weekdayPrice.toLocaleString(
+                    "vi-VN"
+                  )} đ`
+                  : ""
+              }
+            />
+          </Form.Item>
+
+          <Form.Item
+            label="Giờ khởi hành"
+            name="departureHour"
+            rules={[
+              {
+                required: true,
+                message:
+                  "Nhập giờ khởi hành",
+              },
+            ]}
+          >
+            <Input placeholder="07:00" />
+          </Form.Item>
+
+          <Form.Item
+            label="Giờ đến"
+            name="arrivalHour"
+            rules={[
+              {
+                required: true,
+                message:
+                  "Nhập giờ đến",
+              },
+            ]}
+          >
+            <Input placeholder="11:30" />
+          </Form.Item>
+
+          <Form.Item
+            label="Các ngày chạy"
+            name="weekdays"
+            rules={[
+              {
+                required: true,
+                message:
+                  "Chọn ít nhất 1 ngày",
+              },
+            ]}
+          >
+            <Checkbox.Group
+              options={[
+                {
+                  label: "Thứ 2",
+                  value: 1,
+                },
+                {
+                  label: "Thứ 3",
+                  value: 2,
+                },
+                {
+                  label: "Thứ 4",
+                  value: 3,
+                },
+                {
+                  label: "Thứ 5",
+                  value: 4,
+                },
+                {
+                  label: "Thứ 6",
+                  value: 5,
+                },
+                {
+                  label: "Thứ 7",
+                  value: 6,
+                },
+                {
+                  label: "CN",
+                  value: 0,
+                },
+              ]}
+            />
+          </Form.Item>
+
+          <Form.Item
+            label="Từ ngày"
+            name="startDate"
+            rules={[
+              {
+                required: true,
+                message: "Chọn ngày bắt đầu",
+              },
+            ]}
+          >
+            <DatePicker
+              className="w-full"
+              disabledDate={disabledPastDate}
+            />
+          </Form.Item>
+
+          <Form.Item
+            label="Đến ngày"
+            name="endDate"
+            rules={[
+              {
+                required: true,
+                message: "Chọn ngày kết thúc",
+              },
+            ]}
+          >
+            <DatePicker
+              className="w-full"
+              disabledDate={(current) => {
+                const startDate =
+                  form.getFieldValue("startDate");
+
+                if (!startDate) {
+                  return (
+                    current &&
+                    current < dayjs().startOf("day")
+                  );
+                }
+
+                return (
+                  current &&
+                  current < startDate.startOf("day")
+                );
+              }}
+            />
+          </Form.Item>
+
+          <Form.Item
+            label="Trạng thái"
+            name="status"
+            initialValue="sắp chạy"
+          >
+            <Select
+              options={[
+                {
+                  value: "sắp chạy",
+                  label: "Sắp chạy",
+                },
+                {
+                  value: "đang chạy",
+                  label: "Đang chạy",
+                },
+                {
+                  value: "hoàn thành",
+                  label: "Hoàn thành",
+                },
+                {
+                  value: "huỷ",
+                  label: "Huỷ",
+                },
+              ]}
+            />
+          </Form.Item>
+
+          <Button
+            type="primary"
+            htmlType="submit"
+          >
+            Tạo lịch chạy
+          </Button>
+        </Form>
+      </Card>
     </div>
   );
 }

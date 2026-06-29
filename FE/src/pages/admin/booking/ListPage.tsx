@@ -1,4 +1,5 @@
-import {Table,Button,Space,Tag,Modal,Popconfirm,} from "antd";
+import React from "react";
+import { Table, Button, Space, Tag, Modal, Popconfirm } from "antd";
 import { useCRUD, useDetail } from "../../../hooks/useCRUD";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -42,11 +43,11 @@ function BookingListPage() {
 
   const { list, Delete } = useCRUD("booking");
 
-  const [selectedId, setSelectedId] =useState<string>();
+  const [selectedId, setSelectedId] = useState<string>();
 
   const [open, setOpen] = useState(false);
 
-  const { data: booking } = useDetail("booking",selectedId );
+  const { data: booking } = useDetail("booking", selectedId);
 
   useEffect(() => {
     if (booking) {
@@ -62,26 +63,30 @@ function BookingListPage() {
 
     {
       title: "Khách hàng",
-      render: (_, record) =>
-        record.user?.username,
+      // 🌟 ĐÃ SỬA: Bảo vệ bằng record.user?.username phòng khi user bị null
+      render: (_, record) => record.user?.username || "Hành khách NETBUS",
     },
 
     {
       title: "Tuyến đường",
-      render: (_, record) => (
-        <>
-          {record.trip?.journey?.diemDi}
-          {" → "}
-          {record.trip?.journey?.diemDen}
-        </>
-      ),
+      // 🌟 ĐÃ SỬA: Thêm ?. vào toàn bộ chuỗi để phòng khi trip hoặc hành trình bị rỗng
+      render: (_, record) => {
+        if (!record.trip) return <span style={{ color: "#ff4d4f" }}>Chuyến xe không tồn tại</span>;
+        return (
+          <>
+            {record.trip.journey?.diemDi || "Chưa rõ"}
+            {" → "}
+            {record.trip.journey?.diemDen || "Chưa rõ"}
+          </>
+        );
+      },
     },
 
     {
       title: "Số vé",
       render: (_, record) => (
         <Tag color="blue">
-          {record.seats?.length} vé
+          {record.seats?.length || 0} vé
         </Tag>
       ),
     },
@@ -90,9 +95,7 @@ function BookingListPage() {
       title: "Tổng tiền",
       render: (_, record) => (
         <span className="text-green-600 font-semibold">
-          {record.totalPrice?.toLocaleString(
-            "vi-VN"
-          )} đ
+          {(record.totalPrice || 0).toLocaleString("vi-VN")} đ
         </span>
       ),
     },
@@ -106,13 +109,12 @@ function BookingListPage() {
               ? "green"
               : record.status === "Đã huỷ"
               ? "red"
-              : record.status ===
-                "Hoàn thành"
+              : record.status === "Hoàn thành"
               ? "blue"
               : "orange"
           }
         >
-          {record.status}
+          {record.status || "Chờ xác nhận"}
         </Tag>
       ),
     },
@@ -120,27 +122,22 @@ function BookingListPage() {
     {
       title: "Ngày đặt",
       render: (_, record) =>
-        new Date(
-          record.createdAt
-        ).toLocaleString("vi-VN"),
+        record.createdAt 
+          ? new Date(record.createdAt).toLocaleString("vi-VN") 
+          : "Đang cập nhật...",
     },
 
     {
       title: "Hành động",
       render: (_, record) => (
         <Space>
-          <Button
-            onClick={() =>
-              setSelectedId(record._id)
-            }
-          >
+          <Button onClick={() => setSelectedId(record._id)}>
             Chi tiết
           </Button>
 
           <Button
             type="primary"
-            onClick={() =>
-              navigate(`/admin/booking/edit/${record._id}`)}
+            onClick={() => navigate(`/admin/booking/edit/${record._id}`)}
           >
             Sửa
           </Button>
@@ -149,13 +146,9 @@ function BookingListPage() {
             title="Xóa đơn đặt vé?"
             okText="Có"
             cancelText="Không"
-            onConfirm={() =>
-              Delete(record._id)
-            }
+            onConfirm={() => Delete(record._id)}
           >
-            <Button danger>
-              Xóa
-            </Button>
+            <Button danger>Xóa</Button>
           </Popconfirm>
         </Space>
       ),
@@ -165,25 +158,17 @@ function BookingListPage() {
   return (
     <div className="p-6">
       <div className="flex justify-between mb-5">
-        <h1 className="text-2xl font-bold">
-          Quản lý đặt vé
-        </h1>
+        <h1 className="text-2xl font-bold">Quản lý đặt vé</h1>
 
         <Button
           type="primary"
-          onClick={() =>
-            navigate("/admin/booking/add")
-          }
+          onClick={() => navigate("/admin/booking/add")}
         >
           Thêm đơn đặt vé
         </Button>
       </div>
 
-      <Table
-        rowKey="_id"
-        dataSource={list}
-        columns={columns}
-      />
+      <Table rowKey="_id" dataSource={list} columns={columns} />
 
       <Modal
         open={open}
@@ -198,73 +183,68 @@ function BookingListPage() {
         {booking && (
           <div className="space-y-4">
             <div>
-              <b>Khách hàng:</b>{" "}
-              {booking.user?.username}
+              <b>Khách hàng:</b> {booking.user?.username || "Hành khách NETBUS"}
             </div>
 
             <div>
-              <b>Email:</b>{" "}
-              {booking.user?.email}
+              <b>Email:</b> {booking.user?.email || "Chưa cập nhật"}
             </div>
 
             <div>
               <b>Tuyến đường:</b>{" "}
-              {booking.trip?.journey?.diemDi}
-              {" → "}
-              {booking.trip?.journey?.diemDen}
+              {booking.trip ? (
+                <>
+                  {booking.trip.journey?.diemDi || "Chưa rõ"}
+                  {" → "}
+                  {booking.trip.journey?.diemDen || "Chưa rõ"}
+                </>
+              ) : (
+                <span style={{ color: "#ff4d4f" }}>Chuyến xe không tồn tại</span>
+              )}
             </div>
 
             <div>
               <b>Ngày khởi hành:</b>{" "}
-              {new Date(
-                booking.trip?.departureTime
-              ).toLocaleString("vi-VN")}
+              {booking.trip?.departureTime
+                ? new Date(booking.trip.departureTime).toLocaleString("vi-VN")
+                : "Đang cập nhật..."}
             </div>
 
             <div>
-              <b>Ghế đã đặt:</b>{" "}
-              {booking.seats?.join(", ")}
+              <b>Ghế đã đặt:</b> {booking.seats?.join(", ") || "Chưa chọn"}
             </div>
 
             <div>
-              <b>Số lượng vé:</b>{" "}
-              {booking.seats?.length}
+              <b>Số lượng vé:</b> {booking.seats?.length || 0}
             </div>
 
             <div>
-              <b>Tổng tiền:</b>{" "}
-              {booking.totalPrice?.toLocaleString(
-                "vi-VN"
-              )} đ
+              <b>Tổng tiền:</b> {(booking.totalPrice || 0).toLocaleString("vi-VN")} đ
             </div>
 
             <div>
               <b>Trạng thái:</b>
-
               <Tag
                 className="ml-2"
                 color={
-                  booking.status ===
-                  "Đã xác nhận"
+                  booking.status === "Đã xác nhận"
                     ? "green"
-                    : booking.status ===
-                      "Đã huỷ"
+                    : booking.status === "Đã huỷ"
                     ? "red"
-                    : booking.status ===
-                      "Hoàn thành"
+                    : booking.status === "Hoàn thành"
                     ? "blue"
                     : "orange"
                 }
               >
-                {booking.status}
+                {booking.status || "Chờ xác nhận"}
               </Tag>
             </div>
 
             <div>
               <b>Ngày đặt:</b>{" "}
-              {new Date(
-                booking.createdAt
-              ).toLocaleString("vi-VN")}
+              {booking.createdAt
+                ? new Date(booking.createdAt).toLocaleString("vi-VN")
+                : "Đang cập nhật..."}
             </div>
           </div>
         )}

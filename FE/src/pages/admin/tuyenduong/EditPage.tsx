@@ -44,9 +44,6 @@ function JourneyEditPage() {
           <Input placeholder="VD: 2 giờ 40 phút" />
         </Form.Item>
 
-        <Form.Item label="Giá Vé" name="price" rules={[{ required: true, message: "Vui lòng nhập giá vé" }]}>
-          <InputNumber className="w-full" min={0} placeholder="VD: 100000" />
-        </Form.Item>
 
         {/* Điểm Đón */}
         <div className="mb-4">

@@ -25,7 +25,10 @@ import StaffEditPage from "./pages/admin/danhsachnhanvien/EditPage";
 
 // Trip pages
 import TripListPage from "./pages/admin/trip/ListPage";
-
+// giave
+import FareRuleListPage from "./pages/admin/giave/ListPage";
+import FareRuleEditPage from "./pages/admin/giave/EditPage";
+import FareRuleAddPage from "./pages/admin/giave/AddPage";
 //cap quyen
 import UserListPage from "./pages/admin/capquyen/ListPage";
 import UserEditPage from "./pages/admin/capquyen/EditPage";
@@ -51,6 +54,8 @@ import UserAddPage from "./pages/admin/capquyen/AddPage";
 import BookingSeats from "./pages/client/Booking";
 import LoginClientPage from "./pages/client/login";
 import TicketSuccessPage from "./pages/client/TicketSuccessPage";
+import RegisterClientPage from "./pages/client/Register";
+
 
 
 
@@ -188,6 +193,7 @@ function App() {
             <Route path="/khachhang/booking/:tripId" element={<BookingSeats />} />
             <Route path="/khachhang/booking/success" element={<TicketSuccessPage />} />
             <Route path="/khachhang/login" element={<LoginClientPage />} />
+            <Route path="/khachhang/register" element={<RegisterClientPage />} />
             {/* Driver Route */}
             <Route path="/taixe" element={<TaiXePage />} />
             <Route path="/taixe/feedback" element={<Feedback />} />
@@ -227,7 +233,10 @@ function App() {
               <Route path="tk/list" element={<UserListPage />} />
               <Route path="tk/add" element={<UserAddPage />} />
               <Route path="tk/edit/:id" element={<UserEditPage />} />
-
+              {/* Giá vé */}
+              <Route path="giave/list" element={<FareRuleListPage />} />
+              <Route path="giave/add" element={<FareRuleAddPage />} />
+              <Route path="giave/edit/:id" element={<FareRuleEditPage />} />
               {/* Booking management route */}
               <Route path="booking/list" element={<BookingListPage />} />
               <Route path="booking/add" element={<BookingAddPage />} />

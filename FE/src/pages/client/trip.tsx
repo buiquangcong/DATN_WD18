@@ -577,4 +577,4 @@ export default function Trip(): React.ReactElement {
       </div>
     </ClientLayout>
   );
-}
+}

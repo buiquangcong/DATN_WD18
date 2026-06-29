@@ -60,12 +60,6 @@ function JourneyListPage() {
       render: (time: string) => <span className="text-gray-600">{time}</span>,
     },
     {
-      title: "Giá Vé",
-      dataIndex: "price",
-      key: "price",
-      render: (price: number) => <span className="text-gray-600">{price}</span>,
-    },
-    {
       title: "Điểm Đón",
       dataIndex: "diemDon",
       key: "diemDon",
@@ -149,7 +143,7 @@ function JourneyListPage() {
             <div className="grid grid-cols-2 gap-3">
               <div><p className="text-xs text-gray-400">Quãng Đường</p><p>{journey.quangDuong} km</p></div>
               <div><p className="text-xs text-gray-400">Thời Gian Di Chuyển</p><p>{journey.thoiGianDiChuyen}</p></div>
-              <div><p className="text-xs text-gray-400">Giá Vé</p><p className="text-green-600 font-semibold">{Number(journey.price).toLocaleString("vi-VN")} đ</p></div>
+              
               <div>
                 <p className="text-xs text-gray-400">Trạng Thái</p>
                 <Tag color={journey.trangThai ? "green" : "red"}>

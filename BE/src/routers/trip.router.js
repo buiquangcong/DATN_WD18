@@ -1,15 +1,15 @@
 import { Router } from "express";
-import { createOne, deleteOne, getAll, updateOne } from "../controllers/trip.controller";
+import { createOne, deleteOne, getAll, updateOne,createSchedule, getDrivers } from "../controllers/trip.controller";
 import { getOne } from "../controllers/trip.controller";
 
 
 const tripRouter = Router();
 
 tripRouter.get("/", getAll);
+tripRouter.get("/drivers", getDrivers);
 tripRouter.get("/:id", getOne);
-
 tripRouter.post("/add",  createOne);
-tripRouter.put("/edit/:id",  updateOne);
+tripRouter.post("/generate",createSchedule);
 tripRouter.put("/update/:id",  updateOne);
 tripRouter.delete("/delete/:id", deleteOne);
 
