@@ -1,11 +1,11 @@
-import asyncHandler from "../utils/asyncHandler";
-import Otp from "../models/otp.model";
-import User from "../models/user.model";
-import sendMail from "../utils/sendMail";
-import ticketEventEmitter from "../utils/ticketEvent";
+import asyncHandler from "../utils/asyncHandler.js";
+import Otp from "../models/otp.model.js";
+import User from "../models/user.model.js";
+import sendMail from "../utils/sendMail.js";
+import ticketEventEmitter from "../utils/ticketEvent.js";
 
 // ==========================================
-// 1. API GỬI MÃ OTP VỀ EMAIL
+// 1. API: GỬI MÃ OTP VỀ EMAIL ĐĂNG KÝ
 // ==========================================
 export const sendOtp = asyncHandler(async (req, res) => {
   const { email } = req.body;
@@ -21,21 +21,23 @@ export const sendOtp = asyncHandler(async (req, res) => {
   await Otp.deleteMany({ email });
   await Otp.create({ email, otp: otpCode });
 
-  // Tiến hành gửi email qua Nodemailer
+  // Tiến hành gửi email qua Nodemailer chuẩn thương hiệu NetBus
   await sendMail({
     email: email,
-    subject: "[Bee Green] Mã xác thực OTP của bạn",
+    subject: "[NetBus] Mã xác thực OTP của bạn",
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 500px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
         <h2 style="color: #2E7D32; text-align: center;">XÁC THỰC EMAIL</h2>
         <p>Chào bạn,</p>
-        <p>Bạn đang thực hiện thao tác xác thực trên hệ thống Bee Green. Mã OTP của bạn là:</p>
+        <p>Bạn đang thực hiện thao tác xác thực trên hệ thống mạng lưới vận tải thông minh <b>NetBus</b>. Mã OTP của bạn là:</p>
         <div style="text-align: center; margin: 20px 0;">
           <span style="font-size: 28px; font-weight: bold; letter-spacing: 5px; color: #fff; background: #2E7D32; padding: 10px 20px; border-radius: 5px; display: inline-block;">
             ${otpCode}
           </span>
         </div>
         <p style="color: #ff5722; font-size: 13px;">* Mã OTP này có hiệu lực trong vòng 5 phút. Vui lòng tuyệt đối không chia sẻ mã này với bất kỳ ai.</p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+        <p style="text-align: center; color: #2E7D32; font-weight: bold; font-size: 13px;">NetBus - Chạm là đi</p>
       </div>
     `,
   });
@@ -47,7 +49,7 @@ export const sendOtp = asyncHandler(async (req, res) => {
 });
 
 // ==========================================
-// 2. API XÁC THỰC MÃ OTP (VALIDATE ĐẦU VÀO)
+// 2. API: XÁC THỰC MÃ OTP (VALIDATE ĐẦU VÀO)
 // ==========================================
 export const verifyOtp = asyncHandler(async (req, res) => {
   const { email, otpInput } = req.body;
@@ -84,10 +86,10 @@ export const verifyOtp = asyncHandler(async (req, res) => {
 });
 
 // ==========================================
-// 3. API GỬI VÉ XE ONLINE VỀ MAIL KHÁCH HÀNG
+// 3. API: GỬI VÉ XE ONLINE CHỦ ĐỘNG QUA HTTP REQUEST
 // ==========================================
 export const sendTicket = asyncHandler(async (req, res) => {
-  const { email, customerName, ticketId, route, departureTime, seatNumber, totalPrice } = req.body;
+  const { email, customerName, ticketId, route, departureTime, seatNumber, totalPrice, busType } = req.body;
 
   if (!email || !ticketId) {
     return res.status(400).json({ message: "Thiếu thông tin gửi vé xe!" });
@@ -95,47 +97,94 @@ export const sendTicket = asyncHandler(async (req, res) => {
 
   await sendMail({
     email: email,
-    subject: `[Bee Green] Vé xe điện tử của bạn - Mã vé: ${ticketId}`,
+    subject: `[NetBus] Vé xe điện tử của bạn - Mã vé: ${ticketId}`,
     html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #dadada; border-radius: 8px; overflow: hidden;">
-        <div style="background: #2E7D32; color: white; padding: 20px; text-align: center;">
-          <h1 style="margin: 0; font-size: 24px;">VÉ XE ĐIỆN TỬ ONLINE</h1>
-          <p style="margin: 5px 0 0 0; opacity: 0.8;">Hệ thống đặt vé thông minh Bee Green</p>
+      <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 500px; margin: 20px auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #eef2f5;">
+        <div style="padding: 20px 10px; text-align: center; background-color: #f8fafc;">
+          <h2 style="margin: 0; color: #2E7D32; font-size: 22px; font-weight: 700; letter-spacing: 0.5px;">ĐẶT VÉ THÀNH CÔNG!</h2>
+          <p style="margin: 5px 0 0 0; color: #64748b; font-size: 14px;">Cảm ơn bạn đã lựa chọn NetBus</p>
         </div>
-        
-        <div style="padding: 25px; background: #fff; line-height: 1.6;">
-          <h3 style="color: #2E7D32; margin-top: 0; border-bottom: 2px dashed #eee; padding-bottom: 10px;">THÔNG TIN HÀNH KHÁCH</h3>
-          <p><b>Họ và tên:</b> ${customerName || "Khách hàng"}</p>
-          <p><b>Email nhận vé:</b> ${email}</p>
-          
-          <h3 style="color: #2E7D32; margin-top: 20px; border-bottom: 2px dashed #eee; padding-bottom: 10px;">CHI TIẾT CHUYẾN ĐI</h3>
+
+        <div style="background-color: #1e293b; color: #ffffff; padding: 24px; position: relative;">
           <table style="width: 100%; border-collapse: collapse;">
             <tr>
-              <td style="padding: 5px 0;"><b>Mã số vé:</b></td>
-              <td style="text-align: right; color: #d32f2f; font-weight: bold;">${ticketId}</td>
-            </tr>
-            <tr>
-              <td style="padding: 5px 0;"><b>Tuyến xe:</b></td>
-              <td style="text-align: right;">${route}</td>
-            </tr>
-            <tr>
-              <td style="padding: 5px 0;"><b>Giờ khởi hành:</b></td>
-              <td style="text-align: right; color: #333;"><b>${departureTime}</b></td>
-            </tr>
-            <tr>
-              <td style="padding: 5px 0;"><b>Vị trí ghế:</b></td>
-              <td style="text-align: right; font-weight: bold; color: #1976D2;">${seatNumber}</td>
-            </tr>
-            <tr style="border-top: 1px solid #eee;">
-              <td style="padding: 15px 0 0 0; font-size: 16px;"><b>Tổng tiền thanh toán:</b></td>
-              <td style="text-align: right; padding: 15px 0 0 0; font-size: 16px; color: #d32f2f; font-weight: bold;">${totalPrice} VNĐ</td>
+              <td>
+                <div style="display: inline-flex; align-items: center; gap: 6px;">
+                  <span style="background-color: #2E7D32; color: white; font-size: 11px; font-weight: bold; padding: 3px 8px; border-radius: 4px;">NETBUS</span>
+                </div>
+              </td>
+              <td style="text-align: right;">
+                <span style="background-color: #2e7d32; color: #ffffff; font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 20px;">Đã xác nhận</span>
+              </td>
             </tr>
           </table>
+
+          <table style="width: 100%; margin-top: 24px; border-collapse: collapse;">
+            <tr>
+              <td style="width: 40%;">
+                <span style="color: #94a3b8; font-size: 12px; text-transform: uppercase; font-weight: 600;">Điểm đi</span>
+                <h2 style="margin: 4px 0 0 0; font-size: 24px; font-weight: 700; color: #ffffff;">${route?.split("→")[0]?.trim() || "Hà Nội"}</h2>
+              </td>
+              <td style="width: 20%; text-align: center; vertical-align: middle;">
+                <span style="font-size: 20px; color: #64748b;">➔</span>
+              </td>
+              <td style="width: 40%; text-align: right;">
+                <span style="color: #94a3b8; font-size: 12px; text-transform: uppercase; font-weight: 600;">Điểm đến</span>
+                <h2 style="margin: 4px 0 0 0; font-size: 24px; font-weight: 700; color: #ffffff;">${route?.split("→")[1]?.trim() || "Phú Thọ"}</h2>
+              </td>
+            </tr>
+          </table>
+
+          <div style="margin-top: 16px; font-size: 13px; color: #cbd5e1; border-top: 1px solid #334155; padding-top: 12px;">
+            📍 <b>Dịch vụ:</b> ${busType || "Xe giường nằm VIP-12 Express"}
+          </div>
+        </div>
+
+        <div style="background-color: #1e293b; height: 4px; position: relative;">
+          <div style="border-top: 2px dashed #ffffff; opacity: 0.2; margin: 0 12px;"></div>
+        </div>
+
+        <div style="padding: 24px; background-color: #ffffff;">
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+            <tr>
+              <td style="width: 50%; padding-bottom: 16px;">
+                <span style="color: #94a3b8; font-size: 11px; text-transform: uppercase; font-weight: 600; display:block;">Hành khách</span>
+                <strong style="color: #334155; font-size: 14px; display:block; margin-top: 4px;">👤 ${customerName}</strong>
+              </td>
+              <td style="width: 50%; padding-bottom: 16px; padding-left: 10px;">
+                <span style="color: #94a3b8; font-size: 11px; text-transform: uppercase; font-weight: 600; display:block;">Thời gian đi</span>
+                <strong style="color: #334155; font-size: 14px; display:block; margin-top: 4px;">🕒 ${departureTime}</strong>
+              </td>
+            </tr>
+            <tr>
+              <td style="width: 50%;">
+                <span style="color: #94a3b8; font-size: 11px; text-transform: uppercase; font-weight: 600; display:block;">Vị trí giường</span>
+                <strong style="color: #1976D2; font-size: 16px; display:block; margin-top: 4px;">${seatNumber}</strong>
+              </td>
+              <td style="width: 50%; padding-left: 10px;">
+                <span style="color: #94a3b8; font-size: 11px; text-transform: uppercase; font-weight: 600; display:block;">Mã vé điện tử</span>
+                <strong style="color: #334155; font-size: 15px; display:block; margin-top: 4px; letter-spacing: 0.5px;">${ticketId}</strong>
+              </td>
+            </tr>
+          </table>
+
+          <div style="border-top: 1px solid #f1f5f9; padding-top: 20px; margin-top: 10px;">
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="vertical-align: middle;">
+                  <span style="color: #94a3b8; font-size: 12px; font-weight: 600; text-transform: uppercase; display:block;">Tổng tiền thanh toán</span>
+                  <span style="color: #dc2626; font-size: 24px; font-weight: 800; display:block; margin-top: 4px;">${totalPrice?.toLocaleString()}đ</span>
+                </td>
+                <td style="text-align: right; width: 80px; vertical-align: middle;">
+                  <img src="https://api.qrserver.com/v1/create-qr-code/?size=70x70&data=${ticketId}" alt="Mã QR Vé" style="width: 70px; height: 70px; border: 1px solid #e2e8f0; padding: 4px; border-radius: 8px;" />
+                </td>
+              </tr>
+            </table>
+          </div>
         </div>
         
-        <div style="background: #f9f9f9; padding: 15px; text-align: center; border-top: 1px solid #eee; font-size: 12px; color: #666;">
-          <p style="margin: 0;">Vui lòng xuất trình email này cho tài xế hoặc nhân viên soát vé trước khi lên xe.</p>
-          <p style="margin: 5px 0 0 0; font-weight: bold; color: #2E7D32;">Bee Green chúc bạn có một hành trình an toàn và vui vẻ!</p>
+        <div style="background-color: #f8fafc; padding: 12px; text-align: center; border-top: 1px solid #f1f5f9; font-size: 11px; color: #94a3b8;">
+          Vui lòng xuất trình email này cho tài xế hoặc nhân viên soát vé khi lên xe. NetBus chúc bạn một chuyến đi an toàn!
         </div>
       </div>
     `,
@@ -147,60 +196,133 @@ export const sendTicket = asyncHandler(async (req, res) => {
   });
 });
 
+// ==========================================
+// 4. EVENT LISTENER: TỰ ĐỘNG GỬI VÉ XE (MÔ HÌNH EVENT-DRIVEN)
+// ==========================================
 ticketEventEmitter.on("ticket.success", async (ticketData) => {
-  console.log("=== [Event-Driven] Phát hiện sự kiện đặt vé thành công! Đang tiến hành gửi mail... ===");
+  console.log("=== [NETBUS Event] Phát hiện đơn hàng mới! Đang xử lý gửi vé điện tử... ===");
   
+  // Xử lý tách chuỗi hành trình giống hệt logic trên Web khách hàng
+  const routeString = ticketData.route || "Hà Nội → Phú Thọ";
+  const parts = routeString.split("→");
+  const diemDi = parts[0]?.trim() || "Điểm đi";
+  const diemDen = parts[1]?.trim() || "Điểm đến";
+
   try {
-    // Gọi hàm gửi mail thông qua Nodemailer
     await sendMail({
       email: ticketData.email,
-      subject: `[Bee Green] Vé xe điện tử của bạn - Mã vé: ${ticketData._id || ticketData.ticketId}`,
+      subject: `[NetBus] Vé xe điện tử của bạn - Mã vé: ${ticketData.ticketId}`,
       html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #dadada; border-radius: 8px; overflow: hidden;">
-          <div style="background: #2E7D32; color: white; padding: 20px; text-align: center;">
-            <h1 style="margin: 0; font-size: 24px;">VÉ XE ĐIỆN TỬ ONLINE</h1>
-            <p style="margin: 5px 0 0 0; opacity: 0.8;">Hệ thống đặt vé thông minh Bee Green</p>
-          </div>
-          <div style="padding: 25px; background: #fff; line-height: 1.6;">
-            <h3 style="color: #2E7D32; margin-top: 0; border-bottom: 2px dashed #eee; padding-bottom: 10px;">THÔNG TIN HÀNH KHÁCH</h3>
-            <p><b>Họ và tên:</b> ${ticketData.customerName || "Khách hàng"}</p>
-            <p><b>Email nhận vé:</b> ${ticketData.email}</p>
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; padding: 40px 0;">
+          <div style="max-width: 450px; margin: 0 auto; padding: 0 16px;">
             
-            <h3 style="color: #2E7D32; margin-top: 20px; border-bottom: 2px dashed #eee; padding-bottom: 10px;">CHI TIẾT CHUYẾN ĐI</h3>
-            <table style="width: 100%; border-collapse: collapse;">
-              <tr>
-                <td style="padding: 5px 0;"><b>Mã số vé:</b></td>
-                <td style="text-align: right; color: #d32f2f; font-weight: bold;">${ticketData._id || ticketData.ticketId}</td>
-              </tr>
-              <tr>
-                <td style="padding: 5px 0;"><b>Tuyến xe:</b></td>
-                <td style="text-align: right;">${ticketData.route}</td>
-              </tr>
-              <tr>
-                <td style="padding: 5px 0;"><b>Giờ khởi hành:</b></td>
-                <td style="text-align: right; color: #333;"><b>${ticketData.departureTime}</b></td>
-              </tr>
-              <tr>
-                <td style="padding: 5px 0;"><b>Vị trí ghế:</b></td>
-                <td style="text-align: right; font-weight: bold; color: #1976D2;">${ticketData.seatNumber}</td>
-              </tr>
-              <tr style="border-top: 1px solid #eee;">
-                <td style="padding: 15px 0 0 0; font-size: 16px;"><b>Tổng tiền thanh toán:</b></td>
-                <td style="text-align: right; padding: 15px 0 0 0; font-size: 16px; color: #d32f2f; font-weight: bold;">${ticketData.totalPrice?.toLocaleString()} VNĐ</td>
-              </tr>
-            </table>
-          </div>
-          
-          <div style="background: #f9f9f9; padding: 15px; text-align: center; border-top: 1px solid #eee; font-size: 12px; color: #666;">
-            <p style="margin: 0;">Vui lòng xuất trình email này cho tài xế hoặc nhân viên soát vé trước khi lên xe.</p>
-            <p style="margin: 5px 0 0 0; font-weight: bold; color: #2E7D32;">Bee Green chúc bạn có một hành trình an toàn và vui vẻ!</p>
+            <div style="text-align: center; padding-bottom: 24px;">
+              <div style="font-size: 36px; line-height: 1; margin-bottom: 8px;">✅</div>
+              <h2 style="margin: 0; color: #16a34a; font-size: 20px; font-weight: 600; letter-spacing: 0.5px;">ĐẶT VÉ THÀNH CÔNG!</h2>
+              <p style="margin: 4px 0 0 0; color: #475569; font-size: 14px;">Cảm ơn bạn đã lựa chọn NETBUS</p>
+            </div>
+
+            <div style="border-radius: 30px; box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08); overflow: hidden; background: #ffffff;">
+              
+              <div style="background: #1e293b; padding: 28px 24px 24px 24px; color: #ffffff;">
+                
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+                  <tr>
+                    <td style="vertical-align: middle;">
+                      <span style="color: #ffffff; font-size: 16px; font-weight: bold; letter-spacing: 1px;">NETBUS</span>
+                    </td>
+                    <td style="text-align: right; vertical-align: middle;">
+                      <span style="display: inline-block; border-radius: 20px; background-color: #16a34a; color: #ffffff; font-size: 12px; font-weight: 600; padding: 4px 12px; border: none;">
+                        Đã xác nhận
+                      </span>
+                    </td>
+                  </tr>
+                </table>
+
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 16px;">
+                  <tr>
+                    <td style="width: 40%; vertical-align: top;">
+                      <div style="color: #cbd5e1; font-size: 12px; text-transform: uppercase; margin-bottom: 2px;">Điểm đi</div>
+                      <div style="color: #ffffff; font-size: 20px; font-weight: bold;">${diemDi}</div>
+                    </td>
+                    <td style="width: 20%; text-align: center; vertical-align: middle; color: #64748b; font-size: 20px;">
+                      ➔
+                    </td>
+                    <td style="width: 40%; text-align: right; vertical-align: top;">
+                      <div style="color: #cbd5e1; font-size: 12px; text-transform: uppercase; margin-bottom: 2px;">Điểm đến</div>
+                      <div style="color: #ffffff; font-size: 20px; font-weight: bold;">${diemDen}</div>
+                    </td>
+                  </tr>
+                </table>
+
+                <div style="color: #cbd5e1; font-size: 13px; display: flex; align-items: center;">
+                  <span style="color: #38bdf8; margin-right: 6px;">📍</span> 
+                  Dịch vụ: <span style="color: #ffffff; font-weight: 500; margin-left: 4px;">${ticketData.busType || "Xe NETBUS Luxury"}</span>
+                </div>
+              </div>
+
+              <table style="width: 100%; background: #ffffff; border-collapse: collapse; height: 24px; overflow: hidden;" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="width: 12px; background: #f1f5f9; border-radius: 0 12px 12px 0;"></td>
+                  <td style="vertical-align: middle; padding: 0 8px;">
+                    <div style="border-top: 2px dashed #e2e8f0; width: 100%; height: 1px;"></div>
+                  </td>
+                  <td style="width: 12px; background: #f1f5f9; border-radius: 12px 0 0 12px;"></td>
+                </tr>
+              </table>
+
+              <div style="background: #ffffff; padding: 4px 24px 28px 24px;">
+                
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td style="width: 50%; padding-bottom: 20px; vertical-align: top;">
+                      <div style="color: #64748b; font-size: 11px; text-transform: uppercase; margin-bottom: 4px;">Hành khách</div>
+                      <div style="color: #0f172a; font-size: 14px; font-weight: bold;">👤 ${ticketData.customerName || "Hành khách NETBUS"}</div>
+                    </td>
+                    <td style="width: 50%; padding-bottom: 20px; vertical-align: top; padding-left: 10px;">
+                      <div style="color: #64748b; font-size: 11px; text-transform: uppercase; margin-bottom: 4px;">Thời gian đi</div>
+                      <div style="color: #0f172a; font-size: 14px; font-weight: bold;">🕒 ${ticketData.departureTime}</div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="width: 50%; vertical-align: top;">
+                      <div style="color: #64748b; font-size: 11px; text-transform: uppercase; margin-bottom: 4px;">Vị trí giường</div>
+                      <div style="color: #0284c7; font-size: 15px; font-weight: bold;">${ticketData.seatNumber || "Chưa chọn"}</div>
+                    </td>
+                    <td style="width: 50%; vertical-align: top; padding-left: 10px;">
+                      <div style="color: #64748b; font-size: 11px; text-transform: uppercase; margin-bottom: 4px;">Mã vé điện tử</div>
+                      <div style="color: #334155; font-size: 14px; font-weight: bold;">${ticketData.ticketId}</div>
+                    </td>
+                  </tr>
+                </table>
+
+                <div style="height: 1px; background: #f1f5f9; margin: 24px 0 16px 0;"></div>
+
+                <table style="width: 100%; border-collapse: collapse;">
+                  <tr>
+                    <td style="vertical-align: middle;">
+                      <div style="color: #64748b; font-size: 11px; text-transform: uppercase; margin-bottom: 4px;">Tổng tiền thanh toán</div>
+                      <div style="color: #ef4444; font-size: 24px; font-weight: 800; margin: 0;">
+                        ${ticketData.totalPrice ? ticketData.totalPrice.toLocaleString("vi-VN") : "0"}đ
+                      </div>
+                    </td>
+                    <td style="text-align: right; width: 62px; vertical-align: middle;">
+                      <div style="padding: 6px; border: 1px solid #e2e8f0; border-radius: 14px; background: #f8fafc; display: inline-block;">
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=50x50&data=${ticketData.ticketId}" alt="Mã QR Vé" style="width: 50px; height: 50px; display: block;" />
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+
+              </div>
+            </div>
+
           </div>
         </div>
       `,
     });
-    
-    console.log(`=== [Event-Driven] Gửi vé điện tử thành công tới email: ${ticketData.email} ===`);
+    console.log(`=== [NETBUS Event] Đã tự động xuất vé điện tử chuẩn UI Web gửi tới: ${ticketData.email} ===`);
   } catch (error) {
-    console.error("=== [Event-Driven LỖI] Không thể gửi mail vé xe:", error.message);
+    console.error("=== [NETBUS Event LỖI] Không thể gửi mail vé xe:", error.message);
   }
-});
+}); 
