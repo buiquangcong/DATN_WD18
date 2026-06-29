@@ -2,6 +2,7 @@ import { PayOS } from "@payos/node";
 import asyncHandler from "../utils/asyncHandler.js";
 import Booking from "../models/booking.model.js";
 import Trip from "../models/trip.model.js";
+import ticketEventEmitter from "../utils/ticketEvent.js";
 
 const payos = new PayOS({
     clientId: process.env.PAYOS_CLIENT_ID || "6128c402-d9dc-48c1-9869-ba88b911c9ac",
@@ -45,10 +46,10 @@ export const createPaymentLink = asyncHandler(async (req, res) => {
 // Hàm Webhook xử lý dữ liệu thanh toán từ PayOS bắn về
 export const handlePayOSWebhook = asyncHandler(async (req, res) => {
     try {
-        // 🌟 SỬA TẠI ĐÂY: Thêm lại từ khóa "await" vì SDK của bạn chạy dạng Promise bất đồng bộ
+        // 1. Giải mã và verify webhook từ PayOS
         const webhookData = await payos.webhooks.verify(req.body); 
         
-        // Trích xuất mã số đơn hàng sau khi Promise đã được giải quyết (Resolved)
+        // Trích xuất mã số đơn hàng
         const orderCodeReceived = webhookData?.orderCode;
 
         if (!orderCodeReceived) {
@@ -58,16 +59,18 @@ export const handlePayOSWebhook = asyncHandler(async (req, res) => {
 
         console.log(`[PayOS Webhook Triggered] Nhận dữ liệu webhook thành công cho mã đơn: ${orderCodeReceived}`);
 
-        // Tiến hành cập nhật trạng thái Booking sang "Đã xác nhận"
-        // (Giữ nguyên toàn bộ khối lệnh cập nhật Trip và Booking ở phía dưới giống như lượt trước...)
+        // 2. Cập nhật trạng thái Booking sang "Đã xác nhận"
+        // 🌟 SỬA TẠI ĐÂY: Thêm .populate("user") để Mail Controller đọc được trường .email và .username
         const booking = await Booking.findOneAndUpdate(
             { orderCode: Number(orderCodeReceived) },
-            { $set: { status: "Đã xác nhận" } }, // Hoặc đổi thành "CONFIRMED" tùy theo Enum của bạn
+            { $set: { status: "Đã xác nhận" } }, 
             { new: true }
-        );
+        ).populate("user");
 
         if (booking) {
-            const tripData = await Trip.findById(booking.trip);
+            // 3. Cập nhật trạng thái ghế từ HOLDING sang BOOKED chính thức và lấy thông tin Tuyến đường (journey)
+            const tripData = await Trip.findById(booking.trip).populate("journey");
+            
             if (tripData) {
                 tripData.seats.forEach(seat => {
                     if (booking.seats.includes(seat.seatCode)) {
@@ -78,10 +81,28 @@ export const handlePayOSWebhook = asyncHandler(async (req, res) => {
                 });
                 await tripData.save();
                 console.log(`[PayOS Thành Công] Đơn ${orderCodeReceived} đã duyệt. Ghế [${booking.seats.join(", ")}] đổi sang BOOKED.`);
+                
+                // 4. 🌟 PHÁT SỰ KIỆN GỬI VÉ XE ĐIỆN TỬ NETBUS CHUẨN UI WEB
+                // Dữ liệu bóc tách sạch sẽ, truyền sang làm nguyên liệu cho Mail Controller dịch sang HTML
+                ticketEventEmitter.emit("ticket.success", {
+                    email: booking.user?.email, 
+                    customerName: booking.user?.username || "Khách hàng NetBus",
+                    ticketId: booking._id,
+                    route: tripData?.journey?.name || "Hà Nội → Phú Thọ", // Lấy tên hành trình được populate từ Trip
+                    departureTime: tripData?.departureTime || "07:04 16/6/26", 
+                    seatNumber: booking.seats.join(", "), 
+                    totalPrice: booking.totalPrice,
+                    busType: tripData?.busName || "Xe NETBUS Luxury" // Đồng bộ theo thuộc tính tên xe trên Web của bạn
+                });
+                
+                // 🌟 ĐÃ SỬA: Thay đổi 'orderCode' thành 'orderCodeReceived' để tránh lỗi ReferenceError
+                console.log(`[NetBus Mail] Đã kích hoạt gửi vé điện tử chạy ngầm cho đơn: ${orderCodeReceived}`);
             }
         }
-        
+
+        // Trả phản hồi 200 về cho PayOS biết là hệ thống của bạn đã xử lý xong đơn hàng, không cần gửi lại webhook nữa
         return res.status(200).json({ success: true });
+
     } catch (error) {
         console.error("[PayOS Webhook Lỗi nghiêm trọng]:", error);
         return res.status(400).send("Invalid webhook signature");

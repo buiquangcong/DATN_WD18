@@ -10,7 +10,7 @@ const sendMail = async ({ email, subject, html }) => {
   });
 
   const mailOptions = {
-    from: `"Tổng Đài Đặt Vé Bee Green 🚌" <${process.env.EMAIL_USER}>`,
+    from: `"Tổng Đài Đặt Vé NetBus 🚌" <${process.env.EMAIL_USER}>`,
     to: email,
     subject: subject,
     html: html,
