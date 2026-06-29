@@ -2,6 +2,7 @@ import asyncHandler from "../utils/asyncHandler";
 import Otp from "../models/otp.model";
 import User from "../models/user.model";
 import sendMail from "../utils/sendMail";
+import ticketEventEmitter from "../utils/ticketEvent";
 
 // ==========================================
 // 1. API GỬI MÃ OTP VỀ EMAIL
@@ -144,4 +145,62 @@ export const sendTicket = asyncHandler(async (req, res) => {
     success: true,
     message: "Đã xuất vé và gửi email hóa đơn thành công cho khách hàng!",
   });
+});
+
+ticketEventEmitter.on("ticket.success", async (ticketData) => {
+  console.log("=== [Event-Driven] Phát hiện sự kiện đặt vé thành công! Đang tiến hành gửi mail... ===");
+  
+  try {
+    // Gọi hàm gửi mail thông qua Nodemailer
+    await sendMail({
+      email: ticketData.email,
+      subject: `[Bee Green] Vé xe điện tử của bạn - Mã vé: ${ticketData._id || ticketData.ticketId}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #dadada; border-radius: 8px; overflow: hidden;">
+          <div style="background: #2E7D32; color: white; padding: 20px; text-align: center;">
+            <h1 style="margin: 0; font-size: 24px;">VÉ XE ĐIỆN TỬ ONLINE</h1>
+            <p style="margin: 5px 0 0 0; opacity: 0.8;">Hệ thống đặt vé thông minh Bee Green</p>
+          </div>
+          <div style="padding: 25px; background: #fff; line-height: 1.6;">
+            <h3 style="color: #2E7D32; margin-top: 0; border-bottom: 2px dashed #eee; padding-bottom: 10px;">THÔNG TIN HÀNH KHÁCH</h3>
+            <p><b>Họ và tên:</b> ${ticketData.customerName || "Khách hàng"}</p>
+            <p><b>Email nhận vé:</b> ${ticketData.email}</p>
+            
+            <h3 style="color: #2E7D32; margin-top: 20px; border-bottom: 2px dashed #eee; padding-bottom: 10px;">CHI TIẾT CHUYẾN ĐI</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 5px 0;"><b>Mã số vé:</b></td>
+                <td style="text-align: right; color: #d32f2f; font-weight: bold;">${ticketData._id || ticketData.ticketId}</td>
+              </tr>
+              <tr>
+                <td style="padding: 5px 0;"><b>Tuyến xe:</b></td>
+                <td style="text-align: right;">${ticketData.route}</td>
+              </tr>
+              <tr>
+                <td style="padding: 5px 0;"><b>Giờ khởi hành:</b></td>
+                <td style="text-align: right; color: #333;"><b>${ticketData.departureTime}</b></td>
+              </tr>
+              <tr>
+                <td style="padding: 5px 0;"><b>Vị trí ghế:</b></td>
+                <td style="text-align: right; font-weight: bold; color: #1976D2;">${ticketData.seatNumber}</td>
+              </tr>
+              <tr style="border-top: 1px solid #eee;">
+                <td style="padding: 15px 0 0 0; font-size: 16px;"><b>Tổng tiền thanh toán:</b></td>
+                <td style="text-align: right; padding: 15px 0 0 0; font-size: 16px; color: #d32f2f; font-weight: bold;">${ticketData.totalPrice?.toLocaleString()} VNĐ</td>
+              </tr>
+            </table>
+          </div>
+          
+          <div style="background: #f9f9f9; padding: 15px; text-align: center; border-top: 1px solid #eee; font-size: 12px; color: #666;">
+            <p style="margin: 0;">Vui lòng xuất trình email này cho tài xế hoặc nhân viên soát vé trước khi lên xe.</p>
+            <p style="margin: 5px 0 0 0; font-weight: bold; color: #2E7D32;">Bee Green chúc bạn có một hành trình an toàn và vui vẻ!</p>
+          </div>
+        </div>
+      `,
+    });
+    
+    console.log(`=== [Event-Driven] Gửi vé điện tử thành công tới email: ${ticketData.email} ===`);
+  } catch (error) {
+    console.error("=== [Event-Driven LỖI] Không thể gửi mail vé xe:", error.message);
+  }
 });

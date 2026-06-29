@@ -72,7 +72,6 @@ export const createOne = asyncHandler(async (req, res) => {
         }
     }
 
-    // Đánh dấu ghế đã đặt
     tripData.seats.forEach(seat => {
         if (seats.includes(seat.seatCode)) {
             seat.status = "BOOKED";
@@ -81,29 +80,32 @@ export const createOne = asyncHandler(async (req, res) => {
 
     await tripData.save();
 
-const departureDate = new Date(
-  tripData.departureTime
-);
+    const departureDate = new Date(tripData.departureTime);
+    let ticketPrice = tripData.fareRule.weekdayPrice;
 
-let ticketPrice =
-  tripData.fareRule.weekdayPrice;
+    if (departureDate.getDay() === 0 || departureDate.getDay() === 6) {
+        ticketPrice = tripData.fareRule.weekendPrice;
+    }
 
-if (
-  departureDate.getDay() === 0 ||
-  departureDate.getDay() === 6
-) {
-  ticketPrice =
-    tripData.fareRule.weekendPrice;
-}
-
-const totalPrice =
-  ticketPrice * seats.length;
+    const totalPrice = ticketPrice * seats.length;
 
     const booking = await Booking.create({
         user,
         trip,
         seats,
         totalPrice
+    });
+
+    const fullBookingData = await Booking.findById(booking._id).populate("user");
+
+    ticketEventEmitter.emit("ticket.success", {
+        email: fullBookingData.user?.email || req.body.email, 
+        customerName: fullBookingData.user?.username || "Khách hàng NetBus",
+        ticketId: fullBookingData._id,
+        route: tripData.journey?.name || "Tuyến xe nội bộ",
+        departureTime: tripData.departureTime, 
+        seatNumber: seats.join(", "), 
+        totalPrice: totalPrice
     });
 
     return res.status(201).json({
