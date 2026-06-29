@@ -22,7 +22,11 @@ import JourneyEditPage from "./pages/admin/tuyenduong/EditPage"
 import StaffListPage from "./pages/admin/danhsachnhanvien/ListPage";
 import StaffAddPage from "./pages/admin/danhsachnhanvien/AddPage";
 import StaffEditPage from "./pages/admin/danhsachnhanvien/EditPage";
-
+// new pages
+import NewsListPage from "./pages/admin/new/Listpage";
+import NewsAddPage from "./pages/admin/new/AddPage";
+import NewsEditPage from "./pages/admin/new/EditPage";
+import DetailPage from "./pages/admin/new/DetailPage"
 // Trip pages
 import TripListPage from "./pages/admin/trip/ListPage";
 // giave
@@ -41,6 +45,8 @@ import TaiXePage from "./pages/driver/dashboard";
 import Feedback from "./pages/driver/feedback";
 import ListTaixePage from "./pages/driver/list";
 import Login from "./pages/driver/login";
+import TinTucPage from "./pages/client/tintuc"
+import ChiTietTinTucPage from "./pages/client/chitiettintuc"
 
 import BookingListPage from "./pages/admin/booking/ListPage";
 import BookingEditPage from "./pages/admin/booking/EditPage";
@@ -192,6 +198,8 @@ function App() {
             <Route path="/khachhang/booking/:tripId" element={<BookingSeats />} />
             <Route path="/khachhang/booking/success" element={<TicketSuccessPage />} />
             <Route path="/khachhang/login" element={<LoginClientPage />} />
+            <Route path="/khachhang/tintuc" element={<TinTucPage />} />
+            <Route path="/khachhang/tintuc/:id" element={<ChiTietTinTucPage />} />
             {/* Driver Route */}
             <Route path="/taixe" element={<TaiXePage />} />
             <Route path="/taixe/feedback" element={<Feedback />} />
@@ -239,7 +247,11 @@ function App() {
               <Route path="booking/list" element={<BookingListPage />} />
               <Route path="booking/add" element={<BookingAddPage />} />
               <Route path="booking/edit/:id" element={<BookingEditPage />} />
-
+               {/* tintuc*/}
+               <Route path="news/list" element={<NewsListPage/>}></Route>
+               <Route path="news/add" element={<NewsAddPage/>}></Route>
+               <Route path="news/edit/:id" element={<NewsEditPage/>}></Route>
+               <Route path="news/detail/:id" element={<DetailPage/>}></Route>
               <Route path="products" element={<ProductsPage />} />
               <Route path="blog" element={<BlogPage />} />
             </Route>
