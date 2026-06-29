@@ -4,7 +4,6 @@ import {
   Select,
   Input,
   Card,
-  InputNumber,
 } from "antd";
 import { useState } from "react";
 import { useCRUD } from "../../../hooks/useCRUD";
@@ -18,28 +17,51 @@ function BookingAddPage() {
 
   const [price, setPrice] = useState(0);
   const [total, setTotal] = useState(0);
-  const [staffName, setStaffName] = useState("");
+  const [staffName, setStaffName] =
+    useState("");
 
   const changeTrip = (id: string) => {
-    const trip = trips.find(
-      (x: any) => x._id === id
+  const trip = trips.find(
+    (x: any) => x._id === id
+  );
+
+  if (!trip) return;
+
+  const departureDate = new Date(
+    trip.departureTime
+  );
+
+  const day = departureDate.getDay();
+
+  let ticketPrice =
+    trip.fareRule?.weekdayPrice || 0;
+
+  // Thứ 7 hoặc Chủ nhật
+  if (day === 0 || day === 6) {
+    ticketPrice =
+      trip.fareRule?.weekendPrice ||
+      ticketPrice;
+  }
+
+  setPrice(ticketPrice);
+
+  setStaffName(
+    trip.staff?.ten || ""
+  );
+
+  const currentSeats =
+    form.getFieldValue("seats");
+
+  if (currentSeats) {
+    const seatArr = currentSeats
+      .split(",")
+      .filter((x: string) => x.trim());
+
+    setTotal(
+      seatArr.length * ticketPrice
     );
-
-    if (trip) {
-      setPrice(
-        trip.journey?.price || 0
-      );
-
-      setStaffName(
-        trip.staff?.ten || ""
-      );
-
-      form.setFieldValue(
-        "staff",
-        trip.staff?._id
-      );
-    }
-  };
+  }
+};
 
   const changeSeat = (e: any) => {
     const seats = e.target.value
@@ -55,7 +77,6 @@ function BookingAddPage() {
     Add({
       user: values.user,
       trip: values.trip,
-      staff: values.staff,
       seats: values.seats
         .split(",")
         .map((x: string) => x.trim()),
@@ -119,7 +140,7 @@ function BookingAddPage() {
                   {" → "}
                   {t.journey?.diemDen}
                   {" | "}
-                  {t.journey?.price?.toLocaleString(
+                  {t.fareRule?.weekdayPrice?.toLocaleString(
                     "vi-VN"
                   )}
                   đ
@@ -128,7 +149,6 @@ function BookingAddPage() {
             </Select>
           </Form.Item>
 
-          {/* staff id ẩn */}
           <Form.Item
             name="staff"
             hidden
@@ -136,7 +156,9 @@ function BookingAddPage() {
             <Input />
           </Form.Item>
 
-          <Form.Item label="Nhân viên phụ trách">
+          <Form.Item
+            label="Nhân viên phụ trách"
+          >
             <Input
               value={staffName}
               disabled
@@ -160,11 +182,21 @@ function BookingAddPage() {
             />
           </Form.Item>
 
-          <Form.Item label="Tổng tiền">
-            <InputNumber
-              value={total}
+          <Form.Item label="Đơn giá">
+            <Input
+              value={price.toLocaleString(
+                "vi-VN"
+              )}
               disabled
-              className="w-full"
+            />
+          </Form.Item>
+
+          <Form.Item label="Tổng tiền">
+            <Input
+              value={total.toLocaleString(
+                "vi-VN"
+              )}
+              disabled
             />
           </Form.Item>
 

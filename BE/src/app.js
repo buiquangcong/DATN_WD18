@@ -1,11 +1,11 @@
 import express from "express";
-import cors from "cors"; // 1. BẮT BUỘC PHẢI THÊM DÒNG NÀY
+import "dotenv/config";
+import cors from "cors"; 
 import router from "./routers";
 import mongoose from "mongoose";
 
 const app = express();
 
-// 2. Cấu hình CORS (Bây giờ sẽ chạy mượt mà vì đã có import)
 app.use(cors({
     origin: 'http://localhost:5173',
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
@@ -26,7 +26,6 @@ mongoose.connect(
 
 // Định nghĩa các route API
 app.use("/api", router);
-
 // Cấu hình Port
 const port = process.env.PORT || 3000;
 app.listen(port, () => {

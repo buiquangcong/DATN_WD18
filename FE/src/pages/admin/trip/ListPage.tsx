@@ -8,7 +8,6 @@ interface JourneyType {
   _id: string;
   diemDi: string;
   diemDen: string;
-  price: number;
 }
 
 interface BusType {
@@ -17,13 +16,22 @@ interface BusType {
   licensePlates: string; 
   capacity: number;      
 }
+interface FareRuleType {
+  _id: string;
+  weekdayPrice: number;
+  weekendPrice: number;
+  holidayPrice: number;
+  capacity: number;
+}
 
 interface TripType {
   _id: string;
   journey: JourneyType;
   bus: BusType;
   staff: staffType;
+  fareRule: FareRuleType;
   departureTime: string;
+  arrivalTime: string;
   status: "sắp chạy" | "đang chạy" | "hoàn thành" | "huỷ";
 
   seats: {
@@ -93,13 +101,20 @@ function TripListPage() {
       ),
     },
     {
-      title: "Giá vé",
-      render: (_, record) => (
-        <span className="text-green-600 font-medium">
-          {record.journey?.price?.toLocaleString("vi-VN")} đ
-        </span>
-      ),
-    },
+  title: "Thời gian đến",
+  render: (_, record) =>
+    new Date(
+      record.arrivalTime
+    ).toLocaleString("vi-VN"),
+},
+    {
+  title: "Giá thường",
+  render: (_, record) => (
+    <span className="text-green-600 font-medium">
+      {record.fareRule?.weekdayPrice?.toLocaleString("vi-VN")} đ
+    </span>
+  ),
+},
     {
   title: "Số ghế",
   render: (_, record) => {
@@ -235,12 +250,35 @@ function TripListPage() {
           <p>{trip.journey?.thoiGianDiChuyen}</p>
         </div>
 
-        <div>
-          <p className="text-xs text-gray-400">Giá vé</p>
-          <p className="text-green-600 font-semibold">
-            {trip.journey?.price?.toLocaleString("vi-VN")} đ
-          </p>
-        </div>
+       <div>
+  <p className="text-xs text-gray-400">
+    Giá ngày thường
+  </p>
+
+  <p className="text-green-600 font-semibold">
+    {trip.fareRule?.weekdayPrice?.toLocaleString("vi-VN")} đ
+  </p>
+</div>
+
+<div>
+  <p className="text-xs text-gray-400">
+    Giá cuối tuần
+  </p>
+
+  <p className="text-orange-600 font-semibold">
+    {trip.fareRule?.weekendPrice?.toLocaleString("vi-VN")} đ
+  </p>
+</div>
+
+<div>
+  <p className="text-xs text-gray-400">
+    Giá ngày lễ
+  </p>
+
+  <p className="text-red-600 font-semibold">
+    {trip.fareRule?.holidayPrice?.toLocaleString("vi-VN")} đ
+  </p>
+</div>
 
         <div>
           <p className="text-xs text-gray-400">Thời gian khởi hành</p>
