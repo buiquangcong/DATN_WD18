@@ -233,3 +233,19 @@ console.log(autoSeats);
     data: result,
   });
 });
+export const getTripsByStaff = asyncHandler(async (req, res) => {
+  const { staffId } = req.params;
+
+  const trips = await Trip.find({
+    staff: staffId,
+  })
+    .populate("journey")
+    .populate("bus")
+    .populate("fareRule")
+    .populate("staff");
+
+  return res.json({
+    success: true,
+    data: trips,
+  });
+});

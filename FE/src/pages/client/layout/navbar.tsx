@@ -22,16 +22,20 @@ export function Navbar({
       path: "/khachhang/trip",
     },
     {
-      title: "Kết quả tìm kiếm",
-      path: "/khachhang/searchresults",
+      title: "Lịch trình",
+      path: "/khachhang/schedule",
     },
+    // {
+    //   title: "Kết quả tìm kiếm",
+    //   path: "/khachhang/searchresults",
+    // },
     {
       title: "Trợ giúp",
       path: "/khachhang/contact",
     },
     {
-      title:"Tin Tức",
-      path:"/khachhang/tintuc",
+      title: "Tin Tức",
+      path: "/khachhang/tintuc",
     }
   ];
 
@@ -60,10 +64,9 @@ export function Navbar({
                 transition-all
                 duration-300
                 border-b-[3px]
-                ${
-                  isActive
-                    ? "text-primary dark:text-inverse-primary border-primary dark:border-inverse-primary"
-                    : "text-secondary dark:text-secondary-fixed-dim border-transparent hover:text-primary"
+                ${isActive
+                  ? "text-primary dark:text-inverse-primary border-primary dark:border-inverse-primary"
+                  : "text-secondary dark:text-secondary-fixed-dim border-transparent hover:text-primary"
                 }
               `
               }
