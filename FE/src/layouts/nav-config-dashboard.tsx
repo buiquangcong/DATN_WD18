@@ -59,6 +59,11 @@ export const navData = [
     icon: icon('ic-blog'),
   },
   {
+     title: 'tin tuc',
+    path: '/admin/news/list',
+    icon: icon('ic-blog'),
+  },
+  {
     title: 'Đăng nhập',
     path: '/login',
     icon: icon('ic-lock'),

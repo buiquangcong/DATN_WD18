@@ -16,7 +16,7 @@ export function Footer() {
             NETBUS
           </div>
           <p className="text-body-md text-on-surface-variant dark:text-secondary-fixed-dim">
-            Vận tải hành khách NetBus chuyên tuyến Hà Nội - Nghệ An - Hà Tĩnh - Quảng Trị - Đà Nẵng. Vì một tương lai xanh.
+            Vận tải hành khách NetBus chuyên tuyến Miền Bắc . Vì một tương lai xanh.
           </p>
           <div className="flex gap-4">
             <a
@@ -112,7 +112,7 @@ export function Footer() {
           <ul className="space-y-4">
             <li className="flex gap-3 text-on-surface-variant dark:text-secondary-fixed-dim items-center">
               <EnvironmentOutlined className="text-primary" />
-              <span>Đường Mai Thúc Loan, Phường Cửa Lò, Tỉnh Nghệ An</span>
+              <span>123 Trịnh Văn Bô Nam Từ Liêm Hà Nội</span>
             </li>
             <li className="flex gap-3 text-on-surface-variant dark:text-secondary-fixed-dim items-center">
               <PhoneOutlined className="text-primary" />

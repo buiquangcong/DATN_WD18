@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom"
 
 const BASE_URL = "http://localhost:3000/api"
 
-type ResourceType = "staff" | "bus" | "route" | "journey"|"trip"|"tk"|"booking"|"giave"
+type ResourceType = "staff" | "bus" | "route" | "journey"|"trip"|"tk"|"booking"|"giave"|"news"
 
 export const useDetail = (resource: ResourceType, id: string | undefined) => {
     const API = `${BASE_URL}/${resource}`

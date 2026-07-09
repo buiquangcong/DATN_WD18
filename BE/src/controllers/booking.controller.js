@@ -1,7 +1,7 @@
 import asyncHandler from "../utils/asyncHandler.js";
 import Booking from "../models/booking.model.js";
 import Trip from "../models/trip.model.js";
-
+import ticketEventEmitter from "../utils/ticketEvent.js";
 import { PayOS } from "@payos/node";
 
 const payos = new PayOS({
@@ -44,7 +44,6 @@ export const getOne = asyncHandler(async (req, res) => {
     return res.json(booking);
 });
 
-// 🌟 ĐÃ CẬP NHẬT: Hàm tạo đơn, giữ ghế tạm thời, tính FareRule và tách biệt luồng cổng thanh toán
 export const createOne = asyncHandler(async (req, res) => {
     const { user, trip, seats } = req.body;
 
@@ -106,21 +105,23 @@ export const createOne = asyncHandler(async (req, res) => {
         status: "Chờ xác nhận"
     });
 
-    // 5. 🌟 ĐÃ CẬP NHẬT: Luồng chạy ngầm tự động nhả ghế + Hủy link PayOS sau 5 phút
-   setTimeout(async () => {
+
+
+    // 6. Luồng chạy ngầm tự động nhả ghế + Hủy link PayOS sau 5 phút
+    setTimeout(async () => {
         try {
             const checkBooking = await Booking.findById(booking._id);
             
             // Nếu quá 5 phút mà đơn vẫn ở trạng thái chờ xử lý ban đầu
             if (checkBooking && (checkBooking.status === "Chờ xác nhận" || checkBooking.status === "PENDING")) {
                 
-                // 🌟 SỬA TẠI ĐÂY: Dùng updateOne chọc thẳng lõi DB để không bị Mongoose báo lỗi enum Validator
+                // Cập nhật trạng thái đơn sang "Đã huỷ" trực tiếp qua bộ lõi updateOne
                 await Booking.updateOne(
                     { _id: booking._id },
-                    { $set: { status: "Đã hủy" } } // Hoặc đổi thành "CANCELLED" nếu DB của bạn dùng tiếng Anh
+                    { $set: { status: "Đã huỷ" } } 
                 );
 
-                // 5.2 Trả các ghế về trạng thái trống "AVAILABLE"
+                // Trả các ghế về trạng thái trống "AVAILABLE"
                 await Trip.updateOne(
                     { _id: booking.trip },
                     { 
@@ -133,7 +134,7 @@ export const createOne = asyncHandler(async (req, res) => {
                     { arrayFilters: [{ "elem.seatCode": { $in: booking.seats } }] }
                 );
 
-                // 5.3 Hủy bỏ link thanh toán từ xa trên PayOS
+                // Hủy bỏ link thanh toán từ xa trên PayOS
                 try {
                     await payos.cancelPaymentLink(myOrderCode, "Quá hạn 5 phút không thanh toán");
                     console.log(`[PayOS Hủy Link] Đã đóng link QR thành công cho mã đơn: ${myOrderCode}`);
@@ -148,7 +149,7 @@ export const createOne = asyncHandler(async (req, res) => {
         }
     }, minutesToHold * 60 * 1000);
 
-    // 6. Trả data về cho React (React sẽ lấy data._id gọi tiếp sang Payment API tạo link QR)
+    // 7. Trả dữ liệu về cho React (React sẽ lấy data._id hoặc link chuyển tiếp sang PayOS)
     return res.status(201).json({
         message: "Đặt vé thành công, đang chờ thanh toán",
         data: booking
@@ -189,6 +190,8 @@ export const deleteOne = asyncHandler(async (req, res) => {
             }
         });
         await trip.save();
+
+        
     }
 
     await Booking.findByIdAndDelete(req.params.id);
