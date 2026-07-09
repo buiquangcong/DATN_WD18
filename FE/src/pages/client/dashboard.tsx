@@ -369,7 +369,6 @@ export default function ClientDashboard() {
         </div>
       </section>
 
-      {/* Services & Promotions Section */}
       <section
         ref={(el) => {
           if (el) sectionsRef.current[1] = el;
