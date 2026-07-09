@@ -21,13 +21,23 @@ interface BookingFormValues {
   returnDate?: dayjs.Dayjs;
 }
 
+interface PopularRoute {
+  diemDi: string;
+  diemDen: string;
+  thoiGianDiChuyen: string;
+  price: number;
+  busType: string;
+  count: number;
+}
+
 export default function ClientDashboard() {
   const [tripType, setTripType] = useState<"one-way" | "round-trip">("one-way");
   const [selectedFleetTag, setSelectedFleetTag] = useState("VIP 21 Cabin");
   const navigate = useNavigate();
 
-  const [departures, setDepartures] = useState<string[]>(["Hà Nội", "Nghệ An", "Đà Nẵng", "Quảng Trị"]);
-  const [destinations, setDestinations] = useState<string[]>(["Hà Nội", "Nghệ An", "Đà Nẵng", "Quảng Trị"]);
+  const [departures, setDepartures] = useState<string[]>([]);
+  const [destinations, setDestinations] = useState<string[]>([]);
+  const [popularRoutes, setPopularRoutes] = useState<PopularRoute[]>([]);
 
   // Refs for Scroll Reveal animation
   const sectionsRef = useRef<HTMLElement[]>([]);
@@ -42,12 +52,47 @@ export default function ClientDashboard() {
         } else if (Array.isArray(response.data)) {
           data = response.data;
         }
-        
+
         const uniqueDepartures = Array.from(new Set(data.map((t: any) => t.journey?.diemDi).filter(Boolean))) as string[];
         const uniqueDestinations = Array.from(new Set(data.map((t: any) => t.journey?.diemDen).filter(Boolean))) as string[];
-        
+
         if (uniqueDepartures.length > 0) setDepartures(uniqueDepartures);
         if (uniqueDestinations.length > 0) setDestinations(uniqueDestinations);
+
+        const getTicketPrice = (item: any): number => {
+          if (!item.departureTime) return item.journey?.price || item.price || 0;
+          const departureDate = new Date(item.departureTime);
+          if (item.fareRule) {
+            if (departureDate.getDay() === 0 || departureDate.getDay() === 6) {
+              return item.fareRule.weekendPrice;
+            } else {
+              return item.fareRule.weekdayPrice;
+            }
+          }
+          return item.journey?.price || item.price || 0;
+        };
+
+        const routeMap = new Map<string, PopularRoute>();
+        data.forEach((t: any) => {
+          if (!t.journey?.diemDi || !t.journey?.diemDen) return;
+          const key = `${t.journey.diemDi} - ${t.journey.diemDen}`;
+          if (routeMap.has(key)) {
+            routeMap.get(key)!.count += 1;
+          } else {
+            routeMap.set(key, {
+              diemDi: t.journey.diemDi,
+              diemDen: t.journey.diemDen,
+              thoiGianDiChuyen: t.journey.thoiGianDiChuyen || "Không rõ",
+              price: getTicketPrice(t),
+              busType: t.bus?.type || "Ghế ngồi",
+              count: 1
+            });
+          }
+        });
+        const sortedRoutes = Array.from(routeMap.values())
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 3);
+        setPopularRoutes(sortedRoutes);
       } catch (err) {
         console.error("Lỗi lấy thông tin tuyến đường cho trang chủ:", err);
       }
@@ -93,11 +138,13 @@ export default function ClientDashboard() {
     message.success(`Đang mở cổng đặt vé trực tuyến cho tuyến: ${route}`);
   };
 
-  const fleetTags = ["Dòng xe 38 giường"];
+  const fleetTags = ["Dòng xe 38 chỗ", "Dòng xe 45 chỗ"];
 
   const getFleetImageUrl = (tag: string): string => {
     switch (tag) {
-      case "Dòng xe 38 giường":
+      case "Dòng xe 45 chỗ":
+        return "/xe.png";
+      case "Dòng xe 38 chỗ":
       default:
         return "/netbus_student_promo.png";
     }
@@ -124,7 +171,7 @@ export default function ClientDashboard() {
             </h1>
             <p className="text-body-lg max-w-lg opacity-90">
               Trải nghiệm thế hệ tiếp theo của du lịch bằng xe khách. Sự thoải mái, đúng giờ và bền vững được tích hợp vào mỗi hành trình
-trên khắp Việt Nam.
+              trên khắp Việt Nam.
             </p>
           </div>
 
@@ -134,18 +181,16 @@ trên khắp Việt Nam.
               <button
                 type="button"
                 onClick={() => setTripType("one-way")}
-                className={`font-bold pb-2 transition-all cursor-pointer ${
-                  tripType === "one-way" ? "text-primary border-b-2 border-primary" : "text-secondary hover:text-primary"
-                }`}
+                className={`font-bold pb-2 transition-all cursor-pointer ${tripType === "one-way" ? "text-primary border-b-2 border-primary" : "text-secondary hover:text-primary"
+                  }`}
               >
                 One Way
               </button>
               <button
                 type="button"
                 onClick={() => setTripType("round-trip")}
-                className={`font-bold pb-2 transition-all cursor-pointer ${
-                  tripType === "round-trip" ? "text-primary border-b-2 border-primary" : "text-secondary hover:text-primary"
-                }`}
+                className={`font-bold pb-2 transition-all cursor-pointer ${tripType === "round-trip" ? "text-primary border-b-2 border-primary" : "text-secondary hover:text-primary"
+                  }`}
               >
                 Round Trip
               </button>
@@ -155,8 +200,8 @@ trên khắp Việt Nam.
               layout="vertical"
               onFinish={handleSearch}
               initialValues={{
-                origin: "Hà Nội",
-                destination: "Nghệ An",
+                origin: undefined,
+                destination: undefined,
                 departureDate: dayjs(),
               }}
               className="space-y-4"
@@ -169,6 +214,11 @@ trên khắp Việt Nam.
                 >
                   <Select
                     size="large"
+                    showSearch
+                    placeholder="Chọn điểm đi"
+                    filterOption={(input, option) =>
+                      (option?.label ?? "").toLowerCase().includes(input.toLowerCase())
+                    }
                     suffixIcon={<EnvironmentOutlined className="text-outline" />}
                     className="w-full h-12"
                     options={departures.map(d => ({ value: d, label: d }))}
@@ -182,6 +232,11 @@ trên khắp Việt Nam.
                 >
                   <Select
                     size="large"
+                    showSearch
+                    placeholder="Chọn điểm đến"
+                    filterOption={(input, option) =>
+                      (option?.label ?? "").toLowerCase().includes(input.toLowerCase())
+                    }
                     suffixIcon={<CompassOutlined className="text-outline" />}
                     className="w-full h-12"
                     options={destinations.map(d => ({ value: d, label: d }))}
@@ -248,119 +303,68 @@ trên khắp Việt Nam.
           <div className="flex justify-between items-end mb-12">
             <div>
               <span className="text-primary font-bold tracking-widest uppercase text-label-sm">Top Connections</span>
-              <h2 className="text-headline-lg font-headline-lg mt-2 dark:text-white">Tuyến phổ biến</h2>
+              <h2 className="text-headline-lg font-headline-lg mt-2 dark:text-black">Tuyến phổ biến</h2>
             </div>
-            <a className="text-primary font-bold flex items-center gap-2 hover:underline" href="#">
+            <a className="text-primary font-bold flex items-center gap-2 hover:underline" href="/khachhang/trip">
               Xem tất cả lịch trình
               <ArrowRightOutlined />
             </a>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-gutter">
-            {/* Route Card 1 */}
-            <Card
-              className="tonal-card bg-white dark:bg-slate-900 border border-[#E0E4E0] dark:border-slate-800 rounded-xl overflow-hidden hover:shadow-lg transition-all"
-              styles={{ body: { padding: 24 } }}
-            >
-              <div className="space-y-4">
-                <div className="flex justify-between items-start">
-                  <div className="space-y-1">
-                    <h3 className="text-headline-md font-headline-md dark:text-white">
-                      Hà Nội <span className="text-primary mx-2">→</span> Nghệ An
-                    </h3>
-                    <p className="text-label-sm text-secondary dark:text-secondary-fixed-dim font-label-sm">
-                      289km - 5 giờ 30 phút
-                    </p>
-                  </div>
-                  <Tag color="green" className="font-bold">
-                    VIP 21
-                  </Tag>
-                </div>
-                <div className="flex items-center gap-2 py-2">
-                  <span className="text-secondary-fixed-dim line-through text-headline-md">350.000đ</span>
-                  <span className="text-primary text-headline-md font-bold">540.000đ</span>
-                </div>
-                <Button
-                  type="primary"
-                  ghost
-                  size="large"
-                  block
-                  onClick={() => handleBookNow("Hà Nội → Nghệ An (VIP 21)")}
-                  className="font-bold border-2"
-                >
-                  Đặt vé ngay
-                </Button>
+            {popularRoutes.length > 0 ? (
+              popularRoutes.map((route, index) => {
+                const getTagColor = (type: string) => {
+                  if (type.toLowerCase().includes("limousine")) return "cyan";
+                  if (type.toLowerCase().includes("vip")) return "green";
+                  if (type.toLowerCase().includes("sleeper")) return "orange";
+                  return "blue";
+                };
+                return (
+                  <Card
+                    key={index}
+                    className="tonal-card bg-white dark:bg-slate-900 border border-[#E0E4E0] dark:border-slate-800 rounded-xl overflow-hidden hover:shadow-lg transition-all h-full flex flex-col"
+                    styles={{ body: { padding: 24, flex: 1, display: 'flex', flexDirection: 'column' } }}
+                  >
+                    <div className="space-y-4 flex flex-col h-full">
+                      <div className="flex justify-between items-start">
+                        <div className="space-y-1">
+                          <h3 className="text-headline-md font-headline-md text-slate-900 dark:text-black">
+                            {route.diemDi} <span className="text-primary mx-2">→</span> {route.diemDen}
+                          </h3>
+                          <p className="text-label-sm text-secondary dark:text-secondary-fixed-dim font-label-sm">
+                            {route.thoiGianDiChuyen}
+                          </p>
+                        </div>
+                        <Tag color={getTagColor(route.busType)} className="font-bold">
+                          {route.busType}
+                        </Tag>
+                      </div>
+                      <div className="flex items-center gap-2 py-2">
+                        <span className="text-primary text-headline-md font-bold">
+                          {route.price.toLocaleString("vi-VN")}đ
+                        </span>
+                      </div>
+                      <div className="mt-auto pt-2">
+                        <Button
+                          type="primary"
+                          ghost
+                          size="large"
+                          block
+                          onClick={() => navigate(`/khachhang/searchresults?diemDi=${route.diemDi}&diemDen=${route.diemDen}`)}
+                          className="font-bold border-2"
+                        >
+                          Đặt vé ngay
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })
+            ) : (
+              <div className="col-span-1 md:col-span-3 text-center py-8 text-secondary">
+                Không có tuyến xe phổ biến nào lúc này.
               </div>
-            </Card>
-
-            {/* Route Card 2 */}
-            <Card
-              className="tonal-card bg-white dark:bg-slate-900 border border-[#E0E4E0] dark:border-slate-800 rounded-xl overflow-hidden hover:shadow-lg transition-all"
-              styles={{ body: { padding: 24 } }}
-            >
-              <div className="space-y-4">
-                <div className="flex justify-between items-start">
-                  <div className="space-y-1">
-                    <h3 className="text-headline-md font-headline-md dark:text-white">
-                      Hà Nội <span className="text-primary mx-2">→</span> Đà Nẵng
-                    </h3>
-                    <p className="text-label-sm text-secondary dark:text-secondary-fixed-dim font-label-sm">
-                      739km - 13 giờ 30 phút
-                    </p>
-                  </div>
-                  <Tag color="cyan" className="font-bold">
-                    Limousine
-                  </Tag>
-                </div>
-                <div className="flex items-center gap-2 py-2">
-                  <span className="text-primary text-headline-md font-bold">930.000đ</span>
-                </div>
-                <Button
-                  type="primary"
-                  ghost
-                  size="large"
-                  block
-                  onClick={() => handleBookNow("Hà Nội → Đà Nẵng (Limousine)")}
-                  className="font-bold border-2"
-                >
-                  Đặt vé ngay
-                </Button>
-              </div>
-            </Card>
-
-            {/* Route Card 3 */}
-            <Card
-              className="tonal-card bg-white dark:bg-slate-900 border border-[#E0E4E0] dark:border-slate-800 rounded-xl overflow-hidden hover:shadow-lg transition-all"
-              styles={{ body: { padding: 24 } }}
-            >
-              <div className="space-y-4">
-                <div className="flex justify-between items-start">
-                  <div className="space-y-1">
-                    <h3 className="text-headline-md font-headline-md dark:text-white">
-                      Nghệ An <span className="text-primary mx-2">→</span> Quảng Trị
-                    </h3>
-                    <p className="text-label-sm text-secondary dark:text-secondary-fixed-dim font-label-sm">
-                      205km - 5 giờ 30 phút
-                    </p>
-                  </div>
-                  <Tag color="orange" className="font-bold">
-                    Sleeper
-                  </Tag>
-                </div>
-                <div className="flex items-center gap-2 py-2">
-                  <span className="text-primary text-headline-md font-bold">450.000đ</span>
-                </div>
-                <Button
-                  type="primary"
-                  ghost
-                  size="large"
-                  block
-                  onClick={() => handleBookNow("Nghệ An → Quảng Trị (Sleeper)")}
-                  className="font-bold border-2"
-                >
-                  Đặt vé ngay
-                </Button>
-              </div>
-            </Card>
+            )}
           </div>
         </div>
       </section>
@@ -374,7 +378,7 @@ trên khắp Việt Nam.
       >
         <div className="max-w-container-max mx-auto">
           <div className="text-center mb-16 space-y-4">
-            <h2 className="text-headline-lg font-headline-lg dark:text-white">Dịch vụ &amp; Ưu đãi</h2>
+            <h2 className="text-headline-lg font-headline-lg dark:text-black">Dịch vụ &amp; Ưu đãi</h2>
             <p className="text-on-surface-variant dark:text-secondary-fixed-dim max-w-2xl mx-auto">
               Chúng tôi không chỉ cung cấp chuyến đi, mà còn là những trải nghiệm tiện nghi và tiết kiệm nhất cho hành khách.
             </p>
@@ -430,17 +434,16 @@ trên khắp Việt Nam.
       >
         <div className="max-w-container-max mx-auto text-center">
           <div className="mb-16">
-            <h2 className="text-headline-lg font-headline-lg dark:text-white">Tiện ích xe &amp; Đội xe</h2>
+            <h2 className="text-headline-lg font-headline-lg dark:text-black">Tiện ích xe &amp; Đội xe</h2>
             <div className="flex flex-wrap justify-center gap-3 mt-8">
               {fleetTags.map((tag) => (
                 <button
                   key={tag}
                   onClick={() => setSelectedFleetTag(tag)}
-                  className={`px-4 py-2 rounded-full text-label-sm font-bold border transition-colors cursor-pointer ${
-                    selectedFleetTag === tag
-                      ? "bg-primary text-white border-primary"
-                      : "bg-white dark:bg-slate-900 border-outline-variant text-secondary dark:text-secondary-fixed-dim hover:border-primary"
-                  }`}
+                  className={`px-4 py-2 rounded-full text-label-sm font-bold border transition-colors cursor-pointer ${selectedFleetTag === tag
+                    ? "bg-primary text-white border-primary"
+                    : "bg-white dark:bg-slate-900 border-outline-variant text-secondary dark:text-secondary-fixed-dim hover:border-primary"
+                    }`}
                 >
                   {tag}
                 </button>
