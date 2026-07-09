@@ -15,10 +15,27 @@ function EditPage() {
         }
     }, [id, list, form]);
 
+    // Hàm tự động cập nhật số chỗ ngồi khi người dùng thay đổi loại xe
+    const handleValuesChange = (changedValues: any) => {
+        if (changedValues.type) {
+            if (changedValues.type === "Sleeper") {
+                form.setFieldsValue({ capacity: 38 });
+            } else if (changedValues.type === "Seater") {
+                form.setFieldsValue({ capacity: 45 });
+            }
+        }
+    };
+
     return (
         <div className="p-6">
             <h1 className="text-2xl font-semibold mb-6">Chỉnh sửa thông tin xe</h1>
-            <Form layout="vertical" onFinish={(values) => Edit({ id, ...values })} form={form} className="space-y-6">
+            <Form
+                layout="vertical"
+                onFinish={(values) => Edit({ id, ...values })}
+                form={form}
+                onValuesChange={handleValuesChange} // Thêm sự kiện lắng nghe thay đổi giá trị tại đây
+                className="space-y-6"
+            >
 
                 <Form.Item
                     label="Tên xe / Nhà xe"
@@ -72,7 +89,7 @@ function EditPage() {
                 </Form.Item>
 
                 <Form.Item label="Loại xe" name="type" rules={[{ required: true, message: 'Vui lòng chọn loại xe' }]}>
-                    <Select placeholder="Chọn loại xe" options={['Sleeper', 'Seater', 'Limousine'].map((value) => ({ value, label: value }))} />
+                    <Select placeholder="Chọn loại xe" options={['Sleeper', 'Seater'].map((value) => ({ value, label: value }))} />
                 </Form.Item>
 
                 <Form.Item label="Trạng thái" name="status" rules={[{ required: true, message: 'Vui lòng chọn trạng thái' }]}>
