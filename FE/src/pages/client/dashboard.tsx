@@ -250,10 +250,13 @@ trên khắp Việt Nam.
               <span className="text-primary font-bold tracking-widest uppercase text-label-sm">Top Connections</span>
               <h2 className="text-headline-lg font-headline-lg mt-2 dark:text-white">Tuyến phổ biến</h2>
             </div>
-            <a className="text-primary font-bold flex items-center gap-2 hover:underline" href="#">
+            <span
+              className="text-primary font-bold flex items-center gap-2 hover:underline cursor-pointer"
+              onClick={() => navigate("/khachhang/schedule")}
+            >
               Xem tất cả lịch trình
               <ArrowRightOutlined />
-            </a>
+            </span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-gutter">
             {/* Route Card 1 */}

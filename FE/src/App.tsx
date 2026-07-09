@@ -61,6 +61,7 @@ import BookingSeats from "./pages/client/Booking";
 import LoginClientPage from "./pages/client/login";
 import TicketSuccessPage from "./pages/client/TicketSuccessPage";
 import RegisterClientPage from "./pages/client/Register";
+import Schedule from "./pages/client/schedule";
 
 
 
@@ -202,6 +203,7 @@ function App() {
             <Route path="/khachhang/tintuc" element={<TinTucPage />} />
             <Route path="/khachhang/tintuc/:id" element={<ChiTietTinTucPage />} />
             <Route path="/khachhang/register" element={<RegisterClientPage />} />
+            <Route path="/khachhang/schedule" element={<Schedule />} />
             {/* Driver Route */}
             <Route path="/taixe" element={<TaiXePage />} />
             <Route path="/taixe/feedback" element={<Feedback />} />
