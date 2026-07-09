@@ -3,11 +3,31 @@ import { useCRUD } from "../../../hooks/useCRUD";
 
 function AddPage() {
   const { list, Add } = useCRUD("bus");
+  // Sử dụng hook form của Ant Design để có thể can thiệp thay đổi giá trị input
+  const [form] = Form.useForm();
+
+  // Hàm xử lý khi các trường trong form thay đổi giá trị
+  const handleValuesChange = (changedValues: any) => {
+    // Nếu trường thay đổi là "type"
+    if (changedValues.type) {
+      if (changedValues.type === "Sleeper") {
+        form.setFieldsValue({ capacity: 38 });
+      } else if (changedValues.type === "Seater") {
+        form.setFieldsValue({ capacity: 45 });
+      }
+    }
+  };
 
   return (
     <div className="p-6">
       <h1 className="text-2xl font-semibold mb-6">Thêm mới</h1>
-      <Form layout="vertical" onFinish={(values) => Add(values)} className="space-y-6">
+      <Form
+        form={form} // Gán instance form vào đây
+        layout="vertical"
+        onFinish={(values) => Add(values)}
+        onValuesChange={handleValuesChange} // Lắng nghe sự kiện thay đổi
+        className="space-y-6"
+      >
         <Form.Item
           label="Tên xe / Nhà xe"
           name="name"
@@ -46,6 +66,10 @@ function AddPage() {
           <Input placeholder="Nhập biển số xe" />
         </Form.Item>
 
+        <Form.Item label="Loại xe" name="type" rules={[{ required: true, message: 'Vui lòng chọn loại xe' }]}>
+          <Select placeholder="Chọn loại xe" options={['Sleeper', 'Seater'].map((value) => ({ value, label: value }))} />
+        </Form.Item>
+
         <Form.Item
           label="Sức chứa"
           name="capacity"
@@ -55,10 +79,6 @@ function AddPage() {
           ]}
         >
           <InputNumber className="w-full" min={1} max={45} placeholder="Nhập sức chứa" />
-        </Form.Item>
-
-        <Form.Item label="Loại xe" name="type" rules={[{ required: true, message: 'Vui lòng chọn loại xe' }]}>
-          <Select placeholder="Chọn loại xe" options={['Sleeper', 'Seater', 'Limousine'].map((value) => ({ value, label: value }))} />
         </Form.Item>
 
         <Form.Item label="Trạng thái" name="status" rules={[{ required: true, message: 'Vui lòng chọn trạng thái' }]}>
