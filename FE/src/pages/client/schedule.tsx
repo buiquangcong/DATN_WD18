@@ -10,21 +10,30 @@ import {
   Space,
   Typography,
   message,
+  Select,
   Empty,
   Divider,
-  Badge
+  Badge,
+  Tooltip
 } from "antd";
 import {
   EnvironmentOutlined,
+  SearchOutlined,
   ArrowRightOutlined,
   ClockCircleOutlined,
+  DollarOutlined,
+  CarOutlined,
+  InfoCircleOutlined,
   CalendarOutlined,
-  SyncOutlined
+  SyncOutlined,
+  LeftOutlined,
+  RightOutlined
 } from "@ant-design/icons";
 import { ClientLayout } from "./layout";
 import dayjs from "dayjs";
 
 const { Title, Text } = Typography;
+const { Option } = Select;
 
 interface FareRule {
   weekdayPrice: number;
@@ -77,6 +86,12 @@ export default function Schedule(): React.ReactElement {
   const [loading, setLoading] = useState<boolean>(false);
   const [expandedRouteId, setExpandedRouteId] = useState<string | null>(null);
   const navigate = useNavigate();
+
+  // Trạng thái bộ lọc tìm kiếm
+  const [diemDi, setDiemDi] = useState<string | undefined>(undefined);
+  const [diemDen, setDiemDen] = useState<string | undefined>(undefined);
+  const [selectedBusType, setSelectedBusType] = useState<string | undefined>(undefined);
+  const [sortBy, setSortBy] = useState<string>("default");
 
   const fetchTrips = async (): Promise<void> => {
     setLoading(true);
@@ -192,9 +207,43 @@ export default function Schedule(): React.ReactElement {
     fetchTrips();
   }, []);
 
+  const handleClearFilters = () => {
+    setDiemDi(undefined);
+    setDiemDen(undefined);
+    setSelectedBusType(undefined);
+    setSortBy("default");
+  };
+
   const handleQuickBook = (tripId: string) => {
     navigate(`/khachhang/booking/${tripId}`);
   };
+
+  const departuresList = Array.from(new Set(routeGroups.map(g => g.diemDi).filter(Boolean)));
+  const destinationsList = Array.from(new Set(routeGroups.map(g => g.diemDen).filter(Boolean)));
+
+  // Logic lọc và sắp xếp danh sách tuyến đường
+  const filteredGroups = routeGroups.filter((group) => {
+    if (diemDi && group.diemDi !== diemDi) return false;
+    if (diemDen && group.diemDen !== diemDen) return false;
+    if (selectedBusType && !group.busTypes.includes(selectedBusType)) return false;
+    return true;
+  });
+
+  const sortedGroups = [...filteredGroups].sort((a, b) => {
+    if (sortBy === "price_asc") {
+      return a.minPrice - b.minPrice;
+    }
+    if (sortBy === "price_desc") {
+      return b.minPrice - a.minPrice;
+    }
+    if (sortBy === "distance_desc") {
+      return b.quangDuong - a.quangDuong;
+    }
+    if (sortBy === "distance_asc") {
+      return a.quangDuong - b.quangDuong;
+    }
+    return 0; // Thứ tự mặc định
+  });
 
   return (
     <ClientLayout>
@@ -208,7 +257,6 @@ export default function Schedule(): React.ReactElement {
             alignItems: "center",
             padding: "0 5%",
             color: "#fff",
-            marginBottom: 40
           }}
         >
           <div style={{ maxWidth: 1200, margin: "0 auto", width: "100%" }}>
@@ -221,225 +269,366 @@ export default function Schedule(): React.ReactElement {
           </div>
         </div>
 
+        {/* Thành phần Thanh tìm kiếm động */}
+        <div style={{ maxWidth: 1200, margin: "-40px auto 40px", padding: "0 20px" }}>
+          <Card
+            style={{
+              borderRadius: 16,
+              boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 16px -6px rgba(0, 0, 0, 0.05)",
+              border: "1px solid rgba(226, 232, 240, 0.8)",
+            }}
+          >
+            <Row gutter={[16, 16]} align="middle">
+              <Col xs={24} sm={10} md={9}>
+                <div style={{ marginBottom: 6 }}><Text strong style={{ fontSize: 13, color: "#475569" }}>Chọn điểm đi</Text></div>
+                <Select
+                  showSearch
+                  placeholder="Điểm xuất phát"
+                  size="large"
+                  style={{ width: "100%" }}
+                  value={diemDi}
+                  onChange={setDiemDi}
+                  allowClear
+                  suffixIcon={<EnvironmentOutlined style={{ color: "#166e00" }} />}
+                >
+                  {departuresList.map(d => (
+                    <Option key={d} value={d}>{d}</Option>
+                  ))}
+                </Select>
+              </Col>
+
+              <Col xs={24} sm={10} md={9}>
+                <div style={{ marginBottom: 6 }}><Text strong style={{ fontSize: 13, color: "#475569" }}>Chọn điểm đến</Text></div>
+                <Select
+                  showSearch
+                  placeholder="Điểm đến mong muốn"
+                  size="large"
+                  style={{ width: "100%" }}
+                  value={diemDen}
+                  onChange={setDiemDen}
+                  allowClear
+                  suffixIcon={<EnvironmentOutlined style={{ color: "#166e00" }} />}
+                >
+                  {destinationsList.map(d => (
+                    <Option key={d} value={d}>{d}</Option>
+                  ))}
+                </Select>
+              </Col>
+
+              <Col xs={24} sm={4} md={6} style={{ marginTop: 22 }}>
+                <Button
+                  type="primary"
+                  icon={loading ? <SyncOutlined spin /> : <SearchOutlined />}
+                  size="large"
+                  block
+                  onClick={fetchTrips}
+                  style={{ height: 40, borderRadius: 8, fontWeight: 600, background: "#166e00", borderColor: "#166e00" }}
+                >
+                  Tìm kiếm
+                </Button>
+              </Col>
+            </Row>
+          </Card>
+        </div>
+
         {/* Khu vực nội dung chính */}
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 20px" }}>
-          <div style={{ marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <Text strong style={{ color: "#475569" }}>
-              Tổng cộng có <span style={{ color: "#166e00", fontSize: 16 }}>{routeGroups.length}</span> tuyến đang hoạt động
-            </Text>
-          </div>
-
-          {loading ? (
-            <div style={{ textAlign: "center", padding: "100px 0" }}>
-              <Button type="text" loading size="large">Đang kết xuất sơ đồ lịch trình xe chạy...</Button>
-            </div>
-          ) : routeGroups.length === 0 ? (
-            <Card style={{ borderRadius: 16, border: "1px solid rgba(226, 232, 240, 0.8)", padding: "40px 0" }}>
-              <Empty
-                description={
-                  <Space direction="vertical" size="small">
-                    <Text strong style={{ fontSize: 16, color: "#64748b" }}>Hiện tại không có tuyến đường nào hoạt động</Text>
-                    <Text type="secondary">Vui lòng quay lại sau hoặc liên hệ tổng đài để biết thêm chi tiết.</Text>
-                  </Space>
-                }
-              />
-            </Card>
-          ) : (
-            <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-              {routeGroups.map((group) => {
-                const isExpanded = expandedRouteId === group.id;
-                return (
-                  <div
-                    key={group.id}
-                    className="transition-all duration-300 bg-white border border-slate-100 hover:border-emerald-500/20 rounded-2xl overflow-hidden shadow-sm hover:shadow-md"
-                    style={{ padding: 24 }}
-                  >
-                    <Row gutter={[16, 16]} align="middle" justify="space-between">
-                      {/* Tên lộ trình (Điểm đi -> Điểm đến) & Chi tiết quãng đường/thời gian */}
-                      <Col xs={24} sm={12} md={12}>
-                        <div className="flex items-center gap-3 mb-2 flex-wrap">
-                          <Title level={4} style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#0f172a" }}>
-                            {group.diemDi} <ArrowRightOutlined style={{ color: "#166e00", fontSize: 14, margin: "0 6px" }} /> {group.diemDen}
-                          </Title>
-                        </div>
-
-                        <Space size="large" className="text-slate-500 text-xs">
-                          <span>
-                            <EnvironmentOutlined style={{ marginRight: 4 }} />
-                            Khoảng cách: <strong>{group.quangDuong} km</strong>
-                          </span>
-                          <span>
-                            <ClockCircleOutlined style={{ marginRight: 4 }} />
-                            Thời gian: <strong>{group.thoiGianDiChuyen}</strong>
-                          </span>
-                        </Space>
-                      </Col>
-
-                      {/* Dòng xe phục vụ */}
-                      <Col xs={12} sm={6} md={6}>
-                        <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 6 }}>
-                          Phương tiện phục vụ
-                        </div>
-                        <Space size={4} wrap>
-                          {group.busTypes.map((type) => (
-                            <Tag
-                              key={type}
-                              color={type === "Sleeper" ? "blue" : type === "Limousine" ? "gold" : "purple"}
-                              style={{ borderRadius: 4, fontWeight: 500, border: "none", fontSize: 11 }}
-                            >
-                              {type === "Sleeper" ? "Giường nằm" : type === "Limousine" ? "Limousine VIP" : "Ghế ngồi"}
-                            </Tag>
-                          ))}
-                        </Space>
-                      </Col>
-
-                      {/* Giá vé xuất phát & Nút thao tác */}
-                      <Col xs={12} sm={6} md={6} style={{ textAlign: "right" }}>
-                        <div style={{ marginBottom: 4 }}>
-                          <Text type="secondary" style={{ fontSize: 12 }}>Giá vé xuất phát</Text>
-                          <div style={{ fontSize: 20, color: "#ef4444", fontWeight: 700, lineHeight: 1.2 }}>
-                            {group.minPrice > 0 ? `Từ ${group.minPrice.toLocaleString("vi-VN")}đ` : "Liên hệ"}
-                          </div>
-                        </div>
-
-                        <div className="flex gap-2 justify-end mt-3">
-                          <Button
-                            type="primary"
-                            style={{ background: "#166e00", borderColor: "#166e00", borderRadius: 8, fontWeight: 600 }}
-                            onClick={() => navigate(`/khachhang/trip`)}
-                          >
-                            Đặt Vé
-                          </Button>
-                          <Button
-                            type="default"
-                            style={{ borderRadius: 8 }}
-                            onClick={() => setExpandedRouteId(isExpanded ? null : group.id)}
-                          >
-                            {isExpanded ? "Thu gọn" : "Xem giờ"}
-                          </Button>
-                        </div>
-                      </Col>
-                    </Row>
-
-                    {/* Khu lưới hiển thị khung giờ chạy của tuyến đường */}
-                    <div style={{ marginTop: 16 }} className="bg-slate-50 dark:bg-slate-900/40 p-3 rounded-xl">
-                      <Row align="middle" gutter={[8, 8]}>
-                        <Col xs={24} sm={4}>
-                          <Text type="secondary" style={{ fontSize: 12, fontWeight: 500 }}>
-                            <ClockCircleOutlined style={{ marginRight: 4 }} /> Khung giờ:
-                          </Text>
-                        </Col>
-                        <Col xs={24} sm={20}>
-                          <Space size={6} wrap>
-                            {group.departureHours.map((hour) => (
-                              <Tag
-                                key={hour}
-                                style={{
-                                  backgroundColor: "#fff",
-                                  border: "1px solid #e2e8f0",
-                                  borderRadius: 6,
-                                  padding: "2px 8px",
-                                  fontWeight: 600,
-                                  color: "#1e293b",
-                                }}
-                              >
-                                {hour}
-                              </Tag>
-                            ))}
-                          </Space>
-                        </Col>
-                      </Row>
-                    </div>
-
-                    {/* Danh sách mở rộng hiển thị chi tiết các chuyến sắp chạy cụ thể */}
-                    {isExpanded && (
-                      <div style={{ marginTop: 24 }}>
-                        <Divider style={{ margin: "12px 0" }}>
-                          <Text type="secondary" style={{ fontSize: 12 }}>
-                            Danh sách các chuyến xe sắp chạy của tuyến đường này
-                          </Text>
-                        </Divider>
-
-                        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
-                          {group.trips.map((trip) => {
-                            const availableSeats = getAvailableSeatsCount(trip.seats);
-                            const price = getTicketPrice(trip);
-                            return (
-                              <div
-                                key={trip._id}
-                                style={{
-                                  padding: "16px",
-                                  backgroundColor: "#fff",
-                                  border: "1px solid #f1f5f9",
-                                  borderRadius: 12,
-                                }}
-                                className="hover:border-emerald-500/10 transition-all shadow-2xs"
-                              >
-                                <Row align="middle" justify="space-between" gutter={[12, 12]}>
-                                  <Col xs={24} sm={6}>
-                                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                      <CalendarOutlined style={{ color: "#166e00" }} />
-                                      <Text strong style={{ fontSize: 13 }}>
-                                        {formatDate(trip.departureTime)}
-                                      </Text>
-                                    </div>
-                                    <div style={{ fontSize: 11, color: "#64748b", marginLeft: 20 }}>
-                                      Khởi hành hôm/ngày đó
-                                    </div>
-                                  </Col>
-
-                                  <Col xs={12} sm={6}>
-                                    <div style={{ fontSize: 15, fontWeight: 700, color: "#1e293b" }}>
-                                      {formatHour(trip.departureTime)} <ArrowRightOutlined style={{ fontSize: 11, color: "#94a3b8" }} /> {formatHour(trip.arrivalTime)}
-                                    </div>
-                                    <Text type="secondary" style={{ fontSize: 12 }}>
-                                      {trip.bus?.name || "Xe NETBUS VIP"} ({trip.bus?.type === "Sleeper" ? "Giường nằm" : trip.bus?.type === "Limousine" ? "Limousine" : "Ghế ngồi"})
-                                    </Text>
-                                  </Col>
-
-                                  <Col xs={12} sm={4}>
-                                    <div style={{ fontWeight: 600, color: "#ef4444" }}>
-                                      {price > 0 ? `${price.toLocaleString("vi-VN")}đ` : "Liên hệ"}
-                                    </div>
-                                    <Badge
-                                      status={availableSeats > 5 ? "success" : availableSeats > 0 ? "warning" : "error"}
-                                      text={
-                                        <span style={{ fontSize: 12, color: "#64748b" }}>
-                                          {availableSeats > 0 ? `${availableSeats} chỗ trống` : "Hết vé"}
-                                        </span>
-                                      }
-                                    />
-                                  </Col>
-
-                                  <Col xs={24} sm={4} style={{ textAlign: "right" }}>
-                                    <Button
-                                      type="primary"
-                                      size="small"
-                                      disabled={availableSeats === 0}
-                                      style={{
-                                        borderRadius: 6,
-                                        background: availableSeats > 0 ? "#166e00" : "#cbd5e1",
-                                        borderColor: availableSeats > 0 ? "#166e00" : "#cbd5e1",
-                                        fontSize: 12,
-                                        fontWeight: 600,
-                                      }}
-                                      onClick={() => handleQuickBook(trip._id)}
-                                    >
-                                      Đặt Ngay
-                                    </Button>
-                                  </Col>
-                                </Row>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
+          <Row gutter={[24, 24]}>
+            {/* Cột trái: Bộ lọc Sidebar */}
+            <Col xs={24} md={8} lg={6}>
+              <Card
+                title={
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 15, fontWeight: 700 }}>Bộ lọc tìm kiếm</span>
+                    <Button
+                      type="link"
+                      onClick={handleClearFilters}
+                      size="small"
+                      style={{ color: "#ef4444", padding: 0 }}
+                    >
+                      Xóa lọc
+                    </Button>
                   </div>
-                );
-              })}
-            </Space>
-          )}
+                }
+                style={{
+                  borderRadius: 16,
+                  boxShadow: "0 4px 10px rgba(0, 0, 0, 0.02)",
+                  border: "1px solid rgba(226, 232, 240, 0.8)",
+                  position: "sticky",
+                  top: 96,
+                }}
+              >
+                {/* Sắp xếp danh sách */}
+                <div>
+                  <Title level={5} style={{ margin: "0 0 10px 0", fontSize: 14, color: "#334155" }}>Sắp xếp danh sách</Title>
+                  <Select
+                    style={{ width: "100%" }}
+                    placeholder="Sắp xếp"
+                    value={sortBy}
+                    onChange={setSortBy}
+                  >
+                    <Option value="default">Mặc định</Option>
+                    <Option value="price_asc">Giá vé tăng dần</Option>
+                    <Option value="price_desc">Giá vé giảm dần</Option>
+                    <Option value="distance_desc">Quãng đường xa nhất</Option>
+                    <Option value="distance_asc">Quãng đường ngắn nhất</Option>
+                  </Select>
+                </div>
+
+                <Divider style={{ margin: "16px 0" }} />
+
+                {/* Dòng xe chạy */}
+                <div>
+                  <Title level={5} style={{ margin: "0 0 10px 0", fontSize: 14, color: "#334155" }}>Dòng xe chạy</Title>
+                  <Select
+                    style={{ width: "100%" }}
+                    placeholder="Tất cả dòng xe"
+                    value={selectedBusType}
+                    onChange={setSelectedBusType}
+                    allowClear
+                  >
+                    <Option value="Sleeper">Giường nằm</Option>
+                    <Option value="Seater">Ghế ngồi</Option>
+                    <Option value="Limousine">Limousine VIP</Option>
+                  </Select>
+                </div>
+
+                <Divider style={{ margin: "20px 0" }} />
+
+                <div className="bg-emerald-50 dark:bg-emerald-950/20 p-4 rounded-xl border border-emerald-100 dark:border-emerald-900/30 flex items-start gap-3">
+                  <InfoCircleOutlined style={{ color: "#166e00", marginTop: 2 }} />
+                  <div style={{ fontSize: 12, color: "#065f46" }} className="dark:text-emerald-300">
+                    Giá hiển thị là mức giá thấp nhất dự kiến của tuyến đó, thực tế sẽ dao động tùy thuộc vào ngày đi cuối tuần hay trong tuần.
+                  </div>
+                </div>
+              </Card>
+            </Col>
+
+            {/* Cột phải: Danh sách các tuyến xe đã gom nhóm */}
+            <Col xs={24} md={16} lg={18}>
+              <div style={{ marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <Text strong style={{ color: "#475569" }}>
+                  Tổng cộng có <span style={{ color: "#166e00", fontSize: 16 }}>{sortedGroups.length}</span> tuyến đang hoạt động
+                </Text>
+              </div>
+
+              {loading ? (
+                <div style={{ textAlign: "center", padding: "100px 0" }}>
+                  <Button type="text" loading size="large">Đang kết xuất sơ đồ lịch trình xe chạy...</Button>
+                </div>
+              ) : sortedGroups.length === 0 ? (
+                <Card style={{ borderRadius: 16, border: "1px solid rgba(226, 232, 240, 0.8)", padding: "40px 0" }}>
+                  <Empty
+                    description={
+                      <Space direction="vertical" size="small">
+                        <Text strong style={{ fontSize: 16, color: "#64748b" }}>Không tìm thấy tuyến đường nào phù hợp</Text>
+                        <Text type="secondary">Vui lòng điều chỉnh lại bộ lọc điểm đi hoặc điểm đến của bạn.</Text>
+                      </Space>
+                    }
+                  >
+                    <Button type="primary" onClick={handleClearFilters} style={{ background: "#166e00", borderColor: "#166e00", borderRadius: 6 }}>
+                      Xóa bộ lọc
+                    </Button>
+                  </Empty>
+                </Card>
+              ) : (
+                <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+                  {sortedGroups.map((group) => {
+                    const isExpanded = expandedRouteId === group.id;
+                    return (
+                      <div
+                        key={group.id}
+                        className="transition-all duration-300 bg-white border border-slate-100 hover:border-emerald-500/20 rounded-2xl overflow-hidden shadow-sm hover:shadow-md"
+                        style={{ padding: 24 }}
+                      >
+                        <Row gutter={[16, 16]} align="middle" justify="space-between">
+                          {/* Tên lộ trình (Điểm đi -> Điểm đến) & Chi tiết quãng đường/thời gian */}
+                          <Col xs={24} sm={12} md={10}>
+                            <div className="flex items-center gap-3 mb-2 flex-wrap">
+                              <Title level={4} style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#0f172a" }}>
+                                {group.diemDi} <ArrowRightOutlined style={{ color: "#166e00", fontSize: 14, margin: "0 6px" }} /> {group.diemDen}
+                              </Title>
+                            </div>
+
+                            <Space size="large" className="text-slate-500 text-xs">
+                              <span>
+                                <EnvironmentOutlined style={{ marginRight: 4 }} />
+                                Khoảng cách: <strong>{group.quangDuong} km</strong>
+                              </span>
+                              <span>
+                                <ClockCircleOutlined style={{ marginRight: 4 }} />
+                                Thời gian: <strong>{group.thoiGianDiChuyen}</strong>
+                              </span>
+                            </Space>
+                          </Col>
+
+                          {/* Dòng xe phục vụ */}
+                          <Col xs={12} sm={6} md={6}>
+                            <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 6 }}>
+                              Phương tiện phục vụ
+                            </div>
+                            <Space size={4} wrap>
+                              {group.busTypes.map((type) => (
+                                <Tag
+                                  key={type}
+                                  color={type === "Sleeper" ? "blue" : type === "Limousine" ? "gold" : "purple"}
+                                  style={{ borderRadius: 4, fontWeight: 500, border: "none", fontSize: 11 }}
+                                >
+                                  {type === "Sleeper" ? "Giường nằm" : type === "Limousine" ? "Limousine VIP" : "Ghế ngồi"}
+                                </Tag>
+                              ))}
+                            </Space>
+                          </Col>
+
+                          {/* Giá vé xuất phát & Nút thao tác */}
+                          <Col xs={12} sm={6} md={8} style={{ textAlign: "right" }}>
+                            <div style={{ marginBottom: 4 }}>
+                              <Text type="secondary" style={{ fontSize: 12 }}>Giá vé xuất phát</Text>
+                              <div style={{ fontSize: 20, color: "#ef4444", fontWeight: 700, lineHeight: 1.2 }}>
+                                {group.minPrice > 0 ? `Từ ${group.minPrice.toLocaleString("vi-VN")}đ` : "Liên hệ"}
+                              </div>
+                            </div>
+
+                            <div className="flex gap-2 justify-end mt-3">
+                              <Button
+                                type="primary"
+                                style={{ background: "#166e00", borderColor: "#166e00", borderRadius: 8, fontWeight: 600 }}
+                                onClick={() => navigate(`/khachhang/trip`)}
+                              >
+                                Đặt Vé
+                              </Button>
+                              <Button
+                                type="default"
+                                style={{ borderRadius: 8 }}
+                                onClick={() => setExpandedRouteId(isExpanded ? null : group.id)}
+                              >
+                                {isExpanded ? "Thu gọn" : "Xem giờ"}
+                              </Button>
+                            </div>
+                          </Col>
+                        </Row>
+
+                        {/* Khu lưới hiển thị khung giờ chạy của tuyến đường */}
+                        <div style={{ marginTop: 16 }} className="bg-slate-50 dark:bg-slate-900/40 p-3 rounded-xl">
+                          <Row align="middle" gutter={[8, 8]}>
+                            <Col xs={24} sm={4}>
+                              <Text type="secondary" style={{ fontSize: 12, fontWeight: 500 }}>
+                                <ClockCircleOutlined style={{ marginRight: 4 }} /> Khung giờ:
+                              </Text>
+                            </Col>
+                            <Col xs={24} sm={20}>
+                              <Space size={6} wrap>
+                                {group.departureHours.map((hour) => (
+                                  <Tag
+                                    key={hour}
+                                    style={{
+                                      backgroundColor: "#fff",
+                                      border: "1px solid #e2e8f0",
+                                      borderRadius: 6,
+                                      padding: "2px 8px",
+                                      fontWeight: 600,
+                                      color: "#1e293b",
+                                    }}
+                                  >
+                                    {hour}
+                                  </Tag>
+                                ))}
+                              </Space>
+                            </Col>
+                          </Row>
+                        </div>
+
+                        {/* Danh sách mở rộng hiển thị chi tiết các chuyến sắp chạy cụ thể */}
+                        {isExpanded && (
+                          <div style={{ marginTop: 24 }}>
+                            <Divider style={{ margin: "12px 0" }}>
+                              <Text type="secondary" style={{ fontSize: 12 }}>
+                                Danh sách các chuyến xe sắp chạy của tuyến đường này
+                              </Text>
+                            </Divider>
+
+                            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
+                              {group.trips.map((trip) => {
+                                const availableSeats = getAvailableSeatsCount(trip.seats);
+                                const price = getTicketPrice(trip);
+                                return (
+                                  <div
+                                    key={trip._id}
+                                    style={{
+                                      padding: "16px",
+                                      backgroundColor: "#fff",
+                                      border: "1px solid #f1f5f9",
+                                      borderRadius: 12,
+                                    }}
+                                    className="hover:border-emerald-500/10 transition-all shadow-2xs"
+                                  >
+                                    <Row align="middle" justify="space-between" gutter={[12, 12]}>
+                                      <Col xs={24} sm={6}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                          <CalendarOutlined style={{ color: "#166e00" }} />
+                                          <Text strong style={{ fontSize: 13 }}>
+                                            {formatDate(trip.departureTime)}
+                                          </Text>
+                                        </div>
+                                        <div style={{ fontSize: 11, color: "#64748b", marginLeft: 20 }}>
+                                          Khởi hành hôm/ngày đó
+                                        </div>
+                                      </Col>
+
+                                      <Col xs={12} sm={6}>
+                                        <div style={{ fontSize: 15, fontWeight: 700, color: "#1e293b" }}>
+                                          {formatHour(trip.departureTime)} <ArrowRightOutlined style={{ fontSize: 11, color: "#94a3b8" }} /> {formatHour(trip.arrivalTime)}
+                                        </div>
+                                        <Text type="secondary" style={{ fontSize: 12 }}>
+                                          {trip.bus?.name || "Xe NETBUS VIP"} ({trip.bus?.type === "Sleeper" ? "Giường nằm" : trip.bus?.type === "Limousine" ? "Limousine" : "Ghế ngồi"})
+                                        </Text>
+                                      </Col>
+
+                                      <Col xs={12} sm={4}>
+                                        <div style={{ fontWeight: 600, color: "#ef4444" }}>
+                                          {price > 0 ? `${price.toLocaleString("vi-VN")}đ` : "Liên hệ"}
+                                        </div>
+                                        <Badge
+                                          status={availableSeats > 5 ? "success" : availableSeats > 0 ? "warning" : "error"}
+                                          text={
+                                            <span style={{ fontSize: 12, color: "#64748b" }}>
+                                              {availableSeats > 0 ? `${availableSeats} chỗ trống` : "Hết vé"}
+                                            </span>
+                                          }
+                                        />
+                                      </Col>
+
+                                      <Col xs={24} sm={4} style={{ textAlign: "right" }}>
+                                        <Button
+                                          type="primary"
+                                          size="small"
+                                          disabled={availableSeats === 0}
+                                          style={{
+                                            borderRadius: 6,
+                                            background: availableSeats > 0 ? "#166e00" : "#cbd5e1",
+                                            borderColor: availableSeats > 0 ? "#166e00" : "#cbd5e1",
+                                            fontSize: 12,
+                                            fontWeight: 600,
+                                          }}
+                                          onClick={() => handleQuickBook(trip._id)}
+                                        >
+                                          Đặt Ngay
+                                        </Button>
+                                      </Col>
+                                    </Row>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </Space>
+              )}
+            </Col>
+          </Row>
         </div>
       </div>
     </ClientLayout>
