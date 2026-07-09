@@ -59,7 +59,7 @@ export default function ClientDashboard() {
         if (uniqueDepartures.length > 0) setDepartures(uniqueDepartures);
         if (uniqueDestinations.length > 0) setDestinations(uniqueDestinations);
 
-        const getTicketPrice = (item: any): number => {
+        const getTicketPrice = (item: any):  number => {
           if (!item.departureTime) return item.journey?.price || item.price || 0;
           const departureDate = new Date(item.departureTime);
           if (item.fareRule) {
