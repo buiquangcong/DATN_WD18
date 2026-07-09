@@ -9,11 +9,11 @@ const { TextArea } = Input;
 
 const offices = [
   {
-    city: "Hà Tĩnh",
-    name: "Bến xe Hà Tĩnh",
-    phone: "02393.76.76.76",
-    address: "Thôn Bắc Thượng, P. Hà Huy Tập, Hà Tĩnh",
-    map: "https://maps.app.goo.gl/XhpmymVaGWbp4eJ16",
+    city: "Hà Nội",
+    name: "Bến xe Giáp Bát",
+    phone: "0984.38.76.76",
+    address: "Quận Hoàng Mai, Hà Nội",
+    map: "https://maps.app.goo.gl/cK3Wd38z6o6uJ11M7",
   },
   {
     city: "Hà Nội",
@@ -23,11 +23,11 @@ const offices = [
     map: "https://maps.app.goo.gl/rt2Mauu9GcBZmgyE8",
   },
   {
-    city: "Nghệ An",
-    name: "Bến xe Phía Đông",
-    phone: "02383.579.579",
-    address: "QL46, Khối 3, Phường Vinh Phú, Tỉnh Nghệ An",
-    map: "https://maps.app.goo.gl/Ky6RgwC9DYuNerRM7",
+    city: "Hà Nội",
+    name: "Bến xe Gia Lâm",
+    phone: "096.343.1133",
+    address: "Quận Long Biên, Hà Nội",
+    map: "https://maps.app.goo.gl/c5vV8t8J7GvJ11M7",
   },
 ];
 
@@ -54,16 +54,16 @@ export default function Contact() {
         }}
       >
         <Title level={2} style={{ color: "#fff" }}>
-          Our Global Office Network
+          Hệ thống văn phòng toàn cầu của chúng tôi
         </Title>
         <Paragraph style={{ color: "#fff", maxWidth: 600 }}>
-          Find a NETBUS hub near you. From ticketing support to cargo logistics,
-          our widespread network ensures you're never far from our service.
+          Tìm một trung tâm NETBUS gần bạn. Từ hỗ trợ bán vé đến logistics hàng hóa,
+          mạng lưới rộng khắp của chúng tôi đảm bảo bạn sẽ không bao giờ ở xa dịch vụ của chúng tôi.
         </Paragraph>
 
         <Input
           size="large"
-          placeholder="Search by city, province, or office name..."
+          placeholder="Tìm kiếm theo thành phố, tỉnh hoặc tên văn phòng..."
           prefix={<SearchOutlined />}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -73,7 +73,7 @@ export default function Contact() {
 
 
       <Title level={3} style={{ marginBottom: 24 }}>
-        Branch Locations
+        Địa điểm các chi nhánh
       </Title>
 
       <Row gutter={[24, 24]}>
@@ -111,16 +111,16 @@ export default function Contact() {
       <div style={{ marginTop: 64 }}>
         <Row gutter={[32, 32]} align="top">
           <Col xs={24} lg={12}>
-            <Title level={3}>Get in Touch</Title>
+            <Title level={3}>Liên hệ với chúng tôi</Title>
             <Paragraph>
-              Have questions about our routes, corporate services, or sustainability initiatives?
+              Có câu hỏi về các tuyến đường, dịch vụ doanh nghiệp của chúng tôi hoặc các sáng kiến bền vững?
             </Paragraph>
 
             <Space direction="vertical" size="large">
               <Space align="start">
                 <PhoneOutlined style={{ color: "#1677ff", fontSize: 22, marginTop: 4 }} />
                 <div>
-                  <Text strong>Customer Hotline</Text>
+                  <Text strong>Đường dây nóng hỗ trợ khách hàng</Text>
                   <Title level={4} style={{ margin: 0 }}>1900 6467</Title>
                 </div>
               </Space>
@@ -128,7 +128,7 @@ export default function Contact() {
               <Space align="start">
                 <MailOutlined style={{ color: "#1677ff", fontSize: 22, marginTop: 4 }} />
                 <div>
-                  <Text strong>Email Address</Text>
+                  <Text strong>Địa chỉ email</Text>
                   <Paragraph style={{ margin: 0 }}>support@netbus.com.vn</Paragraph>
                 </div>
               </Space>
