@@ -36,10 +36,15 @@ import dayjs from "dayjs";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
-
 interface FareRule {
   weekdayPrice: number;
   weekendPrice: number;
+}
+
+interface DiemType {
+  _id?: string;
+  diaDiem: string;
+  thoiGian: string;
 }
 
 interface Journey {
@@ -47,6 +52,8 @@ interface Journey {
   diemDen: string;
   thoiGianDiChuyen: string;
   price: number;
+  diemDon?: DiemType[];
+  diemTra?: DiemType[];
 }
 
 interface Bus {
@@ -68,14 +75,20 @@ interface TripData {
   status: string;
   seats: Seat[];
 }
-
 export default function Trip(): React.ReactElement {
   const [trips, setTrips] = useState<TripData[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [showPolicy, setShowPolicy] = useState<boolean>(true); // Trạng thái đóng mở chính sách hủy vé
   const navigate = useNavigate();
+  const [expandedTrips, setExpandedTrips] = useState<Record<string, boolean>>({});
 
-  // Search input state (Header form)
+  const toggleTripExpand = (tripId: string) => {
+    setExpandedTrips(prev => ({
+      ...prev,
+      [tripId]: !prev[tripId]
+    }));
+  };
+
   const [diemDi, setDiemDi] = useState<string | undefined>(undefined);
   const [diemDen, setDiemDen] = useState<string | undefined>(undefined);
   const [ngayDi, setNgayDi] = useState<dayjs.Dayjs | null>(null);
@@ -535,6 +548,29 @@ export default function Trip(): React.ReactElement {
                               </Text>
                             </div>
                           </div>
+
+                          <div style={{ marginTop: 12 }}>
+                            <Button
+                              type="link"
+                              size="small"
+                              onClick={() => toggleTripExpand(item._id)}
+                              style={{
+                                color: "#2e7d32",
+                                padding: 0,
+                                fontWeight: 600,
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 4,
+                                fontSize: 13
+                              }}
+                            >
+                              <EnvironmentOutlined />
+                              {expandedTrips[item._id] ? "Ẩn điểm đón/trả" : "Xem điểm đón/trả"}
+                              <span style={{ color: "#64748b", fontWeight: 400, fontSize: 12, marginLeft: 2 }}>
+                                ({ (item.journey?.diemDon?.length || 0) + (item.journey?.diemTra?.length || 0) })
+                              </span>
+                            </Button>
+                          </div>
                         </Col>
 
                         <Col xs={12} sm={6} md={5} style={{ textAlign: "center" }}>
@@ -570,6 +606,67 @@ export default function Trip(): React.ReactElement {
                           </Button>
                         </Col>
                       </Row>
+
+                      {/* Expanded Pickup/Dropoff Section */}
+                      {expandedTrips[item._id] && (
+                        <div
+                          style={{
+                            marginTop: 16,
+                            paddingTop: 16,
+                            borderTop: "1px dashed #e2e8f0",
+                          }}
+                        >
+                          <Row gutter={[24, 16]}>
+                            {/* Pick-up points */}
+                            <Col xs={24} sm={12}>
+                              <div style={{ fontWeight: 600, color: "#1e293b", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+                                <div style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#3b82f6" }}></div>
+                                <span style={{ fontSize: 13 }}>Điểm đón khách ({item.journey?.diemDon?.length || 0})</span>
+                              </div>
+                              {item.journey?.diemDon && item.journey.diemDon.length > 0 ? (
+                                <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingLeft: 12, borderLeft: "2px solid #eff6ff" }}>
+                                  {item.journey.diemDon.map((diem, idx) => (
+                                    <div key={diem._id || idx} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                                      <Tag color="blue" style={{ margin: 0, fontWeight: 600, borderRadius: 4, fontSize: 11 }}>
+                                        {diem.thoiGian}
+                                      </Tag>
+                                      <Text style={{ color: "#475569", fontSize: 13 }}>{diem.diaDiem}</Text>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <Text type="secondary" style={{ fontStyle: "italic", fontSize: 12, paddingLeft: 12 }}>
+                                  Không có thông tin điểm đón
+                                </Text>
+                              )}
+                            </Col>
+
+                            {/* Drop-off points */}
+                            <Col xs={24} sm={12}>
+                              <div style={{ fontWeight: 600, color: "#1e293b", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+                                <div style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#f97316" }}></div>
+                                <span style={{ fontSize: 13 }}>Điểm trả khách ({item.journey?.diemTra?.length || 0})</span>
+                              </div>
+                              {item.journey?.diemTra && item.journey.diemTra.length > 0 ? (
+                                <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingLeft: 12, borderLeft: "2px solid #fff7ed" }}>
+                                  {item.journey.diemTra.map((diem, idx) => (
+                                    <div key={diem._id || idx} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                                      <Tag color="orange" style={{ margin: 0, fontWeight: 600, borderRadius: 4, fontSize: 11 }}>
+                                        {diem.thoiGian}
+                                      </Tag>
+                                      <Text style={{ color: "#475569", fontSize: 13 }}>{diem.diaDiem}</Text>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <Text type="secondary" style={{ fontStyle: "italic", fontSize: 12, paddingLeft: 12 }}>
+                                  Không có thông tin điểm trả
+                                </Text>
+                              )}
+                            </Col>
+                          </Row>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </Space>
