@@ -1,4 +1,4 @@
-import { Button, Form, Select, DatePicker, message, Input, Checkbox, Card, } from "antd";
+import { Button, Form, Select, DatePicker, message, Input, Checkbox, Card, TimePicker, } from "antd";
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
@@ -286,7 +286,7 @@ function TripAddPage() {
           >
             <Input placeholder="07:00" />
           </Form.Item>
-
+          
           <Form.Item
             label="Giờ đến"
             name="arrivalHour"

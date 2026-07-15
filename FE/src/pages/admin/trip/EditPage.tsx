@@ -24,13 +24,9 @@ type Bus = {
   bienSo?: string;
 };
 
-type Staff = {
+type Driver = {
   _id: string;
   ten: string;
-  email: string;
-  sdt: string;
-  cccd: string;
-  chucVu: string;
 };
 
 type FareRule = {
@@ -50,22 +46,22 @@ function TripEditPage() {
 
   const [journeys, setJourneys] = useState<Journey[]>([]);
   const [buses, setBuses] = useState<Bus[]>([]);
-  const [staffs, setStaffs] = useState<Staff[]>([]);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
   const [fareRules, setFareRules] = useState<FareRule[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [j, b, s, f] = await Promise.all([
+        const [j, b, d, f] = await Promise.all([
           axios.get("http://localhost:3000/api/journey"),
           axios.get("http://localhost:3000/api/bus"),
-          axios.get("http://localhost:3000/api/staff"),
+          axios.get("http://localhost:3000/api/trip/drivers"),
           axios.get("http://localhost:3000/api/giave"),
         ]);
 
         setJourneys(j.data);
         setBuses(b.data);
-        setStaffs(s.data);
+        setDrivers(d.data);
         setFareRules(f.data);
       } catch (error) {
         message.error("Load dữ liệu thất bại");
@@ -76,23 +72,23 @@ function TripEditPage() {
   }, []);
 
   useEffect(() => {
-    if (trip) {
-      form.setFieldsValue({
-        journey: trip.journey?._id,
-        bus: trip.bus?._id,
-        staff: trip.staff?._id,
-        fareRule: trip.fareRule?._id,
-        status: trip.status,
+    if (!trip) return;
 
-        departureTime: trip.departureTime
-          ? dayjs(trip.departureTime)
-          : undefined,
+    form.setFieldsValue({
+      journey: trip.journey?._id,
+      bus: trip.bus?._id,
+      staff: trip.staff?._id,
+      fareRule: trip.fareRule?._id,
+      status: trip.status,
 
-        arrivalTime: trip.arrivalTime
-          ? dayjs(trip.arrivalTime)
-          : undefined,
-      });
-    }
+      departureTime: trip.departureTime
+        ? dayjs(trip.departureTime)
+        : undefined,
+
+      arrivalTime: trip.arrivalTime
+        ? dayjs(trip.arrivalTime)
+        : undefined,
+    });
   }, [trip, form]);
 
   const onFinish = (values: any) => {
@@ -106,16 +102,20 @@ function TripEditPage() {
       status: values.status,
 
       departureTime:
-        values.departureTime?.toDate().toISOString(),
+        values.departureTime
+          ?.toDate()
+          .toISOString(),
 
       arrivalTime:
-        values.arrivalTime?.toDate().toISOString(),
+        values.arrivalTime
+          ?.toDate()
+          .toISOString(),
     };
 
     Edit(payload);
   };
 
-  if (isLoading) {
+   if (isLoading) {
     return (
       <div className="p-10 flex justify-center">
         <Spin />
@@ -134,6 +134,7 @@ function TripEditPage() {
         layout="vertical"
         onFinish={onFinish}
       >
+        {/* Tuyến */}
         <Form.Item
           name="journey"
           label="Tuyến đường"
@@ -144,7 +145,7 @@ function TripEditPage() {
             },
           ]}
         >
-          <Select placeholder="Chọn tuyến đường">
+          <Select>
             {journeys.map((j) => (
               <Select.Option
                 key={j._id}
@@ -156,6 +157,7 @@ function TripEditPage() {
           </Select>
         </Form.Item>
 
+        {/* Xe */}
         <Form.Item
           name="bus"
           label="Xe"
@@ -166,7 +168,7 @@ function TripEditPage() {
             },
           ]}
         >
-          <Select placeholder="Chọn xe">
+          <Select>
             {buses.map((b) => (
               <Select.Option
                 key={b._id}
@@ -178,84 +180,73 @@ function TripEditPage() {
           </Select>
         </Form.Item>
 
+        {/* Chỉ chọn Driver */}
         <Form.Item
           name="staff"
-          label="Nhân viên phụ trách"
+          label="Tài xế"
           rules={[
             {
               required: true,
-              message: "Chọn nhân viên",
+              message: "Chọn tài xế",
             },
           ]}
         >
-          <Select placeholder="Chọn nhân viên">
-            {staffs.map((s) => (
+          <Select placeholder="Chọn tài xế">
+            {drivers.map((d) => (
               <Select.Option
-                key={s._id}
-                value={s._id}
+                key={d._id}
+                value={d._id}
               >
-                {s.ten} - {s.chucVu}
+                {d.ten}
               </Select.Option>
             ))}
           </Select>
         </Form.Item>
 
+        {/* Giá vé */}
         <Form.Item
           name="fareRule"
           label="Bảng giá"
-          rules={[
-            {
-              required: true,
-              message: "Chọn bảng giá",
-            },
-          ]}
         >
-          <Select placeholder="Chọn bảng giá">
+          <Select>
             {fareRules.map((f) => (
               <Select.Option
                 key={f._id}
                 value={f._id}
               >
-                {f.weekdayPrice?.toLocaleString("vi-VN")} đ
+                {f.weekdayPrice.toLocaleString("vi-VN")} đ
               </Select.Option>
             ))}
           </Select>
         </Form.Item>
 
+        {/* Khởi hành */}
         <Form.Item
           name="departureTime"
           label="Thời gian khởi hành"
-          rules={[
-            {
-              required: true,
-              message: "Chọn thời gian khởi hành",
-            },
-          ]}
         >
           <DatePicker
+            
             showTime
             className="w-full"
             format="YYYY-MM-DD HH:mm"
           />
         </Form.Item>
 
+        {/* Đến */}
         <Form.Item
           name="arrivalTime"
           label="Thời gian đến"
-          rules={[
-            {
-              required: true,
-              message: "Chọn thời gian đến",
-            },
-          ]}
         >
           <DatePicker
+      
             showTime
             className="w-full"
             format="YYYY-MM-DD HH:mm"
           />
         </Form.Item>
 
+        {/* Trạng thái */}
         <Form.Item
           name="status"
           label="Trạng thái"
