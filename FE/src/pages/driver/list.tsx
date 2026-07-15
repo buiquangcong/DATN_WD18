@@ -1,238 +1,285 @@
-import { Typography, Card, Row, Col, Button, Table, Tag, Statistic, Space, } from "antd";
-import { EnvironmentOutlined, CarOutlined, DownloadOutlined, FilterOutlined, RightOutlined, } from "@ant-design/icons";
+import {Typography,Card,Row,Col,Button,Table,Tag,Statistic,Space,Spin,} from "antd";
+import {EnvironmentOutlined,CarOutlined,DownloadOutlined,FilterOutlined,RightOutlined,} from "@ant-design/icons";
 import { ClientLayout } from "./layout";
-
+import { useEffect, useState } from "react";
+import axios from "axios";
 
 const { Title, Text, Paragraph } = Typography;
 
-const tripData = [
-  {
-    key: 1,
-    tripId: "#NB-9925",
-    route: "Hanoi → Sapa",
-    date: "Oct 24, 06:15 PM",
-    bus: "E-BUS 201",
-    status: "Upcoming",
-  },
-  {
-    key: 2,
-    tripId: "#NB-9810",
-    route: "Da Nang → Hue",
-    date: "Oct 22, 10:00 AM",
-    bus: "E-BUS 115",
-    status: "Completed",
-  },
-  {
-    key: 3,
-    tripId: "#NB-9755",
-    route: "HCM City → Can Tho",
-    date: "Oct 21, 02:30 PM",
-    bus: "E-BUS 505",
-    status: "Completed",
-  },
-  {
-    key: 4,
-    tripId: "#NB-9701",
-    route: "Hanoi → Hai Phong",
-    date: "Oct 20, 09:00 AM",
-    bus: "E-BUS 202",
-    status: "Completed",
-  },
-];
+// Thay bằng _id của staff trong MongoDB
+const STAFF_ID = "6a39a1b27d903a00d9d0b493";
+
+interface Trip {
+  _id: string;
+  departureTime: string;
+  arrivalTime: string;
+  status: string;
+
+  journey: {
+    diemDi: string;
+    diemDen: string;
+  };
+
+  bus: {
+    name: string;
+  };
+}
 
 export default function ListTaixePage() {
-  const columns = [
-    {
-      title: "Trip ID",
-      dataIndex: "tripId",
-    },
-    {
-      title: "Route",
-      dataIndex: "route",
-    },
-    {
-      title: "Date & Time",
-      dataIndex: "date",
-    },
-    {
-      title: "Bus No.",
-      dataIndex: "bus",
-    },
-    {
-      title: "Status",
-      dataIndex: "status",
-      render: (status: string) =>
-        status === "Upcoming" ? (
-          <Tag color="green">{status}</Tag>
-        ) : (
-          <Tag>{status}</Tag>
-        ),
-    },
-    {
-      title: "Actions",
-      render: () => (
-        <Button type="link">
-          View Details
-        </Button>
-      ),
-    },
-  ];
+  const [loading, setLoading] = useState(true);
+  const [trips, setTrips] = useState<Trip[]>([]);
 
-  return (
-    <ClientLayout>
-    <div style={{ padding: "32px 0" }}>
-      {/* Welcome */}
-      <div style={{ marginBottom: 40 }}>
-        <Title level={1}>My Trips</Title>
+  useEffect(() => {
+    axios
+      .get( `http://localhost:3000/api/trip/staff/${STAFF_ID}` )
+      .then((res) => {
+        setTrips(res.data.data);
+      })
+      .catch((err) => {
+        console.log(err);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, []);
 
-        <Paragraph type="secondary">
-          Manage your assigned routes and monitor fleet sustainability goals.
-        </Paragraph>
-      </div>
+  const currentTrip =
+    trips.find((item) => item.status === "đang chạy") ||
+    trips[0];
 
-      {/* Current Mission */}
-      <Card
-        style={{
-          marginBottom: 40,
-          border: "2px solid #52c41a",
-        }}
-      >
-        <Row
-          justify="space-between"
-          align="middle"
-          gutter={[24, 24]}
-        >
-          <Col flex="auto">
-            <Space direction="vertical" size="middle">
-              <Tag color="green">
-                IN PROGRESS
-              </Tag>
+  const columns = [
+    {
+      title: "Mã chuyến",
+      render: (_: any, record: Trip) =>
+        record._id.slice(-6).toUpperCase(),
+    },
+    {
+      title: "Tuyến đường",
+      render: (_: any, record: Trip) =>
+        `${record.journey?.diemDi} → ${record.journey?.diemDen}`,
+    },
+    {
+      title: "Khởi hành",
+      render: (_: any, record: Trip) =>
+        new Date(record.departureTime).toLocaleString("vi-VN"),
+    },
+    {
+      title: "Xe",
+      render: (_: any, record: Trip) =>
+        record.bus?.name,
+    },
+    {
+      title: "Trạng thái",
+      render: (_: any, record: Trip) => {
+        let color = "default";
 
-              <Text type="secondary">
-                TRIP ID: #NB-9921
-              </Text>
+        if (record.status === "sắp chạy") color = "blue";
+        if (record.status === "đang chạy") color = "green";
+        if (record.status === "hoàn thành") color = "cyan";
+        if (record.status === "huỷ") color = "red";
 
-              <Title level={2}>
-                Hanoi
-                <RightOutlined
-                  style={{ margin: "0 12px" }}
-                />
-                Nghe An
-              </Title>
+        return (
+          <Tag color={color}>
+            {record.status}
+          </Tag>
+        );
+      },
+    },
+    {
+      title: "Hành động",
+      render: () => (
+        <Button type="link">
+          Chi tiết
+        </Button>
+      ),
+    },
+  ];
 
-              <Row gutter={32}>
-                <Col>
-                  <Text type="secondary">
-                    Departure
-                  </Text>
-                  <br />
-                  <strong>
-                    Today, 08:30 AM
-                  </strong>
-                </Col>
+  if (loading) {
+    return (
+      <ClientLayout>
+        <div className="flex justify-center items-center h-[500px]">
+          <Spin size="large" />
+        </div>
+      </ClientLayout>
+    );
+  }
+    return (
+    <ClientLayout>
+      <div style={{ padding: "32px 0" }}>
+        {/* Welcome */}
+        <div style={{ marginBottom: 40 }}>
+          <Title level={1}>Chuyến xe của tôi</Title>
 
-                <Col>
-                  <Text type="secondary">
-                    Bus Number
-                  </Text>
-                  <br />
-                  <strong>E-BUS 402</strong>
-                </Col>
+          <Paragraph type="secondary">
+            Theo dõi các chuyến xe được phân công.
+          </Paragraph>
+        </div>
 
-                <Col>
-                  <Text type="secondary">
-                    Eco Impact
-                  </Text>
-                  <br />
-                  <span
-                    style={{
-                      color: "#52c41a",
-                      fontWeight: 600,
-                    }}
-                  >
-                    12kg CO₂ Saved
-                  </span>
-                </Col>
-              </Row>
-            </Space>
-          </Col>
+        {/* Current Trip */}
+        <Card
+          style={{
+            marginBottom: 40,
+            border: "2px solid #52c41a",
+            borderRadius: 12,
+          }}
+        >
+          {currentTrip ? (
+            <Row justify="space-between" align="middle" gutter={[24, 24]}>
+              <Col flex="auto">
+                <Space direction="vertical" size="middle">
+                  <Tag color="green">
+                    {currentTrip.status.toUpperCase()}
+                  </Tag>
 
-          <Col>
-            <Button
-              type="primary"
-              size="large"
-              icon={<EnvironmentOutlined />}
-            >
-              Resume Navigation
-            </Button>
-          </Col>
-        </Row>
-      </Card>
+                  <Text type="secondary">
+                    Mã chuyến: {currentTrip._id.slice(-6).toUpperCase()}
+                  </Text>
 
-      {/* Table */}
-      <Card
-        title="Upcoming & Past Trips"
-        extra={
-          <Space>
-            <Button icon={<FilterOutlined />} />
-            <Button icon={<DownloadOutlined />} />
-          </Space>
-        }
-      >
-        <Table
-          columns={columns}
-          dataSource={tripData}
-          pagination={{
-            pageSize: 4,
-          }}
-        />
-      </Card>
+                  <Title level={2}>
+                    {currentTrip.journey?.diemDi}
 
-      {/* Statistics */}
-      <Row
-        gutter={[24, 24]}
-        style={{ marginTop: 40 }}
-      >
-        <Col xs={24} md={8}>
-          <Card>
-            <Statistic
-              title="Driver Performance"
-              value={98.2}
-              suffix="%"
-            />
-            <Text type="secondary">
-              On-time
-            </Text>
-          </Card>
-        </Col>
+                    <RightOutlined
+                      style={{
+                        margin: "0 12px",
+                      }}
+                    />
 
-        <Col xs={24} md={8}>
-          <Card>
-            <Statistic
-              title="Carbon Avoided"
-              value={420}
-              suffix="kg"
-            />
-            <Text type="secondary">
-              This Month
-            </Text>
-          </Card>
-        </Col>
+                    {currentTrip.journey?.diemDen}
+                  </Title>
 
-        <Col xs={24} md={8}>
-          <Card>
-            <Statistic
-              title="Passengers Served"
-              value={1204}
-              prefix={<CarOutlined />}
-            />
-            <Text type="secondary">
-              Travelers
-            </Text>
-          </Card>
-        </Col>
-      </Row>
-    </div>
-    </ClientLayout>
-  );
+                  <Row gutter={32}>
+                    <Col>
+                      <Text type="secondary">
+                        Khởi hành
+                      </Text>
+                      <br />
+
+                      <strong>
+                        {new Date(
+                          currentTrip.departureTime
+                        ).toLocaleString("vi-VN")}
+                      </strong>
+                    </Col>
+
+                    <Col>
+                      <Text type="secondary">
+                        Đến nơi
+                      </Text>
+                      <br />
+
+                      <strong>
+                        {new Date(
+                          currentTrip.arrivalTime
+                        ).toLocaleString("vi-VN")}
+                      </strong>
+                    </Col>
+
+                    <Col>
+                      <Text type="secondary">
+                        Biển số xe
+                      </Text>
+                      <br />
+
+                      <strong>
+                        {currentTrip.bus?.name}
+                      </strong>
+                    </Col>
+                  </Row>
+                </Space>
+              </Col>
+
+              <Col>
+                <Button
+                  type="primary"
+                  icon={<EnvironmentOutlined />}
+                  size="large"
+                >
+                  Xem chi tiết
+                </Button>
+              </Col>
+            </Row>
+          ) : (
+            <div className="text-center py-10">
+              Không có chuyến xe nào
+            </div>
+          )}
+        </Card>
+
+        {/* Danh sách chuyến */}
+        <Card
+          title="Danh sách chuyến xe"
+          extra={
+            <Space>
+              <Button icon={<FilterOutlined />} />
+              <Button icon={<DownloadOutlined />} />
+            </Space>
+          }
+        >
+          <Table
+            loading={loading}
+            columns={columns}
+            dataSource={trips}
+            rowKey="_id"
+            pagination={{
+              pageSize: 5,
+            }}
+          />
+        </Card>
+
+        {/* Statistics */}
+        <Row
+          gutter={[24, 24]}
+          style={{ marginTop: 40 }}
+        >
+          <Col xs={24} md={8}>
+            <Card>
+              <Statistic
+                title="Tổng chuyến"
+                value={trips.length}
+              />
+              <Text type="secondary">
+                Được phân công
+              </Text>
+            </Card>
+          </Col>
+
+          <Col xs={24} md={8}>
+            <Card>
+              <Statistic
+                title="Đang chạy"
+                value={
+                  trips.filter(
+                    (item) =>
+                      item.status === "đang chạy"
+                  ).length
+                }
+              />
+              <Text type="secondary">
+                Hiện tại
+              </Text>
+            </Card>
+          </Col>
+
+          <Col xs={24} md={8}>
+            <Card>
+              <Statistic
+                title="Hoàn thành"
+                value={
+                  trips.filter(
+                    (item) =>
+                      item.status === "hoàn thành"
+                  ).length
+                }
+                prefix={<CarOutlined />}
+              />
+              <Text type="secondary">
+                Tổng chuyến
+              </Text>
+            </Card>
+          </Col>
+        </Row>
+      </div>
+    </ClientLayout>
+  );
 }
