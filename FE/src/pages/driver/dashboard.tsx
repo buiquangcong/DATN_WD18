@@ -1,6 +1,7 @@
 import { Row, Col, Card, Typography, Button, Avatar, Badge, Progress, List, Space,} from "antd";
 import { BellOutlined, UserOutlined, TeamOutlined, CarOutlined, SafetyCertificateOutlined, } from "@ant-design/icons";
 import { ClientLayout } from "./layout";
+import { useEffect, useState } from "react";
 
 
 const { Title, Text, Paragraph } = Typography;
@@ -24,13 +25,38 @@ const notifications = [
 ];
 
 export default function DriverDashboard() {
+  const [driverName, setDriverName] = useState("Tài xế");
+
+  useEffect(() => {
+    const userStr = localStorage.getItem("user");
+    if (userStr && userStr !== "undefined") {
+      try {
+        const user = JSON.parse(userStr);
+        if (user.displayName) {
+          setDriverName(user.displayName);
+        }
+      } catch (e) {
+        console.error("Lỗi parse user", e);
+      }
+    }
+  }, []);
+
+  // Lấy giờ hiện tại để chào đúng buổi
+  const currentHour = new Date().getHours();
+  let greeting = "Chào buổi sáng";
+  if (currentHour >= 12 && currentHour < 18) {
+    greeting = "Chào buổi chiều";
+  } else if (currentHour >= 18) {
+    greeting = "Chào buổi tối";
+  }
+
   return (
     <ClientLayout>
     <div style={{ padding: 24 }}>
       {/* Header */}
       <Row justify="space-between" align="middle" style={{ marginBottom: 32 }}>
         <Col>
-          <Title level={2}>Chào buổi sáng, Tài xế Anh Minh!</Title>
+          <Title level={2}>{greeting}, {driverName}!</Title>
           <Text type="secondary">
             Chúc bạn một hành trình an toàn và xanh mát hôm nay.
           </Text>
