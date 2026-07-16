@@ -109,7 +109,7 @@ export default function BookingSeats(): React.ReactElement {
 
         if (!userObj || !userObj._id) {
             message.error("Vui lòng đăng nhập tài khoản trước khi thực hiện đặt vé!");
-            navigate("/login"); 
+            navigate("/khachhang/login"); 
             return;
         }
 

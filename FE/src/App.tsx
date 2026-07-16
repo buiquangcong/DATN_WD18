@@ -9,6 +9,7 @@ import LinearProgress, { linearProgressClasses } from "@mui/material/LinearProgr
 import { ThemeProvider } from "./theme/theme-provider";
 import { DashboardLayout } from "./layouts/dashboard";
 import { Iconify } from "./components/iconify";
+import { ProtectedRoute } from "./routes/components/protected-route";
 
 import ListPage from "./pages/admin/danhsachxe/ListPage";
 import AddPage from "./pages/admin/danhsachxe/AddPage";
@@ -214,9 +215,11 @@ function App() {
             <Route
               path="/admin"
               element={
-                <DashboardLayout>
-                  <Outlet />
-                </DashboardLayout>
+                <ProtectedRoute allowedRoles={["admin"]} redirectTo="/login">
+                  <DashboardLayout>
+                    <Outlet />
+                  </DashboardLayout>
+                </ProtectedRoute>
               }
             >
               {/* When path is /admin, show DashboardPage */}

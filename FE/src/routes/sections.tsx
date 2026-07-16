@@ -11,6 +11,7 @@ import { AuthLayout } from 'src/layouts/auth';
 import { DashboardLayout } from 'src/layouts/dashboard';
 import Trip from 'src/pages/client/trip';
 import BookingSeats from 'src/pages/client/Booking';
+import { ProtectedRoute } from './components/protected-route';
 
 // ----------------------------------------------------------------------
 
@@ -46,11 +47,13 @@ export const routesSection: RouteObject[] = [
   {
     path: 'admin',
     element: (
-      <DashboardLayout>
-        <Suspense fallback={renderFallback()}>
-          <Outlet />
-        </Suspense>
-      </DashboardLayout>
+      <ProtectedRoute allowedRoles={['admin']} redirectTo="/login">
+        <DashboardLayout>
+          <Suspense fallback={renderFallback()}>
+            <Outlet />
+          </Suspense>
+        </DashboardLayout>
+      </ProtectedRoute>
     ),
     children: [
       { index: true, element: <DashboardPage /> },
