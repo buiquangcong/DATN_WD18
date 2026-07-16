@@ -25,9 +25,6 @@ export function Navbar({
       title: "Phản hồi chuyến xe",
       path: "/taixe/feedback",
     },
-    {
-    
-    }
   ];
 
   return (
@@ -86,10 +83,13 @@ export function Navbar({
             Book Now
           </Button>
 
-          <div className="hidden lg:flex items-center gap-2 text-primary font-semibold text-lg">
+          <NavLink
+            to="/taixe/login"
+            className="hidden lg:flex items-center gap-2 text-primary font-semibold text-lg hover:text-blue-600 transition"
+          >
             <UserOutlined />
             <span>Driver Portal</span>
-          </div>
+          </NavLink>
         </div>
       </div>
     </nav>

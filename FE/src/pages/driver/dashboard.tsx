@@ -2,7 +2,7 @@ import { Row, Col, Card, Typography, Button, Avatar, Badge, Progress, List, Spac
 import { BellOutlined, UserOutlined, TeamOutlined, CarOutlined, SafetyCertificateOutlined, } from "@ant-design/icons";
 import { ClientLayout } from "./layout";
 import { useEffect, useState } from "react";
-
+import axios from "axios";
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -26,6 +26,7 @@ const notifications = [
 
 export default function DriverDashboard() {
   const [driverName, setDriverName] = useState("Tài xế");
+  const [trips, setTrips] = useState<any[]>([]);
 
   useEffect(() => {
     const userStr = localStorage.getItem("user");
@@ -34,6 +35,15 @@ export default function DriverDashboard() {
         const user = JSON.parse(userStr);
         if (user.displayName) {
           setDriverName(user.displayName);
+        }
+        if (user.staffId) {
+          axios.get(`http://localhost:3000/api/trip/staff/${user.staffId}`)
+            .then(res => {
+              if (res.data && res.data.success) {
+                setTrips(res.data.data);
+              }
+            })
+            .catch(err => console.error("Lỗi fetch trips", err));
         }
       } catch (e) {
         console.error("Lỗi parse user", e);
@@ -86,13 +96,13 @@ export default function DriverDashboard() {
           </Card>
         </Col>
 
-        <Col xs={24} md={12} lg={6}>
+        {/* <Col xs={24} md={12} lg={6}>
           <Card>
             <Text type="secondary">Giờ lái trong tháng</Text>
             <Title level={2}>142h</Title>
             <Text type="secondary">Mục tiêu: 160h</Text>
           </Card>
-        </Col>
+        </Col> */}
 
         <Col xs={24} md={12} lg={6}>
           <Card>
@@ -107,7 +117,7 @@ export default function DriverDashboard() {
           </Card>
         </Col>
 
-        <Col xs={24} md={12} lg={6}>
+        {/* <Col xs={24} md={12} lg={6}>
           <Card>
             <Text type="secondary">Điểm an toàn</Text>
             <Title level={2} style={{ color: "#52c41a" }}>
@@ -120,56 +130,59 @@ export default function DriverDashboard() {
               }}
             />
           </Card>
-        </Col>
+        </Col> */}
       </Row>
 
       {/* Main Section */}
       <Row gutter={[24, 24]}>
-        {/* Next Trip */}
+        {/* Active Trips */}
         <Col xs={24} lg={16}>
-          <Card>
-            <Space
-              direction="vertical"
-              size="large"
-              style={{ width: "100%" }}
-            >
-              <Text strong style={{ color: "#52c41a" }}>
-                CHUYẾN KẾ TIẾP
-              </Text>
-
-              <Title level={3}>
-                Hà Nội → Hải Phòng
-              </Title>
-
-              <Row gutter={[16, 16]}>
-                <Col span={6}>
-                  <Text type="secondary">Giờ xuất bến</Text>
-                  <Title level={4}>14:30</Title>
-                </Col>
-
-                <Col span={6}>
-                  <Text type="secondary">Cổng đợi</Text>
-                  <Title level={4}>Gate 04</Title>
-                </Col>
-
-                <Col span={6}>
-                  <Text type="secondary">Trạng thái</Text>
-                  <Paragraph style={{ color: "#52c41a" }}>
-                    ● Sẵn sàng
-                  </Paragraph>
-                </Col>
-
-                <Col span={6}>
-                  <Button
-                    type="primary"
-                    size="large"
-                    block
-                  >
-                    Xem hành trình
-                  </Button>
-                </Col>
-              </Row>
-            </Space>
+          <Card title={<Text strong style={{ color: "#52c41a" }}>DANH SÁCH CHUYẾN ĐI ĐƯỢC PHÂN CÔNG</Text>}>
+            {trips.length === 0 ? (
+                <Text type="secondary">Hiện chưa có chuyến đi nào được phân công cho bạn.</Text>
+            ) : (
+                <Space direction="vertical" size="large" style={{ width: "100%" }}>
+                  {trips.map((trip: any, index: number) => (
+                      <div key={trip._id || index} style={{ borderBottom: '1px solid #333', paddingBottom: 16 }}>
+                          <Title level={3}>
+                            {trip.journey?.startPoint || "Chưa rõ"} → {trip.journey?.endPoint || "Chưa rõ"}
+                          </Title>
+            
+                          <Row gutter={[16, 16]}>
+                            <Col span={6}>
+                              <Text type="secondary">Giờ xuất bến</Text>
+                              <Title level={4} style={{ marginTop: 4 }}>
+                                 {new Date(trip.departureTime).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})} 
+                                 <div style={{fontSize: 14, fontWeight: 'normal', color: '#888'}}>{new Date(trip.departureTime).toLocaleDateString('vi-VN')}</div>
+                              </Title>
+                            </Col>
+            
+                            <Col span={6}>
+                              <Text type="secondary">Biển số xe</Text>
+                              <Title level={4} style={{ marginTop: 4 }}>{trip.bus?.licensePlate || "N/A"}</Title>
+                            </Col>
+            
+                            <Col span={6}>
+                              <Text type="secondary">Trạng thái</Text>
+                              <Paragraph style={{ color: trip.status === "Hoàn thành" ? "#8c8c8c" : "#52c41a", marginTop: 4 }}>
+                                ● {trip.status || "Đang chờ"}
+                              </Paragraph>
+                            </Col>
+                            
+                            <Col span={6}>
+                              <Button
+                                type="primary"
+                                size="large"
+                                block
+                              >
+                                Xem hành trình
+                              </Button>
+                            </Col>
+                          </Row>
+                      </div>
+                  ))}
+                </Space>
+            )}
           </Card>
         </Col>
 

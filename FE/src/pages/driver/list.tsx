@@ -6,9 +6,6 @@ import axios from "axios";
 
 const { Title, Text, Paragraph } = Typography;
 
-// Thay bằng _id của staff trong MongoDB
-const STAFF_ID = "6a39a1b27d903a00d9d0b493";
-
 interface Trip {
   _id: string;
   departureTime: string;
@@ -29,19 +26,36 @@ export default function ListTaixePage() {
   const [loading, setLoading] = useState(true);
   const [trips, setTrips] = useState<Trip[]>([]);
 
-  useEffect(() => {
-    axios
-      .get( `http://localhost:3000/api/trip/staff/${STAFF_ID}` )
-      .then((res) => {
-        setTrips(res.data.data);
-      })
-      .catch((err) => {
-        console.log(err);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  }, []);
+
+  useEffect(() => {
+    let currentStaffId = "";
+    try {
+      const userStr = localStorage.getItem("user");
+      if (userStr && userStr !== "undefined") {
+        const user = JSON.parse(userStr);
+        currentStaffId = user.staffId;
+      }
+    } catch (e) {
+      console.error("Lỗi parse user info", e);
+    }
+
+    if (!currentStaffId) {
+      setLoading(false);
+      return;
+    }
+
+    axios
+      .get(`http://localhost:3000/api/trip/staff/${currentStaffId}`)
+      .then((res) => {
+        setTrips(res.data.data);
+      })
+      .catch((err) => {
+        console.log(err);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, []);
 
   const currentTrip =
     trips.find((item) => item.status === "đang chạy") ||
