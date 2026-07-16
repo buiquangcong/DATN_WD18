@@ -19,7 +19,7 @@ export default function Login() {
       const user = res.data.user;
       const staff = res.data.staff;
       const token = res.data.token;
-      const userData = { ...user, displayName: staff?.ten || user?.username || "Tài xế" };
+      const userData = { ...user, displayName: staff?.ten || user?.username || "Tài xế", staffId: staff?._id };
       localStorage.setItem("user", JSON.stringify(userData));
       localStorage.setItem("token", token);
       toast.success("Đăng nhập thành công!");

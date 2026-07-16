@@ -1,8 +1,8 @@
-import { Row, Col, Card, Typography, Button, Avatar, Badge, Progress, List, Space,} from "antd";
+import { Row, Col, Card, Typography, Button, Avatar, Badge, Progress, List, Space, Table, Tag } from "antd";
 import { BellOutlined, UserOutlined, TeamOutlined, CarOutlined, SafetyCertificateOutlined, } from "@ant-design/icons";
 import { ClientLayout } from "./layout";
 import { useEffect, useState } from "react";
-
+import axios from "axios";
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -26,6 +26,7 @@ const notifications = [
 
 export default function DriverDashboard() {
   const [driverName, setDriverName] = useState("Tài xế");
+  const [trips, setTrips] = useState<any[]>([]);
 
   useEffect(() => {
     const userStr = localStorage.getItem("user");
@@ -34,6 +35,15 @@ export default function DriverDashboard() {
         const user = JSON.parse(userStr);
         if (user.displayName) {
           setDriverName(user.displayName);
+        }
+        if (user.staffId) {
+          axios.get(`http://localhost:3000/api/trip/staff/${user.staffId}`)
+            .then(res => {
+              if (res.data && res.data.success) {
+                setTrips(res.data.data);
+              }
+            })
+            .catch(err => console.error("Lỗi fetch trips", err));
         }
       } catch (e) {
         console.error("Lỗi parse user", e);
@@ -49,6 +59,51 @@ export default function DriverDashboard() {
   } else if (currentHour >= 18) {
     greeting = "Chào buổi tối";
   }
+
+  const columns = [
+    {
+      title: "Mã chuyến",
+      render: (_: any, record: any) => record._id?.slice(-6).toUpperCase(),
+    },
+    {
+      title: "Tuyến đường",
+      render: (_: any, record: any) =>
+        `${record.journey?.diemDi || record.journey?.startPoint || "Chưa rõ"} → ${record.journey?.diemDen || record.journey?.endPoint || "Chưa rõ"}`,
+    },
+    {
+      title: "Khởi hành",
+      render: (_: any, record: any) =>
+        new Date(record.departureTime).toLocaleString("vi-VN"),
+    },
+    {
+      title: "Xe",
+      render: (_: any, record: any) =>
+        record.bus?.name || record.bus?.licensePlate || "N/A",
+    },
+    {
+      title: "Trạng thái",
+      render: (_: any, record: any) => {
+        let color = "default";
+        if (record.status === "sắp chạy") color = "blue";
+        if (record.status === "đang chạy") color = "green";
+        if (record.status === "Hoàn thành" || record.status === "hoàn thành") color = "cyan";
+        if (record.status === "huỷ") color = "red";
+        return (
+          <Tag color={color}>
+            {record.status || "Đang chờ"}
+          </Tag>
+        );
+      },
+    },
+    {
+      title: "Hành động",
+      render: () => (
+        <Button type="link">
+          Chi tiết
+        </Button>
+      ),
+    },
+  ];
 
   return (
     <ClientLayout>
@@ -81,23 +136,23 @@ export default function DriverDashboard() {
         <Col xs={24} md={12} lg={6}>
           <Card>
             <Text type="secondary">Chuyến đi hôm nay</Text>
-            <Title level={2}>06</Title>
-            <Text style={{ color: "#52c41a" }}>+12%</Text>
+            <Title level={2}>03</Title>
+            <Text style={{ color: "#52c41a" }}>+6%</Text>
           </Card>
         </Col>
 
-        <Col xs={24} md={12} lg={6}>
+        {/* <Col xs={24} md={12} lg={6}>
           <Card>
             <Text type="secondary">Giờ lái trong tháng</Text>
             <Title level={2}>142h</Title>
             <Text type="secondary">Mục tiêu: 160h</Text>
           </Card>
-        </Col>
+        </Col> */}
 
         <Col xs={24} md={12} lg={6}>
           <Card>
             <Text type="secondary">Tổng hành khách</Text>
-            <Title level={2}>1.2k</Title>
+            <Title level={2}>120</Title>
             <TeamOutlined
               style={{
                 fontSize: 24,
@@ -107,7 +162,7 @@ export default function DriverDashboard() {
           </Card>
         </Col>
 
-        <Col xs={24} md={12} lg={6}>
+        {/* <Col xs={24} md={12} lg={6}>
           <Card>
             <Text type="secondary">Điểm an toàn</Text>
             <Title level={2} style={{ color: "#52c41a" }}>
@@ -120,56 +175,25 @@ export default function DriverDashboard() {
               }}
             />
           </Card>
-        </Col>
+        </Col> */}
       </Row>
 
       {/* Main Section */}
       <Row gutter={[24, 24]}>
-        {/* Next Trip */}
-        <Col xs={24} lg={16}>
-          <Card>
-            <Space
-              direction="vertical"
-              size="large"
-              style={{ width: "100%" }}
-            >
-              <Text strong style={{ color: "#52c41a" }}>
-                CHUYẾN KẾ TIẾP
-              </Text>
-
-              <Title level={3}>
-                Hà Nội → Hải Phòng
-              </Title>
-
-              <Row gutter={[16, 16]}>
-                <Col span={6}>
-                  <Text type="secondary">Giờ xuất bến</Text>
-                  <Title level={4}>14:30</Title>
-                </Col>
-
-                <Col span={6}>
-                  <Text type="secondary">Cổng đợi</Text>
-                  <Title level={4}>Gate 04</Title>
-                </Col>
-
-                <Col span={6}>
-                  <Text type="secondary">Trạng thái</Text>
-                  <Paragraph style={{ color: "#52c41a" }}>
-                    ● Sẵn sàng
-                  </Paragraph>
-                </Col>
-
-                <Col span={6}>
-                  <Button
-                    type="primary"
-                    size="large"
-                    block
-                  >
-                    Xem hành trình
-                  </Button>
-                </Col>
-              </Row>
-            </Space>
+        {/* Active Trips */}
+        <Col xs={24}>
+          <Card title={<Text strong style={{ color: "#52c41a" }}>DANH SÁCH CHUYẾN XE CỦA {driverName.toUpperCase()}</Text>}>
+            {trips.length === 0 ? (
+                <Text type="secondary">Hiện chưa có chuyến đi nào được phân công cho bạn.</Text>
+            ) : (
+                <Table 
+                  dataSource={trips} 
+                  columns={columns} 
+                  rowKey="_id"
+                  pagination={{ pageSize: 5 }}
+                  scroll={{ x: 800 }}
+                />
+            )}
           </Card>
         </Col>
 
