@@ -24,9 +24,6 @@ export function Navbar({
     {
       title: "Phản hồi chuyến xe",
       path: "/taixe/feedback",
-    },
-    {
-    
     }
   ];
 
