@@ -60,6 +60,23 @@ export default function DriverDashboard() {
     greeting = "Chào buổi tối";
   }
 
+  // Lấy các chuyến đi trong ngày hôm nay từ API
+  const todayTrips = trips.filter((trip) => {
+    if (!trip.departureTime) return false;
+    const tripDate = new Date(trip.departureTime);
+    const today = new Date();
+    return tripDate.toLocaleDateString("vi-VN") === today.toLocaleDateString("vi-VN");
+  });
+
+  const todayTripsCount = todayTrips.length;
+
+  // Tính tổng số hành khách (số lượng ghế đã đặt - status là "BOOKED") của ngày hôm nay
+  const todayPassengersCount = todayTrips.reduce((total, trip) => {
+    if (!trip.seats || !Array.isArray(trip.seats)) return total;
+    const bookedSeatsCount = trip.seats.filter((seat: any) => seat.status === "BOOKED").length;
+    return total + bookedSeatsCount;
+  }, 0);
+
   const columns = [
     {
       title: "Mã chuyến",
@@ -136,8 +153,8 @@ export default function DriverDashboard() {
         <Col xs={24} md={12} lg={6}>
           <Card>
             <Text type="secondary">Chuyến đi hôm nay</Text>
-            <Title level={2}>03</Title>
-            <Text style={{ color: "#52c41a" }}>+6%</Text>
+            <Title level={2}>{String(todayTripsCount).padStart(2, '0')}</Title>
+            <Text style={{ color: "#52c41a" }}>Green trip</Text>
           </Card>
         </Col>
 
@@ -149,10 +166,10 @@ export default function DriverDashboard() {
           </Card>
         </Col> */}
 
-        <Col xs={24} md={12} lg={6}>
+         <Col xs={24} md={12} lg={6}>
           <Card>
             <Text type="secondary">Tổng hành khách</Text>
-            <Title level={2}>120</Title>
+            <Title level={2}>{String(todayPassengersCount).padStart(2, '0')}</Title>
             <TeamOutlined
               style={{
                 fontSize: 24,

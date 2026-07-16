@@ -1,5 +1,5 @@
 import React from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { Switch, Button } from "antd";
 import { BulbOutlined } from "@ant-design/icons";
 
@@ -12,6 +12,28 @@ export function Navbar({
   isDarkMode,
   toggleDarkMode,
 }: NavbarProps) {
+  const navigate = useNavigate();
+  const token = localStorage.getItem("token");
+  const isLoggedIn = !!token;
+
+  const handleLoginClick = () => {
+    if (isLoggedIn) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      navigate("/khachhang/login");
+    } else {
+      navigate("/khachhang/login");
+    }
+  };
+
+  const handleBookNowClick = () => {
+    if (isLoggedIn) {
+      navigate("/khachhang/trip");
+    } else {
+      navigate("/khachhang/login");
+    }
+  };
+
   const menus = [
     {
       title: "Trang Chủ",
@@ -85,11 +107,19 @@ export function Navbar({
             unCheckedChildren={<BulbOutlined />}
           />
 
-          <button className="hidden lg:block font-medium transition-colors duration-300 px-4 py-2 text-secondary dark:text-secondary-fixed-dim hover:text-primary">
-            Login
+          <button
+            onClick={handleLoginClick}
+            className="hidden lg:block font-medium transition-colors duration-300 px-4 py-2 text-secondary dark:text-secondary-fixed-dim hover:text-primary"
+          >
+            {isLoggedIn ? "Logout" : "Login"}
           </button>
 
-          <Button type="primary" size="large" className="font-bold">
+          <Button
+            type="primary"
+            size="large"
+            className="font-bold"
+            onClick={handleBookNowClick}
+          >
             Book Now
           </Button>
         </div>
