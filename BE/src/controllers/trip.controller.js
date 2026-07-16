@@ -59,7 +59,22 @@ export const createOne = asyncHandler(async (req, res) => {
             message: "Cấu hình số chỗ hoặc loại xe không hợp lệ, không thể sinh sơ đồ ghế."
         });
     }
+// Kiểm tra tài xế đã có chuyến trong khoảng thời gian này chưa
+const existedDriver = await Trip.findOne({
+    staff,
+    departureTime: {
+        $lt: new Date(arrivalTime),
+    },
+    arrivalTime: {
+        $gt: new Date(departureTime),
+    },
+});
 
+if (existedDriver) {
+    return res.status(400).json({
+        message: "Tài xế đã có chuyến khác trong khoảng thời gian này",
+    });
+}
     const trip = await Trip.create({
         journey,
         bus,
@@ -77,6 +92,25 @@ export const createOne = asyncHandler(async (req, res) => {
 });
 
 export const updateOne = asyncHandler(async (req, res) => {
+    const { staff, departureTime, arrivalTime } = req.body;
+
+    const existedDriver = await Trip.findOne({
+        _id: { $ne: req.params.id },
+        staff,
+        departureTime: {
+            $lt: new Date(arrivalTime),
+        },
+        arrivalTime: {
+            $gt: new Date(departureTime),
+        },
+    });
+
+    if (existedDriver) {
+        return res.status(400).json({
+            message: "Tài xế đã có chuyến khác trong khoảng thời gian này",
+        });
+    }
+
     const trip = await Trip.findByIdAndUpdate(
         req.params.id,
         req.body,
@@ -85,13 +119,13 @@ export const updateOne = asyncHandler(async (req, res) => {
 
     if (!trip) {
         return res.status(404).json({
-            message: "Không tìm thấy chuyến xe"
+            message: "Không tìm thấy chuyến xe",
         });
     }
 
     return res.json({
         message: "Cập nhật chuyến xe thành công",
-        data: trip
+        data: trip,
     });
 });
 
@@ -111,8 +145,7 @@ export const deleteOne = asyncHandler(async (req, res) => {
 });
 
 export const createSchedule = asyncHandler(async (req, res) => {
-   console.log(req.body);
- const {
+  const {
     journey,
     bus,
     staff,
@@ -123,7 +156,7 @@ export const createSchedule = asyncHandler(async (req, res) => {
     startDate,
     endDate,
     status,
-} = req.body;
+  } = req.body;
 
   const busInfo = await Bus.findById(bus);
 
@@ -132,11 +165,12 @@ export const createSchedule = asyncHandler(async (req, res) => {
       message: "Không tìm thấy xe",
     });
   }
+
   const autoSeats = generateSeats(
     busInfo.capacity,
     busInfo.type
   );
-console.log(autoSeats);
+
   if (!autoSeats.length) {
     return res.status(400).json({
       message: "Không thể sinh ghế",
@@ -153,10 +187,7 @@ console.log(autoSeats);
     if (weekdays.includes(current.getDay())) {
 
       const departureTime = new Date(current);
-
-      const [depHour, depMinute] =
-        departureHour.split(":");
-
+      const [depHour, depMinute] = departureHour.split(":");
       departureTime.setHours(
         Number(depHour),
         Number(depMinute),
@@ -165,10 +196,7 @@ console.log(autoSeats);
       );
 
       const arrivalTime = new Date(current);
-
-      const [arrHour, arrMinute] =
-        arrivalHour.split(":");
-
+      const [arrHour, arrMinute] = arrivalHour.split(":");
       arrivalTime.setHours(
         Number(arrHour),
         Number(arrMinute),
@@ -176,8 +204,10 @@ console.log(autoSeats);
         0
       );
 
-      // kiểm tra trùng xe cùng khoảng thời gian
-      const existedTrip = await Trip.findOne({
+      // ==========================
+      // Kiểm tra xe
+      // ==========================
+      const existedBus = await Trip.findOne({
         bus,
         departureTime: {
           $lt: arrivalTime,
@@ -187,36 +217,56 @@ console.log(autoSeats);
         },
       });
 
-      if (existedTrip) {
+      if (existedBus) {
         duplicateTrips.push(
-          departureTime.toLocaleString("vi-VN")
+          `Xe đã có lịch: ${departureTime.toLocaleString("vi-VN")}`
         );
-      } else {
-       trips.push({
-    journey,
-    bus,
-    staff,
-    fareRule,
-    departureTime,
-    arrivalTime,
-    status: status || "sắp chạy",
-    seats: JSON.parse(
-        JSON.stringify(autoSeats)
-    ),
-});
+        current.setDate(current.getDate() + 1);
+        continue;
       }
+
+      // ==========================
+      // Kiểm tra tài xế
+      // ==========================
+      const existedDriver = await Trip.findOne({
+        staff,
+        departureTime: {
+          $lt: arrivalTime,
+        },
+        arrivalTime: {
+          $gt: departureTime,
+        },
+      });
+
+      if (existedDriver) {
+        duplicateTrips.push(
+          `Tài xế đã có lịch: ${departureTime.toLocaleString("vi-VN")}`
+        );
+        current.setDate(current.getDate() + 1);
+        continue;
+      }
+
+      // ==========================
+      // Không trùng -> thêm chuyến
+      // ==========================
+      trips.push({
+        journey,
+        bus,
+        staff,
+        fareRule,
+        departureTime,
+        arrivalTime,
+        status: status || "sắp chạy",
+        seats: JSON.parse(JSON.stringify(autoSeats)),
+      });
     }
 
-    current.setDate(
-      current.getDate() + 1
-    );
+    current.setDate(current.getDate() + 1);
   }
 
   if (duplicateTrips.length > 0) {
     return res.status(400).json({
-      message:
-        "Xe đã có lịch chạy tại: " +
-        duplicateTrips.join(", "),
+      message: duplicateTrips.join(" | "),
     });
   }
 

@@ -20,7 +20,17 @@ mongoose.connect(
         dbName: 'DATN-WD18'
     }
 )
-    .then(() => console.log('Kết nối CSDL thành công'))
+    .then(async () => {
+        console.log('Kết nối CSDL thành công');
+        try {
+            await mongoose.connection.db.collection('staffs').dropIndex('sdt_1');
+            console.log('Đã xóa index sdt_1 cũ thành công');
+        } catch (err) {}
+        try {
+            await mongoose.connection.db.collection('staffs').dropIndex('cccd_1');
+            console.log('Đã xóa index cccd_1 cũ thành công');
+        } catch (err) {}
+    })
     .catch(() => console.log('Kết nối CSDL thất bại'));
 
 
