@@ -63,7 +63,7 @@ function TripEditPage() {
         setBuses(b.data);
         setDrivers(d.data);
         setFareRules(f.data);
-      } catch (error) {
+      } catch {
         message.error("Load dữ liệu thất bại");
       }
     };
@@ -91,10 +91,13 @@ function TripEditPage() {
     });
   }, [trip, form]);
 
-  const onFinish = (values: any) => {
-    const payload = {
-      _id: id,
+  const disabledPastDate = (current: any) => {
+    return current && current < dayjs().startOf("day");
+  };
 
+  const onFinish = (values: any) => {
+    Edit({
+      _id: id,
       journey: values.journey,
       bus: values.bus,
       staff: values.staff,
@@ -102,20 +105,14 @@ function TripEditPage() {
       status: values.status,
 
       departureTime:
-        values.departureTime
-          ?.toDate()
-          .toISOString(),
+        values.departureTime?.toDate().toISOString(),
 
       arrivalTime:
-        values.arrivalTime
-          ?.toDate()
-          .toISOString(),
-    };
-
-    Edit(payload);
+        values.arrivalTime?.toDate().toISOString(),
+    });
   };
 
-   if (isLoading) {
+  if (isLoading) {
     return (
       <div className="p-10 flex justify-center">
         <Spin />
@@ -126,7 +123,7 @@ function TripEditPage() {
   return (
     <div className="p-6 max-w-2xl">
       <h1 className="text-xl font-bold mb-6">
-        Sửa Chuyến Xe
+        Sửa chuyến xe
       </h1>
 
       <Form
@@ -134,23 +131,15 @@ function TripEditPage() {
         layout="vertical"
         onFinish={onFinish}
       >
-        {/* Tuyến */}
+                {/* Tuyến đường */}
         <Form.Item
           name="journey"
           label="Tuyến đường"
-          rules={[
-            {
-              required: true,
-              message: "Chọn tuyến đường",
-            },
-          ]}
+          rules={[{ required: true, message: "Chọn tuyến đường" }]}
         >
           <Select>
             {journeys.map((j) => (
-              <Select.Option
-                key={j._id}
-                value={j._id}
-              >
+              <Select.Option key={j._id} value={j._id}>
                 {j.diemDi} → {j.diemDen}
               </Select.Option>
             ))}
@@ -161,59 +150,41 @@ function TripEditPage() {
         <Form.Item
           name="bus"
           label="Xe"
-          rules={[
-            {
-              required: true,
-              message: "Chọn xe",
-            },
-          ]}
+          rules={[{ required: true, message: "Chọn xe" }]}
         >
           <Select>
             {buses.map((b) => (
-              <Select.Option
-                key={b._id}
-                value={b._id}
-              >
+              <Select.Option key={b._id} value={b._id}>
                 {b.name || b.bienSo || "Xe"}
               </Select.Option>
             ))}
           </Select>
         </Form.Item>
 
-        {/* Chỉ chọn Driver */}
+        {/* Tài xế */}
         <Form.Item
           name="staff"
           label="Tài xế"
-          rules={[
-            {
-              required: true,
-              message: "Chọn tài xế",
-            },
-          ]}
+          rules={[{ required: true, message: "Chọn tài xế" }]}
         >
           <Select placeholder="Chọn tài xế">
             {drivers.map((d) => (
-              <Select.Option
-                key={d._id}
-                value={d._id}
-              >
+              <Select.Option key={d._id} value={d._id}>
                 {d.ten}
               </Select.Option>
             ))}
           </Select>
         </Form.Item>
 
-        {/* Giá vé */}
+        {/* Bảng giá */}
         <Form.Item
           name="fareRule"
           label="Bảng giá"
+          rules={[{ required: true, message: "Chọn bảng giá" }]}
         >
           <Select>
             {fareRules.map((f) => (
-              <Select.Option
-                key={f._id}
-                value={f._id}
-              >
+              <Select.Option key={f._id} value={f._id}>
                 {f.weekdayPrice.toLocaleString("vi-VN")} đ
               </Select.Option>
             ))}
@@ -224,12 +195,18 @@ function TripEditPage() {
         <Form.Item
           name="departureTime"
           label="Thời gian khởi hành"
+          rules={[
+            {
+              required: true,
+              message: "Chọn thời gian khởi hành",
+            },
+          ]}
         >
           <DatePicker
-            
             showTime
             className="w-full"
             format="YYYY-MM-DD HH:mm"
+            disabledDate={disabledPastDate}
           />
         </Form.Item>
 
@@ -237,12 +214,54 @@ function TripEditPage() {
         <Form.Item
           name="arrivalTime"
           label="Thời gian đến"
+          dependencies={["departureTime"]}
+          rules={[
+            {
+              required: true,
+              message: "Chọn thời gian đến",
+            },
+            ({ getFieldValue }) => ({
+              validator(_, value) {
+                const departure =
+                  getFieldValue("departureTime");
+
+                if (!departure || !value) {
+                  return Promise.resolve();
+                }
+
+                if (value.isAfter(departure)) {
+                  return Promise.resolve();
+                }
+
+                return Promise.reject(
+                  new Error(
+                    "Thời gian đến phải sau thời gian khởi hành"
+                  )
+                );
+              },
+            }),
+          ]}
         >
           <DatePicker
-      
             showTime
             className="w-full"
             format="YYYY-MM-DD HH:mm"
+            disabledDate={(current) => {
+              const departure =
+                form.getFieldValue("departureTime");
+
+              if (!departure) {
+                return (
+                  current &&
+                  current < dayjs().startOf("day")
+                );
+              }
+
+              return (
+                current &&
+                current < departure.startOf("day")
+              );
+            }}
           />
         </Form.Item>
 
