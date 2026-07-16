@@ -14,8 +14,14 @@ const LoginPage = () => {
             return await axios.post("http://localhost:3000/api/auth/signin", value);
         },
         onSuccess: (res) => {
-            const data = res.data.data;
+            const data = res.data.user;
             const token = res.data.token;
+
+            if (data?.role !== "admin") {
+                toast.error("Tài khoản không có quyền truy cập trang quản trị!");
+                return;
+            }
+
             localStorage.setItem("user", JSON.stringify(data));
             localStorage.setItem("token", token);
             toast.success("Đăng nhập thành công!");

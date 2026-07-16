@@ -73,7 +73,7 @@ export default function RegisterClientPage() {
     },
     onSuccess: (data: any) => {
       toast.success(data?.message || "Đăng ký tài khoản thành công! Vui lòng đăng nhập.");
-      navigate("/login");
+      navigate("/khachhang/login");
     },
     onError: (error: any) => {
       const errMsg = error.response?.data?.message || "Đăng ký thất bại!";
@@ -205,7 +205,7 @@ export default function RegisterClientPage() {
 
                 <div className="text-center mt-4">
                   <Text type="secondary">Bạn đã có tài khoản? </Text>
-                  <Link onClick={() => navigate("/login")}>Đăng nhập ngay</Link>
+                  <Link onClick={() => navigate("/khachhang/login")}>Đăng nhập ngay</Link>
                 </div>
               </Form>
             </Card>
