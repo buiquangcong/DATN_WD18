@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { Button } from "antd";
 import { UserOutlined } from "@ant-design/icons";
@@ -12,6 +12,14 @@ export function Navbar({
   isDarkMode,
   toggleDarkMode,
 }: NavbarProps) {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const userStr = localStorage.getItem("user");
+    if (userStr && userStr !== "undefined") {
+      setIsLoggedIn(true);
+    }
+  }, []);
   const menus = [
     {
       title: "Trang chủ",
@@ -83,13 +91,27 @@ export function Navbar({
             Book Now
           </Button>
 
-          <NavLink
-            to="/taixe/login"
-            className="hidden lg:flex items-center gap-2 text-primary font-semibold text-lg hover:text-blue-600 transition"
-          >
-            <UserOutlined />
-            <span>Driver Portal</span>
-          </NavLink>
+          {isLoggedIn ? (
+            <div
+              className="hidden lg:flex items-center gap-2 text-red-500 font-semibold text-lg hover:text-red-600 transition cursor-pointer"
+              onClick={() => {
+                localStorage.removeItem("user");
+                localStorage.removeItem("token");
+                window.location.href = "/taixe/login";
+              }}
+            >
+              <UserOutlined />
+              <span>Đăng xuất</span>
+            </div>
+          ) : (
+            <NavLink
+              to="/taixe/login"
+              className="hidden lg:flex items-center gap-2 text-primary font-semibold text-lg hover:text-blue-600 transition"
+            >
+              <UserOutlined />
+              <span>Driver Portal</span>
+            </NavLink>
+          )}
         </div>
       </div>
     </nav>

@@ -1,4 +1,4 @@
-import { Row, Col, Card, Typography, Button, Avatar, Badge, Progress, List, Space,} from "antd";
+import { Row, Col, Card, Typography, Button, Avatar, Badge, Progress, List, Space, Table, Tag } from "antd";
 import { BellOutlined, UserOutlined, TeamOutlined, CarOutlined, SafetyCertificateOutlined, } from "@ant-design/icons";
 import { ClientLayout } from "./layout";
 import { useEffect, useState } from "react";
@@ -60,6 +60,51 @@ export default function DriverDashboard() {
     greeting = "Chào buổi tối";
   }
 
+  const columns = [
+    {
+      title: "Mã chuyến",
+      render: (_: any, record: any) => record._id?.slice(-6).toUpperCase(),
+    },
+    {
+      title: "Tuyến đường",
+      render: (_: any, record: any) =>
+        `${record.journey?.diemDi || record.journey?.startPoint || "Chưa rõ"} → ${record.journey?.diemDen || record.journey?.endPoint || "Chưa rõ"}`,
+    },
+    {
+      title: "Khởi hành",
+      render: (_: any, record: any) =>
+        new Date(record.departureTime).toLocaleString("vi-VN"),
+    },
+    {
+      title: "Xe",
+      render: (_: any, record: any) =>
+        record.bus?.name || record.bus?.licensePlate || "N/A",
+    },
+    {
+      title: "Trạng thái",
+      render: (_: any, record: any) => {
+        let color = "default";
+        if (record.status === "sắp chạy") color = "blue";
+        if (record.status === "đang chạy") color = "green";
+        if (record.status === "Hoàn thành" || record.status === "hoàn thành") color = "cyan";
+        if (record.status === "huỷ") color = "red";
+        return (
+          <Tag color={color}>
+            {record.status || "Đang chờ"}
+          </Tag>
+        );
+      },
+    },
+    {
+      title: "Hành động",
+      render: () => (
+        <Button type="link">
+          Chi tiết
+        </Button>
+      ),
+    },
+  ];
+
   return (
     <ClientLayout>
     <div style={{ padding: 24 }}>
@@ -91,8 +136,8 @@ export default function DriverDashboard() {
         <Col xs={24} md={12} lg={6}>
           <Card>
             <Text type="secondary">Chuyến đi hôm nay</Text>
-            <Title level={2}>06</Title>
-            <Text style={{ color: "#52c41a" }}>+12%</Text>
+            <Title level={2}>03</Title>
+            <Text style={{ color: "#52c41a" }}>+6%</Text>
           </Card>
         </Col>
 
@@ -107,7 +152,7 @@ export default function DriverDashboard() {
         <Col xs={24} md={12} lg={6}>
           <Card>
             <Text type="secondary">Tổng hành khách</Text>
-            <Title level={2}>1.2k</Title>
+            <Title level={2}>120</Title>
             <TeamOutlined
               style={{
                 fontSize: 24,
@@ -136,52 +181,18 @@ export default function DriverDashboard() {
       {/* Main Section */}
       <Row gutter={[24, 24]}>
         {/* Active Trips */}
-        <Col xs={24} lg={16}>
-          <Card title={<Text strong style={{ color: "#52c41a" }}>DANH SÁCH CHUYẾN ĐI ĐƯỢC PHÂN CÔNG</Text>}>
+        <Col xs={24}>
+          <Card title={<Text strong style={{ color: "#52c41a" }}>DANH SÁCH CHUYẾN XE CỦA {driverName.toUpperCase()}</Text>}>
             {trips.length === 0 ? (
                 <Text type="secondary">Hiện chưa có chuyến đi nào được phân công cho bạn.</Text>
             ) : (
-                <Space direction="vertical" size="large" style={{ width: "100%" }}>
-                  {trips.map((trip: any, index: number) => (
-                      <div key={trip._id || index} style={{ borderBottom: '1px solid #333', paddingBottom: 16 }}>
-                          <Title level={3}>
-                            {trip.journey?.startPoint || "Chưa rõ"} → {trip.journey?.endPoint || "Chưa rõ"}
-                          </Title>
-            
-                          <Row gutter={[16, 16]}>
-                            <Col span={6}>
-                              <Text type="secondary">Giờ xuất bến</Text>
-                              <Title level={4} style={{ marginTop: 4 }}>
-                                 {new Date(trip.departureTime).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})} 
-                                 <div style={{fontSize: 14, fontWeight: 'normal', color: '#888'}}>{new Date(trip.departureTime).toLocaleDateString('vi-VN')}</div>
-                              </Title>
-                            </Col>
-            
-                            <Col span={6}>
-                              <Text type="secondary">Biển số xe</Text>
-                              <Title level={4} style={{ marginTop: 4 }}>{trip.bus?.licensePlate || "N/A"}</Title>
-                            </Col>
-            
-                            <Col span={6}>
-                              <Text type="secondary">Trạng thái</Text>
-                              <Paragraph style={{ color: trip.status === "Hoàn thành" ? "#8c8c8c" : "#52c41a", marginTop: 4 }}>
-                                ● {trip.status || "Đang chờ"}
-                              </Paragraph>
-                            </Col>
-                            
-                            <Col span={6}>
-                              <Button
-                                type="primary"
-                                size="large"
-                                block
-                              >
-                                Xem hành trình
-                              </Button>
-                            </Col>
-                          </Row>
-                      </div>
-                  ))}
-                </Space>
+                <Table 
+                  dataSource={trips} 
+                  columns={columns} 
+                  rowKey="_id"
+                  pagination={{ pageSize: 5 }}
+                  scroll={{ x: 800 }}
+                />
             )}
           </Card>
         </Col>
