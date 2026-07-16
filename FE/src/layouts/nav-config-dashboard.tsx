@@ -1,9 +1,11 @@
 import { Label } from 'src/components/label';
 import { SvgColor } from 'src/components/svg-color';
+import { Iconify } from 'src/components/iconify';
 
 // ----------------------------------------------------------------------
 
 const icon = (name: string) => <SvgColor src={`/assets/icons/navbar/${name}.svg`} />;
+const renderIcon = (name: string) => <Iconify icon={name} sx={{ width: 22, height: 22 }} />;
 
 export type NavItem = {
   title: string;
@@ -16,61 +18,56 @@ export const navData = [
   {
     title: 'Dashboard',
     path: '/admin',
-    icon: icon('ic-analytics'),
+    icon: renderIcon('solar:chart-square-bold-duotone'),
   },
   {
     title: 'Danh sách xe',
     path: '/admin/bus/list',
-    icon: icon('ic-user'),
+    icon: renderIcon('solar:bus-bold-duotone'),
   },
   {
     title: 'Danh sách nhân viên',
     path: '/admin/staff/list',
-    icon: icon('ic-cart'),
+    icon: renderIcon('solar:users-group-two-rounded-bold-duotone'),
   },
   {
     title: 'Danh sách chuyến đi',
     path: '/admin/trip/list',
-    icon: icon('ic-blog'),
+    icon: renderIcon('solar:routing-bold-duotone'),
   },
   {
     title: 'Danh sách tuyến đường',
     path: '/admin/journey/list',
-    icon: icon('ic-blog'),
+    icon: renderIcon('solar:map-arrow-square-bold-duotone'),
   },
   {
- title: 'Danh sách tài khoản',
- path: '/admin/tk/list',
-  icon: icon('ic-blog'),
+    title: 'Danh sách tài khoản',
+    path: '/admin/tk/list',
+    icon: renderIcon('solar:shield-user-bold-duotone'),
   },
   {
- title: 'Danh sách Booking',
- path: '/admin/booking/list',
-  icon: icon('ic-blog'),
+    title: 'Danh sách Booking',
+    path: '/admin/booking/list',
+    icon: renderIcon('solar:ticket-sale-bold-duotone'),
   },
   {
     title: 'Danh sách giá vé',
     path: '/admin/giave/list',
-    icon: icon('ic-blog'),
+    icon: renderIcon('solar:wad-of-money-bold-duotone'),
   },
   {
     title: 'Blog',
-    path: '/admin/blog',
-    icon: icon('ic-blog'),
-  },
-  {
-     title: 'tin tuc',
     path: '/admin/news/list',
-    icon: icon('ic-blog'),
+    icon: renderIcon('solar:document-text-bold-duotone'),
   },
   {
     title: 'Đăng nhập',
     path: '/login',
-    icon: icon('ic-lock'),
+    icon: renderIcon('solar:lock-keyhole-minimalistic-bold-duotone'),
   },
   {
     title: 'Không tìm thấy',
     path: '/404',
-    icon: icon('ic-disabled'),
+    icon: renderIcon('solar:shield-warning-bold-duotone'),
   },
 ];
