@@ -205,10 +205,19 @@ function App() {
             <Route path="/khachhang/tintuc/:id" element={<ChiTietTinTucPage />} />
             <Route path="/khachhang/register" element={<RegisterClientPage />} />
             <Route path="/khachhang/schedule" element={<Schedule />} />
-            {/* Driver Route */}
-            <Route path="/taixe" element={<TaiXePage />} />
-            <Route path="/taixe/feedback" element={<Feedback />} />
-            <Route path="/taixe/list" element={<ListTaixePage />} />
+            {/* Driver Route with ProtectedRoute */}
+            <Route
+              path="/taixe"
+              element={
+                <ProtectedRoute allowedRoles={["driver"]} redirectTo="/taixe/login">
+                  <Outlet />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<TaiXePage />} />
+              <Route path="feedback" element={<Feedback />} />
+              <Route path="list" element={<ListTaixePage />} />
+            </Route>
             <Route path="/taixe/login" element={<Login />} />
 
             {/* Admin Routes with Dashboard Layout */}

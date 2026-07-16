@@ -25,8 +25,15 @@ export default function LoginClientPage() {
       return await axios.post("http://localhost:3000/api/auth/signin", value);
     },
     onSuccess: (res) => {
-      const userData = res.data.user;
+      const user = res.data.user;
+      const staff = res.data.staff;
       const token = res.data.token;
+
+      const userData = {
+        ...user,
+        displayName: staff?.ten || user?.username || "Người dùng",
+        staffId: staff?._id
+      };
 
       // Lưu trữ thông tin định danh vào localStorage
       localStorage.setItem("user", JSON.stringify(userData));
