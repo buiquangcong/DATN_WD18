@@ -27,12 +27,12 @@ export const getOne = asyncHandler(async (req, res) => {
 });
 
 export const updateOne = asyncHandler(async (req, res) => {
-    const { ten, tuoi, gioiTinh, email, sdt, diaChi, image, chucVu, cccd } = req.body;
+    const { ten, namSinh, gioiTinh, email, sdt, diaChi, image, chucVu, cccd } = req.body;
     
     const updateData = {};
     
     if (ten !== undefined) updateData.ten = ten;
-    if (tuoi !== undefined) updateData.tuoi = Number(tuoi); 
+    if (namSinh !== undefined) updateData.namSinh = namSinh;
     if (gioiTinh !== undefined) updateData.gioiTinh = gioiTinh;
     if (email !== undefined) updateData.email = email;
     if (sdt !== undefined) updateData.sdt = sdt;

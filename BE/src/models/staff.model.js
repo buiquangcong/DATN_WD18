@@ -13,8 +13,8 @@ const staffSchema = new mongoose.Schema(
             required: true, 
             trim: true,
         },
-        tuoi: {
-            type: Number,
+        namSinh: {
+            type: String,
             default: null,
         },
         gioiTinh: {
