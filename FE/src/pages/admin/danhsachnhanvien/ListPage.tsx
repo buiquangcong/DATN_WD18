@@ -7,7 +7,7 @@ import type { ColumnsType } from "antd/es/table";
 interface StaffType {
     _id: string;
     ten: string;
-    tuoi: number;
+    namSinh: String;
     gioiTinh: 'Nam' | 'Nữ' | 'Khác';
     email: string;
     sdt: string;
@@ -91,10 +91,10 @@ function ListPage() {
             },
         },
         {
-            title: "Tuổi",
-            dataIndex: "tuoi",
-            key: "tuoi",
-            render: (tuoi: number) => <span className="text-gray-600 text-sm">{tuoi} tuổi</span>,
+            title: " Ngày tháng Năm Sinh",
+            dataIndex: "namSinh",
+            key: "namSinh",
+            render: (namSinh: string) => <span className="text-gray-600 text-sm">{namSinh}</span>,
         },
         {
             title: "Hành Động",

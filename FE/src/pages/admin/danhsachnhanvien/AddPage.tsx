@@ -33,14 +33,14 @@ function AddPage() {
                         </Form.Item>
 
                         <Form.Item
-                            label="Tuổi"
-                            name="tuoi"
+                            label="Năm sinh"
+                            name="namSinh"
                             rules={[
-                                { required: true, message: "Vui lòng nhập tuổi" },
-                                { type: "number", min: 18, max: 80, message: "Tuổi từ 18 đến 80" },
+                                { required: true, message: "Vui lòng nhập năm sinh" },
+                                { type: "string", max: new Date().getFullYear(), message: "phải đầy đủ ngày tháng năm sinh" },
                             ]}
                         >
-                            <InputNumber className="w-full" min={18} max={80} placeholder="Nhập tuổi" size="large" />
+                            <InputNumber className="w-full" min={1900} max={new Date().getFullYear()} placeholder="Nhập năm sinh" size="large" />
                         </Form.Item>
 
                         <Form.Item

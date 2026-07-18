@@ -31,6 +31,7 @@ interface TripType {
   staff: staffType;
   fareRule: FareRuleType;
   departureTime: string;
+  ticketPrice: number;  
   arrivalTime: string;
   status: "sắp chạy" | "đang chạy" | "hoàn thành" | "huỷ";
 
@@ -107,11 +108,11 @@ function TripListPage() {
       record.arrivalTime
     ).toLocaleString("vi-VN"),
 },
-    {
-  title: "Giá thường",
+   {
+  title: "Giá vé",
   render: (_, record) => (
     <span className="text-green-600 font-medium">
-      {record.fareRule?.weekdayPrice?.toLocaleString("vi-VN")} đ
+      {record.ticketPrice?.toLocaleString("vi-VN")} đ
     </span>
   ),
 },
@@ -255,9 +256,9 @@ function TripListPage() {
     Giá ngày thường
   </p>
 
-  <p className="text-green-600 font-semibold">
-    {trip.fareRule?.weekdayPrice?.toLocaleString("vi-VN")} đ
-  </p>
+ <p className="text-green-600 font-semibold">
+  {trip.ticketPrice?.toLocaleString("vi-VN")} đ
+</p>
 </div>
 
 <div>
