@@ -55,7 +55,23 @@ export const createOne = asyncHandler(async (req, res) => {
         return res.status(404).json({ message: "Không tìm thấy chuyến xe" });
     }
 
-    // 1. Kiểm tra trạng thái ghế trống (Chặn cả BOOKED lẫn HOLDING)
+    // 0. Giải phóng các ghế cũ từng được giữ bởi tài khoản này nhưng không nằm trong danh sách mới
+    let hasChanges = false;
+    tripData.seats.forEach(seat => {
+        if (seat.status === "HOLDING" && seat.heldBy && seat.heldBy.toString() === user.toString()) {
+            if (!seats.includes(seat.seatCode)) {
+                seat.status = "AVAILABLE";
+                seat.heldBy = null;
+                seat.expiresAt = null;
+                hasChanges = true;
+            }
+        }
+    });
+    if (hasChanges) {
+        await tripData.save();
+    }
+
+    // 1. Kiểm tra trạng thái ghế trống (Cho phép chọn tiếp ghế đang được giữ bởi chính mình)
     for (const seatCode of seats) {
         const seat = tripData.seats.find(s => s.seatCode === seatCode);
 
@@ -63,8 +79,12 @@ export const createOne = asyncHandler(async (req, res) => {
             return res.status(400).json({ message: `Ghế ${seatCode} không tồn tại` });
         }
 
-        if (seat.status === "BOOKED" || seat.status === "HOLDING") {
-            return res.status(400).json({ message: `Ghế ${seatCode} đã có người đặt hoặc đang được giữ` });
+        if (seat.status === "BOOKED") {
+            return res.status(400).json({ message: `Ghế ${seatCode} đã có người đặt` });
+        }
+
+        if (seat.status === "HOLDING" && seat.heldBy && seat.heldBy.toString() !== user.toString()) {
+            return res.status(400).json({ message: `Ghế ${seatCode} đang được giữ bởi người khác` });
         }
     }
 
@@ -121,7 +141,7 @@ export const createOne = asyncHandler(async (req, res) => {
                     { $set: { status: "Đã huỷ" } } 
                 );
 
-                // Trả các ghế về trạng thái trống "AVAILABLE"
+                // Trả các ghế về trạng thái trống "AVAILABLE" nếu hạn giữ thực sự đã hết
                 await Trip.updateOne(
                     { _id: booking.trip },
                     { 
@@ -131,7 +151,15 @@ export const createOne = asyncHandler(async (req, res) => {
                             "seats.$[elem].expiresAt": null
                         } 
                     },
-                    { arrayFilters: [{ "elem.seatCode": { $in: booking.seats } }] }
+                    { 
+                        arrayFilters: [
+                            { 
+                                "elem.seatCode": { $in: booking.seats },
+                                "elem.heldBy": booking.user,
+                                "elem.expiresAt": { $lte: new Date() }
+                            }
+                        ] 
+                    }
                 );
 
                 // Hủy bỏ link thanh toán từ xa trên PayOS

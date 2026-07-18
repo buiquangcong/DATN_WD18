@@ -60,10 +60,21 @@ export default function BookingSeats(): React.ReactElement {
             try {
                 const response = await axios.get(`http://localhost:3000/api/trip/${tripId}`);
                 if (response.data) {
-                    if (response.data.data) {
-                        setTrip(response.data.data);
-                    } else {
-                        setTrip(response.data as DetailedTrip);
+                    const tripData = response.data.data ? response.data.data : response.data;
+                    setTrip(tripData);
+
+                    // Tự động tích chọn những ghế đang được giữ bởi chính tài khoản này
+                    const userString = localStorage.getItem("user");
+                    const userObj = userString ? JSON.parse(userString) : null;
+                    if (userObj && userObj._id && tripData.seats) {
+                        const heldSeats = tripData.seats
+                            .filter((s: Seat) => {
+                                if (s.status !== "HOLDING" || !s.heldBy) return false;
+                                const heldById = typeof s.heldBy === "object" ? (s.heldBy as any)._id : s.heldBy;
+                                return String(heldById) === String(userObj._id);
+                            })
+                            .map((s: Seat) => s.seatCode);
+                        setChosenSeatCodes(heldSeats);
                     }
                 }
             } catch (error) {
@@ -191,7 +202,14 @@ export default function BookingSeats(): React.ReactElement {
     };
 
     const handleSeatClick = (seat: Seat): void => {
-        if (seat.status !== "AVAILABLE") return;
+        const userString = localStorage.getItem("user");
+        const userObj = userString ? JSON.parse(userString) : null;
+        
+        const isUserHeld = seat.status === "HOLDING" && seat.heldBy && 
+            (typeof seat.heldBy === "object" ? String((seat.heldBy as any)._id) : String(seat.heldBy)) === String(userObj?._id);
+
+        if (seat.status !== "AVAILABLE" && !isUserHeld) return;
+
         if (chosenSeatCodes.includes(seat.seatCode)) {
             setChosenSeatCodes(chosenSeatCodes.filter(code => code !== seat.seatCode));
         } else {
@@ -273,6 +291,9 @@ export default function BookingSeats(): React.ReactElement {
         const isSleeperBus = trip.bus?.type === "Sleeper";
         const seatsInFloor = trip.seats?.filter((s: Seat) => s.floor === floorNum) || [];
         const showCockpit = floorNum === 1;
+
+        const userString = localStorage.getItem("user");
+        const userObj = userString ? JSON.parse(userString) : null;
 
         return (
             <div className="bus-shell" style={{
@@ -390,6 +411,10 @@ export default function BookingSeats(): React.ReactElement {
                         const isAvailable = seat.status === "AVAILABLE";
                         const isHolding = seat.status === "HOLDING";
                         const isBooked = seat.status === "BOOKED";
+                        const isUserHeld = isHolding && seat.heldBy && 
+                            (typeof seat.heldBy === "object" ? String((seat.heldBy as any)._id) : String(seat.heldBy)) === String(userObj?._id);
+
+                        const canClick = isAvailable || isUserHeld;
                         const gridRow = showCockpit ? seat.rowIndex + 1 : seat.rowIndex;
                         const gridCol = getMappedColIndex(seat);
 
@@ -408,7 +433,7 @@ export default function BookingSeats(): React.ReactElement {
                                 pillowBg = "#dbeafe";
                                 blanketBg = "#bfdbfe";
                                 shd = "0 4px 12px rgba(37, 99, 235, 0.15)";
-                            } else if (isHolding) {
+                            } else if (isHolding && !isUserHeld) {
                                 baseBg = "#fff1f2";
                                 borderCol = "#f43f5e";
                                 txtCol = "#be123c";
@@ -426,7 +451,7 @@ export default function BookingSeats(): React.ReactElement {
                             return (
                                 <button
                                     key={seat.seatCode}
-                                    disabled={!isAvailable}
+                                    disabled={!canClick}
                                     onClick={() => handleSeatClick(seat)}
                                     style={{
                                         gridColumnStart: gridCol,
@@ -437,7 +462,7 @@ export default function BookingSeats(): React.ReactElement {
                                         background: "transparent",
                                         border: "none",
                                         padding: 0,
-                                        cursor: isAvailable ? "pointer" : "not-allowed",
+                                        cursor: canClick ? "pointer" : "not-allowed",
                                         outline: "none",
                                         transition: "all 0.2s",
                                     }}
@@ -516,7 +541,7 @@ export default function BookingSeats(): React.ReactElement {
                                 txtCol = "#1d4ed8";
                                 armBg = "#3b82f6";
                                 shd = "0 4px 12px rgba(37, 99, 235, 0.15)";
-                            } else if (isHolding) {
+                            } else if (isHolding && !isUserHeld) {
                                 baseBg = "#fff1f2";
                                 borderCol = "#f43f5e";
                                 txtCol = "#be123c";
@@ -532,7 +557,7 @@ export default function BookingSeats(): React.ReactElement {
                             return (
                                 <button
                                     key={seat.seatCode}
-                                    disabled={!isAvailable}
+                                    disabled={!canClick}
                                     onClick={() => handleSeatClick(seat)}
                                     style={{
                                         gridColumnStart: gridCol,
@@ -543,7 +568,7 @@ export default function BookingSeats(): React.ReactElement {
                                         background: "transparent",
                                         border: "none",
                                         padding: 0,
-                                        cursor: isAvailable ? "pointer" : "not-allowed",
+                                        cursor: canClick ? "pointer" : "not-allowed",
                                         outline: "none",
                                         transition: "all 0.2s",
                                     }}
