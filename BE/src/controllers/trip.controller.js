@@ -5,6 +5,21 @@ import generateSeats from "../utils/seatGenerator.js";
 import Staff from "../models/staff.model.js";
 import FareRule from "../models/giave.model.js";
 import Booking from "../models/booking.model.js";
+import Holiday from "../models/holiday.model.js";
+
+const isHoliday = async (date) => {
+  const d = new Date(date);
+  const day = d.getDate();
+  const month = d.getMonth() + 1;
+  const holiday = await Holiday.findOne({
+    day,
+    month,
+    status: true,
+  });
+
+  return !!holiday;
+};
+
 export const getAll = asyncHandler(async (req, res) => {
   const trips = await Trip.find()
     .populate("journey")
@@ -114,6 +129,12 @@ export const createOne = asyncHandler(async (req, res) => {
     ticketPrice = fare.weekendPrice;
   }
 
+  const holidayToday = await isHoliday(departureTime);
+
+  if (holidayToday) {
+    ticketPrice = fare.holidayPrice;
+  }
+
   const trip = await Trip.create({
     journey,
     bus,
@@ -193,10 +214,11 @@ export const updateOne = asyncHandler(async (req, res) => {
     ticketPrice = fare.weekendPrice;
   }
 
-  // Sau này nếu có ngày lễ
-  // if (isHoliday(depTime)) {
-  //   ticketPrice = fare.holidayPrice;
-  // }
+  const holidayToday = await isHoliday(depTime);
+
+  if (holidayToday) {
+    ticketPrice = fare.holidayPrice;
+  }
 
   req.body.ticketPrice = ticketPrice;
 
@@ -374,10 +396,11 @@ export const createSchedule = asyncHandler(async (req, res) => {
         ticketPrice = fare.weekendPrice;
       }
 
-      // Nếu sau này có ngày lễ
-      // if(isHoliday(departureTime)){
-      //    ticketPrice = fare.holidayPrice;
-      // }
+      const holidayToday = await isHoliday(departureTime);
+
+      if (holidayToday) {
+        ticketPrice = fare.holidayPrice;
+      }
 
       // ==========================
       // Thêm chuyến
