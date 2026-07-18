@@ -7,7 +7,7 @@ import { useState } from "react";
 interface DiemType {
   _id?: string;
   diaDiem: string;
-  thoiGian: string;
+  offsetMinutes: number;
 }
 
 interface JourneyType {
@@ -156,10 +156,15 @@ function JourneyListPage() {
 
             <div>
               <p className="font-medium mb-2">Điểm Đón ({journey.diemDon?.length} điểm)</p>
+              <p className="text-xs text-gray-400 mb-2">Tính từ lúc xe khởi hành</p>
               <div className="space-y-1">
                 {journey.diemDon?.map((diem: DiemType, index: number) => (
                   <div key={diem._id || index} className="flex items-center gap-3">
-                    <Tag color="blue">{diem.thoiGian}</Tag>
+                    <Tag color="blue">
+                      {diem.offsetMinutes === 0
+                        ? "Ngay khi khởi hành"
+                        : `+${diem.offsetMinutes} phút`}
+                    </Tag>
                     <span className="text-gray-700">{diem.diaDiem}</span>
                   </div>
                 ))}
@@ -170,10 +175,15 @@ function JourneyListPage() {
 
             <div>
               <p className="font-medium mb-2">Điểm Trả ({journey.diemTra?.length} điểm)</p>
+              <p className="text-xs text-gray-400 mb-2">Tính trước khi xe đến bến cuối</p>
               <div className="space-y-1">
                 {journey.diemTra?.map((diem: DiemType, index: number) => (
                   <div key={diem._id || index} className="flex items-center gap-3">
-                    <Tag color="orange">{diem.thoiGian}</Tag>
+                    <Tag color="orange">
+                      {diem.offsetMinutes === 0
+                        ? "Ngay khi đến bến"
+                        : `Trước ${diem.offsetMinutes} phút`}
+                    </Tag>
                     <span className="text-gray-700">{diem.diaDiem}</span>
                   </div>
                 ))}

@@ -6,6 +6,7 @@ import Staff from "../models/staff.model.js";
 import FareRule from "../models/giave.model.js";
 import Booking from "../models/booking.model.js";
 import Holiday from "../models/holiday.model.js";
+import Journey from "../models/journey.model.js";
 
 const isHoliday = async (date) => {
   const d = new Date(date);
@@ -18,6 +19,83 @@ const isHoliday = async (date) => {
   });
 
   return !!holiday;
+};
+
+const TURN_AROUND_MINUTES = 30;
+
+// Kiểm tra xe có khả dụng không: check trùng giờ, thời gian nghỉ tối thiểu,
+// và vị trí bến (điểm đến chuyến trước phải khớp điểm đi chuyến sau)
+const checkBusAvailability = async (
+  busId,
+  newJourney,
+  newDeparture,
+  newArrival,
+  excludeTripId
+) => {
+  const query = { bus: busId };
+  if (excludeTripId) {
+    query._id = { $ne: excludeTripId };
+  }
+
+  const busTrips = await Trip.find(query)
+    .populate("journey")
+    .sort({ departureTime: 1 });
+
+  let predecessor = null;
+  let successor = null;
+
+  for (const ot of busTrips) {
+    const oldDeparture = new Date(ot.departureTime);
+    const oldArrival = new Date(ot.arrivalTime);
+
+    if (newDeparture < oldArrival && newArrival > oldDeparture) {
+      return `Xe đã có chuyến từ ${oldDeparture.toLocaleString(
+        "vi-VN"
+      )} đến ${oldArrival.toLocaleString("vi-VN")}`;
+    }
+
+    if (
+      oldArrival <= newDeparture &&
+      (!predecessor || oldArrival > new Date(predecessor.arrivalTime))
+    ) {
+      predecessor = ot;
+    }
+
+    if (
+      oldDeparture >= newArrival &&
+      (!successor || oldDeparture < new Date(successor.departureTime))
+    ) {
+      successor = ot;
+    }
+  }
+
+  if (predecessor) {
+    const gapMinutes =
+      (newDeparture - new Date(predecessor.arrivalTime)) / 60000;
+
+    if (gapMinutes < TURN_AROUND_MINUTES) {
+      return `Xe cần nghỉ tối thiểu ${TURN_AROUND_MINUTES} phút sau chuyến trước.`;
+    }
+
+    if (predecessor.journey.diemDen !== newJourney.diemDi) {
+      return `Xe đang ở ${predecessor.journey.diemDen} sau chuyến trước, không thể xuất phát từ ${newJourney.diemDi}.`;
+    }
+  }
+
+  if (successor) {
+    const gapMinutes =
+      (new Date(successor.departureTime) - newArrival) / 60000;
+
+    if (gapMinutes < TURN_AROUND_MINUTES) {
+      return `Không đủ ${TURN_AROUND_MINUTES} phút chuẩn bị trước chuyến tiếp theo của xe.`;
+    }
+
+    if (newJourney.diemDen !== successor.journey.diemDi) {
+      return `Chuyến này kết thúc tại ${newJourney.diemDen}, nhưng chuyến tiếp theo của xe lại xuất phát từ ${successor.journey.diemDi}.`;
+    }
+  }
+
+  return null;
 };
 
 export const getAll = asyncHandler(async (req, res) => {
@@ -87,16 +165,46 @@ export const createOne = asyncHandler(async (req, res) => {
     });
   }
 
+  const journeyInfo = await Journey.findById(journey);
+
+  if (!journeyInfo) {
+    return res.status(404).json({
+      message: "Không tìm thấy tuyến đường",
+    });
+  }
+
+  // ===========================
+  // Kiểm tra xe (thời gian + vị trí bến)
+  // ===========================
+
+  const newDeparture = new Date(departureTime);
+  const newArrival = new Date(arrivalTime);
+
+  const busError = await checkBusAvailability(
+    bus,
+    journeyInfo,
+    newDeparture,
+    newArrival,
+    null
+  );
+
+  if (busError) {
+    return res.status(400).json({
+      message: busError,
+    });
+  }
+
   // ===========================
   // Kiểm tra tài xế
   // ===========================
+
   const existedDriver = await Trip.findOne({
     staff,
     departureTime: {
-      $lt: new Date(arrivalTime),
+      $lt: newArrival,
     },
     arrivalTime: {
-      $gt: new Date(departureTime),
+      $gt: newDeparture,
     },
   });
 
@@ -110,6 +218,7 @@ export const createOne = asyncHandler(async (req, res) => {
   // ===========================
   // Lấy bảng giá
   // ===========================
+
   const fare = await FareRule.findById(fareRule);
 
   if (!fare) {
@@ -121,7 +230,8 @@ export const createOne = asyncHandler(async (req, res) => {
   // ===========================
   // Tính giá theo ngày
   // ===========================
-  const day = new Date(departureTime).getDay();
+
+  const day = newDeparture.getDay();
 
   let ticketPrice = fare.weekdayPrice;
 
@@ -129,7 +239,7 @@ export const createOne = asyncHandler(async (req, res) => {
     ticketPrice = fare.weekendPrice;
   }
 
-  const holidayToday = await isHoliday(departureTime);
+  const holidayToday = await isHoliday(newDeparture);
 
   if (holidayToday) {
     ticketPrice = fare.holidayPrice;
@@ -155,6 +265,7 @@ export const createOne = asyncHandler(async (req, res) => {
 
 export const updateOne = asyncHandler(async (req, res) => {
   const {
+    bus,
     staff,
     departureTime,
     arrivalTime,
@@ -170,6 +281,37 @@ export const updateOne = asyncHandler(async (req, res) => {
     });
   }
 
+  const journeyId = req.body.journey || oldTrip.journey;
+  const journeyInfo = await Journey.findById(journeyId);
+
+  if (!journeyInfo) {
+    return res.status(404).json({
+      message: "Không tìm thấy tuyến đường",
+    });
+  }
+
+  const busId = bus || oldTrip.bus;
+  const newDeparture = new Date(departureTime || oldTrip.departureTime);
+  const newArrival = new Date(arrivalTime || oldTrip.arrivalTime);
+
+  // ==========================
+  // Kiểm tra xe (thời gian + vị trí bến)
+  // ==========================
+
+  const busError = await checkBusAvailability(
+    busId,
+    journeyInfo,
+    newDeparture,
+    newArrival,
+    req.params.id
+  );
+
+  if (busError) {
+    return res.status(400).json({
+      message: busError,
+    });
+  }
+
   // ==========================
   // Kiểm tra tài xế trùng lịch
   // ==========================
@@ -178,10 +320,10 @@ export const updateOne = asyncHandler(async (req, res) => {
     _id: { $ne: req.params.id },
     staff: staff || oldTrip.staff,
     departureTime: {
-      $lt: new Date(arrivalTime || oldTrip.arrivalTime),
+      $lt: newArrival,
     },
     arrivalTime: {
-      $gt: new Date(departureTime || oldTrip.departureTime),
+      $gt: newDeparture,
     },
   });
 
@@ -196,7 +338,6 @@ export const updateOne = asyncHandler(async (req, res) => {
   // ==========================
 
   const fareId = fareRule || oldTrip.fareRule;
-  const depTime = departureTime || oldTrip.departureTime;
 
   const fare = await FareRule.findById(fareId);
 
@@ -206,7 +347,7 @@ export const updateOne = asyncHandler(async (req, res) => {
     });
   }
 
-  const day = new Date(depTime).getDay();
+  const day = newDeparture.getDay();
 
   let ticketPrice = fare.weekdayPrice;
 
@@ -214,7 +355,7 @@ export const updateOne = asyncHandler(async (req, res) => {
     ticketPrice = fare.weekendPrice;
   }
 
-  const holidayToday = await isHoliday(depTime);
+  const holidayToday = await isHoliday(newDeparture);
 
   if (holidayToday) {
     ticketPrice = fare.holidayPrice;
@@ -293,6 +434,14 @@ export const createSchedule = asyncHandler(async (req, res) => {
     });
   }
 
+  const journeyInfo = await Journey.findById(journey);
+
+  if (!journeyInfo) {
+    return res.status(404).json({
+      message: "Không tìm thấy tuyến đường",
+    });
+  }
+
   // Lấy bảng giá
   const fare = await FareRule.findById(fareRule);
 
@@ -301,6 +450,11 @@ export const createSchedule = asyncHandler(async (req, res) => {
       message: "Không tìm thấy bảng giá",
     });
   }
+
+  // Lấy sẵn các chuyến hiện có của xe này trong DB (kèm journey để lấy diemDi/diemDen)
+  const existingBusTrips = await Trip.find({ bus })
+    .populate("journey")
+    .sort({ departureTime: 1 });
 
   const trips = [];
   const duplicateTrips = [];
@@ -337,26 +491,85 @@ export const createSchedule = asyncHandler(async (req, res) => {
       );
 
       // ==========================
-      // Kiểm tra xe
+      // Kiểm tra xe (thời gian + vị trí bến)
       // ==========================
 
-      const existedBus = await Trip.findOne({
-        bus,
-        departureTime: {
-          $lt: arrivalTime,
-        },
-        arrivalTime: {
-          $gt: departureTime,
-        },
-      });
+      // Ghép chuyến đã có trong DB + chuyến vừa sinh trong vòng lặp này
+      const allBusTripsToCheck = [
+        ...existingBusTrips,
+        ...trips.map((t) => ({
+          departureTime: t.departureTime,
+          arrivalTime: t.arrivalTime,
+          journey: journeyInfo, // các chuyến trong lịch này đều dùng chung 1 journey
+        })),
+      ];
 
-      if (existedBus) {
-        duplicateTrips.push(
-          `Xe đã có lịch: ${departureTime.toLocaleString("vi-VN")}`
-        );
+      let predecessor = null;
+      let successor = null;
+      let overlapMessage = null;
 
+      for (const ot of allBusTripsToCheck) {
+        const oldDeparture = new Date(ot.departureTime);
+        const oldArrival = new Date(ot.arrivalTime);
+
+        if (
+          departureTime < oldArrival &&
+          arrivalTime > oldDeparture
+        ) {
+          overlapMessage = `Xe đã có chuyến từ ${oldDeparture.toLocaleString(
+            "vi-VN"
+          )} đến ${oldArrival.toLocaleString("vi-VN")}`;
+          break;
+        }
+
+        if (
+          oldArrival <= departureTime &&
+          (!predecessor || oldArrival > new Date(predecessor.arrivalTime))
+        ) {
+          predecessor = ot;
+        }
+
+        if (
+          oldDeparture >= arrivalTime &&
+          (!successor || oldDeparture < new Date(successor.departureTime))
+        ) {
+          successor = ot;
+        }
+      }
+
+      if (overlapMessage) {
+        duplicateTrips.push(overlapMessage);
         current.setDate(current.getDate() + 1);
+        continue;
+      }
 
+      let busConflict = null;
+
+      if (predecessor) {
+        const gapMinutes =
+          (departureTime - new Date(predecessor.arrivalTime)) / 60000;
+
+        if (gapMinutes < TURN_AROUND_MINUTES) {
+          busConflict = `Xe chưa nghỉ đủ ${TURN_AROUND_MINUTES} phút: ${departureTime.toLocaleString("vi-VN")}`;
+        } else if (predecessor.journey.diemDen !== journeyInfo.diemDi) {
+          busConflict = `Xe đang ở ${predecessor.journey.diemDen} sau chuyến trước, không thể xuất phát từ ${journeyInfo.diemDi} lúc ${departureTime.toLocaleString("vi-VN")}`;
+        }
+      }
+
+      if (!busConflict && successor) {
+        const gapMinutes =
+          (new Date(successor.departureTime) - arrivalTime) / 60000;
+
+        if (gapMinutes < TURN_AROUND_MINUTES) {
+          busConflict = `Không đủ ${TURN_AROUND_MINUTES} phút chuẩn bị trước chuyến tiếp theo: ${departureTime.toLocaleString("vi-VN")}`;
+        } else if (journeyInfo.diemDen !== successor.journey.diemDi) {
+          busConflict = `Chuyến ${departureTime.toLocaleString("vi-VN")} kết thúc tại ${journeyInfo.diemDen}, nhưng chuyến tiếp theo của xe lại xuất phát từ ${successor.journey.diemDi}`;
+        }
+      }
+
+      if (busConflict) {
+        duplicateTrips.push(busConflict);
+        current.setDate(current.getDate() + 1);
         continue;
       }
 
