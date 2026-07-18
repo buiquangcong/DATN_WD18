@@ -7,7 +7,6 @@ import { ClientLayout } from "./layout";
 
 const { Title, Text } = Typography;
 
-// Định nghĩa Interface dữ liệu giường/ghế
 interface Seat {
     seatCode: string;
     rowIndex: number;
@@ -31,11 +30,11 @@ interface DetailedTrip {
         diemDen: string;
         price: number;
     };
-    fareRule?: FareRule; // 🌟 Thêm fareRule từ Backend để đồng bộ tính giá vé
+    fareRule?: FareRule;
     bus: {
         name: string;
         type: string;
-        licensePlates: string;
+        capacity: number; // 🌟 Thêm trường để lấy đúng số chỗ phục vụ tính toán Grid
     };
     seats: Seat[];
 }
@@ -48,6 +47,7 @@ export default function BookingSeats(): React.ReactElement {
     const [loading, setLoading] = useState<boolean>(true);
     const [bookingLoading, setBookingLoading] = useState<boolean>(false); 
     const [chosenSeatCodes, setChosenSeatCodes] = useState<string[]>([]);
+    const [activeFloor, setActiveFloor] = useState<number>(1);
 
     useEffect(() => {
         const fetchTripDetails = async () => {
@@ -77,7 +77,6 @@ export default function BookingSeats(): React.ReactElement {
         fetchTripDetails();
     }, [tripId]);
 
-    // 🌟 HÀM TÍNH ĐƠN GIÁ VÉ THỰC TẾ DỰA TRÊN NGÀY ĐI (ĐỒNG BỘ VỚI DANH SÁCH CHUYẾN)
     const getSingleTicketPrice = (): number => {
         if (!trip) return 0;
         if (!trip.departureTime) return trip.journey?.price || 0;
@@ -85,7 +84,6 @@ export default function BookingSeats(): React.ReactElement {
         const departureDate = new Date(trip.departureTime);
 
         if (trip.fareRule) {
-            // Thứ 7 (6) hoặc Chủ Nhật (0) áp dụng giá cuối tuần
             if (departureDate.getDay() === 0 || departureDate.getDay() === 6) {
                 return trip.fareRule.weekendPrice;
             } else {
@@ -95,12 +93,34 @@ export default function BookingSeats(): React.ReactElement {
         return trip.journey?.price || 0;
     };
 
-    // Tính toán tổng số tiền dựa trên đơn giá chuẩn và số lượng ghế chọn
     const calculatedTotalAmount = getSingleTicketPrice() * chosenSeatCodes.length;
+    const getGridColsCount = (): number => {
+        if (!trip || !trip.bus) return 4;
+        const { capacity, type } = trip.bus;
+        if (capacity === 16) return 4;
+        if (capacity === 29) return 5;
+        if (capacity === 45) return 5;
+        if (type === "Sleeper" || capacity === 38 || capacity === 34) return 5; // Xe giường nằm có 3 dãy giường + 2 lối đi
+        return 4;
+    };
+
+    const getMappedColIndex = (seat: Seat): number => {
+        if (!trip || !trip.bus) return seat.colIndex;
+        const { capacity } = trip.bus;
+        if (capacity === 45) {
+            if (seat.rowIndex <= 10) {
+                if (seat.colIndex === 1) return 1;
+                if (seat.colIndex === 2) return 2;
+                if (seat.colIndex === 3) return 4;
+                if (seat.colIndex === 4) return 5;
+            }
+        }
+        return seat.colIndex;
+    };
 
     const handleConfirmBooking = async (): Promise<void> => {
         if (chosenSeatCodes.length === 0) {
-            message.warning("Vui lòng chọn ít nhất một giường trước khi tiếp tục!");
+            message.warning("Vui lòng chọn ít nhất một vị trí trước khi tiếp tục!");
             return;
         }
 
@@ -116,35 +136,27 @@ export default function BookingSeats(): React.ReactElement {
         setBookingLoading(true);
 
         try {
-            // --- BƯỚC 1: GỬI THÔNG TIN LÊN ĐỂ TẠO ĐƠN BOOKING & GIỮ GHẾ TẠM THỜI ---
             const bookingBody = {
                 user: userObj._id,      
                 trip: tripId,            
                 seats: chosenSeatCodes
             };
 
-            console.log("Bước 1: Gọi API tạo đơn đặt vé:", bookingBody);
             const bookingResponse = await axios.post("http://localhost:3000/api/booking/add", bookingBody);
-
             const createdBookingId = bookingResponse.data?.data?._id;
-            // Lấy mã orderCode từ phản hồi của API Booking (nếu có trả về kèm)
             const serverOrderCode = bookingResponse.data?.data?.orderCode;
 
             if (!createdBookingId) {
                 throw new Error("Không nhận được mã đơn hàng từ hệ thống!");
             }
 
-            // --- BƯỚC 2: DÙNG BOOKING ID VỪA TẠO ĐỂ LẤY LINK QR THANH TOÁN PAYOS ---
-            console.log("Bước 2: Gọi API lấy link QR PayOS cho đơn hàng:", createdBookingId);
             const paymentResponse = await axios.post("http://localhost:3000/api/payment/create-link", {
                 bookingId: createdBookingId
             });
 
-            // --- BƯỚC 3: CHUYỂN HƯỚNG SANG CỔNG THANH TOÁN & ĐỒNG BỘ DỮ LIỆU SANG VÉ CHUYỂN TIẾP ---
             if (paymentResponse.data && paymentResponse.data.checkoutUrl) {
                 message.success("Đặt vé thành công! Đang chuyển hướng đến cổng thanh toán trực tuyến...");
                 
-                // Trích xuất mã hiển thị hóa đơn (Lấy từ PayOS hoặc Backend Booking, hoặc cắt từ đuôi ID nếu trống)
                 const myOrderCode = paymentResponse.data?.orderCode || serverOrderCode || createdBookingId.slice(-6).toUpperCase();
 
                 const ticketStorageData = {
@@ -153,7 +165,7 @@ export default function BookingSeats(): React.ReactElement {
                     busName: trip?.bus?.name || "Xe NETBUS Luxury",
                     journey: `${trip?.journey?.diemDi || "Điểm đi"} → ${trip?.journey?.diemDen || "Điểm đến"}`,
                     seats: chosenSeatCodes,
-                    totalPrice: calculatedTotalAmount, // Tổng tiền thật tính dựa trên FareRule
+                    totalPrice: calculatedTotalAmount,
                     departureTime: trip?.departureTime 
                         ? new Date(trip.departureTime).toLocaleString("vi-VN", {
                             dateStyle: "short",
@@ -162,10 +174,7 @@ export default function BookingSeats(): React.ReactElement {
                         : "Đang cập nhật..."
                 };
 
-                // Lưu gói dữ liệu gọn gàng vào localStorage để TicketSuccessPage bốc lên trực tiếp
                 localStorage.setItem("latest_ticket_success", JSON.stringify(ticketStorageData));
-
-                // Thực hiện chuyển hướng người dùng sang trang thanh toán của PayOS
                 window.location.href = paymentResponse.data.checkoutUrl;
                 return; 
             } else {
@@ -190,18 +199,11 @@ export default function BookingSeats(): React.ReactElement {
         }
     };
 
-    const getSeatStyle = (seat: Seat): React.CSSProperties => {
-        if (seat.status === "BOOKED") return { background: "#e0e0e0", color: "#9e9e9e", cursor: "not-allowed", border: "1px solid #d5d5d5" };
-        if (seat.status === "HOLDING") return { background: "#ffeaf2", color: "#ff4d4f", cursor: "not-allowed", border: "1px solid #ffccc7" };
-        if (chosenSeatCodes.includes(seat.seatCode)) return { background: "#e6f7ff", color: "#1890ff", border: "2px solid #1890ff", fontWeight: "bold" };
-        return { background: "#ffffff", color: "#262626", border: "1px solid #d9d9d9" };
-    };
-
     if (loading) {
         return (
             <ClientLayout>
                 <Flex align="center" justify="center" style={{ padding: "100px 0", background: "#f5f7fa", minHeight: "100vh" }}>
-                    <Spin size="large" tip="Đang tải sơ đồ giường nằm..." />
+                    <Spin size="large" tip="Đang tải sơ đồ vị trí..." />
                 </Flex>
             </ClientLayout>
         );
@@ -218,6 +220,431 @@ export default function BookingSeats(): React.ReactElement {
         );
     }
 
+    const isSleeper = trip.bus?.type === "Sleeper";
+    const totalCols = getGridColsCount();
+
+    const LegendItem = ({ label, status, isSleeper }: { label: string; status: "AVAILABLE" | "SELECTED" | "HOLDING" | "BOOKED"; isSleeper: boolean }) => {
+        let seatColor = "#ffffff";
+        let borderColor = "#cbd5e1";
+        let pillowColor = "#f1f5f9";
+        let armColor = "#cbd5e1";
+        
+        if (status === "SELECTED") {
+            seatColor = "#eff6ff";
+            borderColor = "#2563eb";
+            pillowColor = "#dbeafe";
+            armColor = "#3b82f6";
+        } else if (status === "HOLDING") {
+            seatColor = "#fff1f2";
+            borderColor = "#f43f5e";
+            pillowColor = "#ffe4e6";
+            armColor = "#fda4af";
+        } else if (status === "BOOKED") {
+            seatColor = "#f1f5f9";
+            borderColor = "#cbd5e1";
+            pillowColor = "#e2e8f0";
+            armColor = "#e2e8f0";
+        }
+        
+        return (
+            <Space size="small" style={{ margin: "4px 12px" }}>
+                <div style={{ position: "relative", width: 22, height: isSleeper ? 26 : 22 }}>
+                    {isSleeper ? (
+                        <>
+                            <div style={{ position: "absolute", inset: 0, backgroundColor: seatColor, border: `1.5px solid ${borderColor}`, borderRadius: 4 }} />
+                            <div style={{ position: "absolute", top: 2, left: 3, right: 3, height: 5, backgroundColor: pillowColor, border: `1px solid ${borderColor}`, borderRadius: 1.5 }} />
+                            <div style={{ position: "absolute", bottom: 2, left: 3, right: 3, height: 8, backgroundColor: status === "SELECTED" ? "#bfdbfe" : status === "HOLDING" ? "#fecdd3" : status === "BOOKED" ? "#cbd5e1" : "#fafafa", borderTop: `1px dashed ${borderColor}`, borderRadius: "0 0 2px 2px" }} />
+                        </>
+                    ) : (
+                        <>
+                            <div style={{ position: "absolute", top: 3, bottom: 0, left: 2, right: 2, backgroundColor: seatColor, border: `1.5px solid ${borderColor}`, borderRadius: "3px 3px 4px 4px" }} />
+                            <div style={{ position: "absolute", top: 0, left: "25%", right: "25%", height: 3, backgroundColor: seatColor, border: `1.5px solid ${borderColor}`, borderBottom: "none", borderRadius: "2px 2px 0 0" }} />
+                            <div style={{ position: "absolute", top: 5, bottom: 2, left: 0, width: 2, backgroundColor: armColor, borderRadius: 0.5 }} />
+                            <div style={{ position: "absolute", top: 5, bottom: 2, right: 0, width: 2, backgroundColor: armColor, borderRadius: 0.5 }} />
+                        </>
+                    )}
+                </div>
+                <Text style={{ fontSize: "13px", fontWeight: 500, color: "#475569" }}>{label}</Text>
+            </Space>
+        );
+    };
+
+    const renderBus = (floorNum: number) => {
+        const isSleeperBus = trip.bus?.type === "Sleeper";
+        const seatsInFloor = trip.seats?.filter((s: Seat) => s.floor === floorNum) || [];
+        const showCockpit = floorNum === 1;
+
+        return (
+            <div className="bus-shell" style={{
+                position: "relative",
+                background: "#f8fafc",
+                border: "4px solid #cbd5e1",
+                borderRadius: "32px 32px 16px 16px",
+                padding: "24px 16px",
+                boxShadow: "0 10px 30px rgba(0, 0, 0, 0.05)",
+                marginTop: 10,
+            }}>
+                <style>{`
+                    .seat-btn:hover:not(:disabled) .seat-base {
+                        transform: translateY(-1.5px);
+                        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+                    }
+                    .sleeper-btn:hover:not(:disabled) .sleeper-base {
+                        transform: translateY(-1.5px);
+                        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+                    }
+                `}</style>
+
+                {/* Windshield */}
+                <div style={{
+                    height: 16,
+                    background: "linear-gradient(to bottom, #475569, #1e293b)",
+                    borderRadius: "12px 12px 2px 2px",
+                    marginBottom: 16,
+                    position: "relative",
+                }}>
+                    <div style={{
+                        position: "absolute",
+                        top: 4,
+                        left: "50%",
+                        transform: "translateX(-50%)",
+                        width: 40,
+                        height: 2,
+                        backgroundColor: "#94a3b8",
+                        borderRadius: 1,
+                    }} />
+                </div>
+
+                {/* Side Mirrors */}
+                <div className="mirror-left" style={{ position: "absolute", top: 24, left: -6, width: 6, height: 18, background: "#334155", borderRadius: "3px 0 0 3px" }} />
+                <div className="mirror-right" style={{ position: "absolute", top: 24, right: -6, width: 6, height: 18, background: "#334155", borderRadius: "0 3px 3px 0" }} />
+
+                {/* Grid container */}
+                <div style={{
+                    display: "grid",
+                    gridTemplateColumns: `repeat(${totalCols}, 1fr)`,
+                    gap: "12px 10px",
+                }}>
+                    {/* Row 1: Cockpit Area (only for Floor 1) */}
+                    {showCockpit && (
+                        <>
+                            {/* Driver steering wheel */}
+                            <div style={{
+                                gridColumnStart: 1,
+                                gridRowStart: 1,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                height: 44,
+                            }}>
+                                <div style={{
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    alignItems: "center",
+                                    color: "#64748b",
+                                }}>
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform: "rotate(-45deg)" }}>
+                                        <circle cx="12" cy="12" r="10" />
+                                        <line x1="12" y1="2" x2="12" y2="22" />
+                                        <line x1="2" y1="12" x2="22" y2="12" />
+                                        <circle cx="12" cy="12" r="3" fill="currentColor" />
+                                    </svg>
+                                    <span style={{ fontSize: "8px", marginTop: 2, fontWeight: 700, letterSpacing: 0.5 }}>LÁI XE</span>
+                                </div>
+                            </div>
+
+                            {/* Cockpit Empty space / console */}
+                            {Array.from({ length: totalCols - 2 }).map((_, idx) => (
+                                <div key={`empty-cockpit-${idx}`} style={{ gridColumnStart: idx + 2, gridRowStart: 1 }} />
+                            ))}
+
+                            {/* Entrance Door */}
+                            <div style={{
+                                gridColumnStart: totalCols,
+                                gridRowStart: 1,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                height: 44,
+                            }}>
+                                <div style={{
+                                    border: "1.5px dashed #cbd5e1",
+                                    borderRadius: 6,
+                                    padding: "4px 8px",
+                                    fontSize: "8px",
+                                    color: "#64748b",
+                                    fontWeight: 700,
+                                    textAlign: "center",
+                                    lineHeight: "1.2",
+                                    backgroundColor: "#f1f5f9",
+                                }}>
+                                    CỬA<br />LÊN
+                                </div>
+                            </div>
+                        </>
+                    )}
+
+                    {/* Seats */}
+                    {seatsInFloor.map((seat: Seat) => {
+                        const isSelected = chosenSeatCodes.includes(seat.seatCode);
+                        const isAvailable = seat.status === "AVAILABLE";
+                        const isHolding = seat.status === "HOLDING";
+                        const isBooked = seat.status === "BOOKED";
+                        const gridRow = showCockpit ? seat.rowIndex + 1 : seat.rowIndex;
+                        const gridCol = getMappedColIndex(seat);
+
+                        if (isSleeperBus) {
+                            let baseBg = "#ffffff";
+                            let borderCol = "#cbd5e1";
+                            let txtCol = "#334155";
+                            let pillowBg = "#f1f5f9";
+                            let blanketBg = "#f8fafc";
+                            let shd = "0 2px 4px rgba(0, 0, 0, 0.04)";
+
+                            if (isSelected) {
+                                baseBg = "#eff6ff";
+                                borderCol = "#2563eb";
+                                txtCol = "#1d4ed8";
+                                pillowBg = "#dbeafe";
+                                blanketBg = "#bfdbfe";
+                                shd = "0 4px 12px rgba(37, 99, 235, 0.15)";
+                            } else if (isHolding) {
+                                baseBg = "#fff1f2";
+                                borderCol = "#f43f5e";
+                                txtCol = "#be123c";
+                                pillowBg = "#ffe4e6";
+                                blanketBg = "#fecdd3";
+                            } else if (isBooked) {
+                                baseBg = "#f1f5f9";
+                                borderCol = "#e2e8f0";
+                                txtCol = "#94a3b8";
+                                pillowBg = "#cbd5e1";
+                                blanketBg = "#e2e8f0";
+                                shd = "none";
+                            }
+
+                            return (
+                                <button
+                                    key={seat.seatCode}
+                                    disabled={!isAvailable}
+                                    onClick={() => handleSeatClick(seat)}
+                                    style={{
+                                        gridColumnStart: gridCol,
+                                        gridRowStart: gridRow,
+                                        position: "relative",
+                                        height: 62,
+                                        width: "100%",
+                                        background: "transparent",
+                                        border: "none",
+                                        padding: 0,
+                                        cursor: isAvailable ? "pointer" : "not-allowed",
+                                        outline: "none",
+                                        transition: "all 0.2s",
+                                    }}
+                                    className="sleeper-btn"
+                                >
+                                    <div style={{
+                                        position: "relative",
+                                        width: "100%",
+                                        height: "100%",
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        alignItems: "center",
+                                        color: txtCol,
+                                    }}>
+                                        {/* Bed Body */}
+                                        <div className="sleeper-base" style={{
+                                            position: "absolute",
+                                            top: 2,
+                                            bottom: 2,
+                                            left: 2,
+                                            right: 2,
+                                            backgroundColor: baseBg,
+                                            border: `2px solid ${borderCol}`,
+                                            borderRadius: 8,
+                                            boxShadow: shd,
+                                            transition: "all 0.2s",
+                                        }} />
+                                        {/* Pillow */}
+                                        <div style={{
+                                            position: "absolute",
+                                            top: 6,
+                                            left: 6,
+                                            right: 6,
+                                            height: 10,
+                                            backgroundColor: pillowBg,
+                                            border: `1px solid ${borderCol}`,
+                                            borderRadius: 3,
+                                            zIndex: 1,
+                                            transition: "all 0.2s",
+                                        }} />
+                                        {/* Blanket */}
+                                        <div style={{
+                                            position: "absolute",
+                                            bottom: 6,
+                                            left: 6,
+                                            right: 6,
+                                            height: 16,
+                                            backgroundColor: blanketBg,
+                                            borderTop: `1px dashed ${borderCol}`,
+                                            borderRadius: "0 0 4px 4px",
+                                            opacity: 0.8,
+                                        }} />
+                                        {/* Seat Code Text */}
+                                        <span style={{
+                                            position: "relative",
+                                            zIndex: 2,
+                                            fontSize: "11px",
+                                            fontWeight: isSelected ? 700 : 500,
+                                            marginTop: "22px",
+                                        }}>
+                                            {seat.seatCode}
+                                        </span>
+                                    </div>
+                                </button>
+                            );
+                        } else {
+                            let baseBg = "#ffffff";
+                            let borderCol = "#cbd5e1";
+                            let txtCol = "#334155";
+                            let armBg = "#cbd5e1";
+                            let shd = "0 2px 4px rgba(0, 0, 0, 0.04)";
+
+                            if (isSelected) {
+                                baseBg = "#eff6ff";
+                                borderCol = "#2563eb";
+                                txtCol = "#1d4ed8";
+                                armBg = "#3b82f6";
+                                shd = "0 4px 12px rgba(37, 99, 235, 0.15)";
+                            } else if (isHolding) {
+                                baseBg = "#fff1f2";
+                                borderCol = "#f43f5e";
+                                txtCol = "#be123c";
+                                armBg = "#fda4af";
+                            } else if (isBooked) {
+                                baseBg = "#f1f5f9";
+                                borderCol = "#e2e8f0";
+                                txtCol = "#94a3b8";
+                                armBg = "#cbd5e1";
+                                shd = "none";
+                            }
+
+                            return (
+                                <button
+                                    key={seat.seatCode}
+                                    disabled={!isAvailable}
+                                    onClick={() => handleSeatClick(seat)}
+                                    style={{
+                                        gridColumnStart: gridCol,
+                                        gridRowStart: gridRow,
+                                        position: "relative",
+                                        height: 50,
+                                        width: "100%",
+                                        background: "transparent",
+                                        border: "none",
+                                        padding: 0,
+                                        cursor: isAvailable ? "pointer" : "not-allowed",
+                                        outline: "none",
+                                        transition: "all 0.2s",
+                                    }}
+                                    className="seat-btn"
+                                >
+                                    <div style={{
+                                        position: "relative",
+                                        width: "100%",
+                                        height: "100%",
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        alignItems: "center",
+                                        color: txtCol,
+                                    }}>
+                                        {/* Cushion Base */}
+                                        <div className="seat-base" style={{
+                                            position: "absolute",
+                                            top: 8,
+                                            bottom: 2,
+                                            left: 4,
+                                            right: 4,
+                                            backgroundColor: baseBg,
+                                            border: `2px solid ${borderCol}`,
+                                            borderRadius: "6px 6px 8px 8px",
+                                            boxShadow: shd,
+                                            transition: "all 0.2s",
+                                        }} />
+                                        {/* Headrest */}
+                                        <div style={{
+                                            position: "absolute",
+                                            top: 2,
+                                            width: "50%",
+                                            height: 8,
+                                            backgroundColor: baseBg,
+                                            border: `2px solid ${borderCol}`,
+                                            borderBottom: "none",
+                                            borderRadius: "3px 3px 0 0",
+                                            zIndex: 1,
+                                            transition: "all 0.2s",
+                                        }} />
+                                        {/* Armrests */}
+                                        <div style={{
+                                            position: "absolute",
+                                            top: 14,
+                                            bottom: 6,
+                                            left: 1,
+                                            width: 4,
+                                            backgroundColor: armBg,
+                                            borderRadius: "2px",
+                                            opacity: 0.8,
+                                        }} />
+                                        <div style={{
+                                            position: "absolute",
+                                            top: 14,
+                                            bottom: 6,
+                                            right: 1,
+                                            width: 4,
+                                            backgroundColor: armBg,
+                                            borderRadius: "2px",
+                                            opacity: 0.8,
+                                        }} />
+                                        {/* Seat Code Text */}
+                                        <span style={{
+                                            position: "relative",
+                                            zIndex: 2,
+                                            fontSize: "11px",
+                                            fontWeight: isSelected ? 700 : 500,
+                                            marginTop: "6px",
+                                        }}>
+                                            {seat.seatCode}
+                                        </span>
+                                    </div>
+                                </button>
+                            );
+                        }
+                    })}
+
+                    {/* WC Box (only for 34 capacity) */}
+                    {trip.bus?.capacity === 34 && (
+                        <div style={{
+                            gridColumnStart: 5,
+                            gridRowStart: showCockpit ? 7 : 6,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            background: "#cbd5e1",
+                            border: "2px solid #94a3b8",
+                            borderRadius: 8,
+                            color: "#475569",
+                            fontSize: "12px",
+                            fontWeight: 700,
+                            height: 62,
+                        }}>
+                            WC
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    };
+
     return (
         <ClientLayout>
             <div style={{ background: "#f5f7fa", minHeight: "100vh", padding: "30px 0" }}>
@@ -227,48 +654,91 @@ export default function BookingSeats(): React.ReactElement {
                     </Button>
 
                     <Row gutter={[24, 24]}>
-                        {/* Cột trái: Sơ đồ ghế */}
+                        {/* Cột trái: Sơ đồ ghế nâng cấp CSS Grid */}
                         <Col span={24} lg={15}>
-                            <Card title="Chọn vị trí giường nằm">
-                                <Row gutter={[24, 24]} justify="center">
-                                    <Col span={24} sm={12}>
-                                        <div style={{ textAlign: "center", marginBottom: 12, fontWeight: 600, color: "#1890ff" }}>TẦNG DƯỚI (TẦNG 1)</div>
-                                        <div style={{ background: "#fafafa", padding: 16, borderRadius: 8, border: "1px solid #f0f0f0" }}>
-                                            <Row gutter={[12, 14]}>
-                                                {trip.seats?.filter((s: Seat) => s.floor === 1).map((seat: Seat) => (
-                                                    <Col span={8} key={seat.seatCode}>
-                                                        <button
-                                                            style={{ width: "100%", height: 48, borderRadius: 6, transition: "all 0.2s", fontSize: 12, ...getSeatStyle(seat) }}
-                                                            disabled={seat.status !== "AVAILABLE"}
-                                                            onClick={() => handleSeatClick(seat)}
-                                                        >
-                                                            {seat.seatCode}
-                                                        </button>
-                                                    </Col>
-                                                ))}
-                                            </Row>
-                                        </div>
-                                    </Col>
+                            <Card title={`Chọn vị trí ${isSleeper ? "giường nằm" : "ghế ngồi"}`}>
+                                
+                                {/* Mô tả chú thích màu sắc trạng thái ghế */}
+                                <Flex gap="small" justify="center" style={{ marginBottom: 24, flexWrap: "wrap", borderBottom: "1px solid #f0f0f0", paddingBottom: 16 }}>
+                                    <LegendItem label="Trống" status="AVAILABLE" isSleeper={isSleeper} />
+                                    <LegendItem label="Đang chọn" status="SELECTED" isSleeper={isSleeper} />
+                                    <LegendItem label="Đang giữ chỗ" status="HOLDING" isSleeper={isSleeper} />
+                                    <LegendItem label="Đã bán" status="BOOKED" isSleeper={isSleeper} />
+                                </Flex>
 
-                                    {/* Tầng 2 */}
-                                    {trip.seats?.filter((s: Seat) => s.floor === 2).length > 0 && (
-                                        <Col span={24} sm={12}>
-                                            <div style={{ textAlign: "center", marginBottom: 12, fontWeight: 600, color: "#722ed1" }}>TẦNG TRÊN (TẦNG 2)</div>
-                                            <div style={{ background: "#fafafa", padding: 16, borderRadius: 8, border: "1px solid #f0f0f0" }}>
-                                                <Row gutter={[12, 14]}>
-                                                    {trip.seats?.filter((s: Seat) => s.floor === 2).map((seat: Seat) => (
-                                                        <Col span={8} key={seat.seatCode}>
-                                                            <button
-                                                                style={{ width: "100%", height: 48, borderRadius: 6, transition: "all 0.2s", fontSize: 12, ...getSeatStyle(seat) }}
-                                                                disabled={seat.status !== "AVAILABLE"}
-                                                                onClick={() => handleSeatClick(seat)}
-                                                            >
-                                                                {seat.seatCode}
-                                                            </button>
-                                                        </Col>
-                                                    ))}
-                                                </Row>
+                                {/* Responsive floor switcher for Sleeper bus */}
+                                {isSleeper && (
+                                    <Flex justify="center" style={{ marginBottom: 20 }} className="md:hidden">
+                                        <div style={{
+                                            display: "inline-flex",
+                                            padding: 4,
+                                            background: "#f1f5f9",
+                                            borderRadius: 10,
+                                            border: "1px solid #e2e8f0"
+                                        }}>
+                                            <button
+                                                onClick={() => setActiveFloor(1)}
+                                                style={{
+                                                    padding: "6px 16px",
+                                                    fontSize: "13px",
+                                                    fontWeight: 600,
+                                                    borderRadius: 8,
+                                                    border: "none",
+                                                    cursor: "pointer",
+                                                    background: activeFloor === 1 ? "#ffffff" : "transparent",
+                                                    color: activeFloor === 1 ? "#2563eb" : "#64748b",
+                                                    boxShadow: activeFloor === 1 ? "0 2px 4px rgba(0,0,0,0.05)" : "none",
+                                                    transition: "all 0.2s"
+                                                }}
+                                            >
+                                                Tầng dưới (Tầng 1)
+                                            </button>
+                                            <button
+                                                onClick={() => setActiveFloor(2)}
+                                                style={{
+                                                    padding: "6px 16px",
+                                                    fontSize: "13px",
+                                                    fontWeight: 600,
+                                                    borderRadius: 8,
+                                                    border: "none",
+                                                    cursor: "pointer",
+                                                    background: activeFloor === 2 ? "#ffffff" : "transparent",
+                                                    color: activeFloor === 2 ? "#2563eb" : "#64748b",
+                                                    boxShadow: activeFloor === 2 ? "0 2px 4px rgba(0,0,0,0.05)" : "none",
+                                                    transition: "all 0.2s"
+                                                }}
+                                            >
+                                                Tầng trên (Tầng 2)
+                                            </button>
+                                        </div>
+                                    </Flex>
+                                )}
+
+                                <Row gutter={[24, 24]} justify="center">
+                                    {isSleeper ? (
+                                        <>
+                                            {/* TẦNG DƯỚI / TẦNG 1 */}
+                                            <Col span={24} md={12} className={activeFloor === 1 ? "block" : "hidden md:block"}>
+                                                <div style={{ textAlign: "center", marginBottom: 12, fontWeight: 700, color: "#1e3a8a", fontSize: "14px" }}>
+                                                    TẦNG DƯỚI (TẦNG 1)
+                                                </div>
+                                                {renderBus(1)}
+                                            </Col>
+
+                                            {/* TẦNG TRÊN / TẦNG 2 */}
+                                            <Col span={24} md={12} className={activeFloor === 2 ? "block" : "hidden md:block"}>
+                                                <div style={{ textAlign: "center", marginBottom: 12, fontWeight: 700, color: "#1e3a8a", fontSize: "14px" }}>
+                                                    TẦNG TRÊN (TẦNG 2)
+                                                </div>
+                                                {renderBus(2)}
+                                            </Col>
+                                        </>
+                                    ) : (
+                                        <Col span={24} sm={16} md={14}>
+                                            <div style={{ textAlign: "center", marginBottom: 12, fontWeight: 700, color: "#1e3a8a", fontSize: "14px" }}>
+                                                SƠ ĐỒ VỊ TRÍ GHẾ
                                             </div>
+                                            {renderBus(1)}
                                         </Col>
                                     )}
                                 </Row>
@@ -296,7 +766,7 @@ export default function BookingSeats(): React.ReactElement {
                                         </Text>
                                     </div>
                                     <div>
-                                        <Text type="secondary">Giường chọn:</Text>
+                                        <Text type="secondary">{isSleeper ? "Giường chọn:" : "Ghế chọn:"}</Text>
                                         <Text strong style={{ display: "block", fontSize: 16, color: "#1890ff" }}>
                                             {chosenSeatCodes.join(", ") || "Chưa chọn"}
                                         </Text>
