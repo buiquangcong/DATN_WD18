@@ -1,14 +1,14 @@
-import {Button,Form,InputNumber,Select,Card} from "antd";
-import {useNavigate} from "react-router-dom";
-import {useCRUD} from "../../../hooks/useCRUD";
-function FareRuleAddPage(){
+import { Button, Form, InputNumber, Select, Card } from "antd";
+import { useNavigate } from "react-router-dom";
+import { useCRUD } from "../../../hooks/useCRUD";
+function FareRuleAddPage() {
   const navigate = useNavigate();
   // lấy danh sách tuyến
-  const {list: journeys} = useCRUD("journey");
+  const { list: journeys } = useCRUD("journey");
   // thêm giá vé
-  const {Add} = useCRUD("giave");
+  const { Add } = useCRUD("giave");
   const [form] = Form.useForm();
-  const onFinish = (values:any)=>{
+  const onFinish = (values: any) => {
     Add(values);
   };
   return (
@@ -27,8 +27,8 @@ function FareRuleAddPage(){
             name="journey"
             rules={[
               {
-                required:true,
-                message:"Chọn tuyến đường"
+                required: true,
+                message: "Chọn tuyến đường"
               }
             ]}
           >
@@ -37,7 +37,7 @@ function FareRuleAddPage(){
               placeholder="Chọn tuyến"
             >
               {
-                journeys?.map((item:any)=>(
+                journeys?.map((item: any) => (
                   <Select.Option
                     key={item._id}
                     value={item._id}
@@ -50,24 +50,27 @@ function FareRuleAddPage(){
           </Form.Item>
           <Form.Item
             label="Sức chứa"
-            name="capacity"
+            name="capacity" 
             rules={[
               {
-                required:true
-              }
+                required: true,
+                message: "Chọn sức chứa",
+              },
             ]}
           >
-            <InputNumber
-              className="w-full"
-              min={1}
-            />
+            <Select placeholder="Chọn sức chứa">
+              <Select.Option value={16}>16 chỗ</Select.Option>
+              <Select.Option value={29}>29 chỗ</Select.Option>
+              <Select.Option value={38}>38 chỗ</Select.Option>
+              <Select.Option value={45}>45 chỗ</Select.Option>
+            </Select>
           </Form.Item>
           <Form.Item
             label="Giá ngày thường"
             name="weekdayPrice"
             rules={[
               {
-                required:true
+                required: true
               }
             ]}
           >

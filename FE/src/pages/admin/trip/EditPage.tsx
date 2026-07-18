@@ -5,17 +5,27 @@ import {
   DatePicker,
   message,
   Spin,
+  Tag,
+  Divider,
 } from "antd";
 import { useEffect, useState } from "react";
 import { useCRUD, useDetail } from "../../../hooks/useCRUD";
 import axios from "axios";
 import { useParams } from "react-router-dom";
-import dayjs from "dayjs";
+import dayjs, { Dayjs } from "dayjs";
+
+type DiemType = {
+  _id?: string;
+  diaDiem: string;
+  offsetMinutes: number;
+};
 
 type Journey = {
   _id: string;
   diemDi: string;
   diemDen: string;
+  diemDon?: DiemType[];
+  diemTra?: DiemType[];
 };
 
 type Bus = {
@@ -48,6 +58,10 @@ function TripEditPage() {
   const [buses, setBuses] = useState<Bus[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [fareRules, setFareRules] = useState<FareRule[]>([]);
+
+  const [selectedJourney, setSelectedJourney] = useState<Journey | null>(null);
+  const [departureTime, setDepartureTime] = useState<Dayjs | null>(null);
+  const [arrivalTime, setArrivalTime] = useState<Dayjs | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -89,7 +103,22 @@ function TripEditPage() {
         ? dayjs(trip.arrivalTime)
         : undefined,
     });
+
+    if (trip.departureTime) setDepartureTime(dayjs(trip.departureTime));
+    if (trip.arrivalTime) setArrivalTime(dayjs(trip.arrivalTime));
   }, [trip, form]);
+
+  // Khi đã load xong danh sách journeys và biết trip.journey, đồng bộ selectedJourney
+  useEffect(() => {
+    if (!trip?.journey?._id || journeys.length === 0) return;
+    const journey = journeys.find((j) => j._id === trip.journey._id) || null;
+    setSelectedJourney(journey);
+  }, [trip, journeys]);
+
+  const handleJourneyChange = (journeyId: string) => {
+    const journey = journeys.find((j) => j._id === journeyId) || null;
+    setSelectedJourney(journey);
+  };
 
   const disabledPastDate = (current: any) => {
     return current && current < dayjs().startOf("day");
@@ -137,7 +166,7 @@ function TripEditPage() {
           label="Tuyến đường"
           rules={[{ required: true, message: "Chọn tuyến đường" }]}
         >
-          <Select>
+          <Select onChange={handleJourneyChange}>
             {journeys.map((j) => (
               <Select.Option key={j._id} value={j._id}>
                 {j.diemDi} → {j.diemDen}
@@ -207,6 +236,7 @@ function TripEditPage() {
             className="w-full"
             format="YYYY-MM-DD HH:mm"
             disabledDate={disabledPastDate}
+            onChange={(value) => setDepartureTime(value)}
           />
         </Form.Item>
 
@@ -262,8 +292,53 @@ function TripEditPage() {
                 current < departure.startOf("day")
               );
             }}
+            onChange={(value) => setArrivalTime(value)}
           />
         </Form.Item>
+
+        {/* Preview giờ đón/trả thực tế */}
+        {selectedJourney && departureTime && arrivalTime && (
+          <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <p className="font-medium mb-2">Giờ đón/trả dự kiến</p>
+
+            {selectedJourney.diemDon && selectedJourney.diemDon.length > 0 && (
+              <>
+                <p className="text-sm text-gray-500 mb-1">Điểm đón</p>
+                <div className="space-y-1 mb-3">
+                  {selectedJourney.diemDon.map((diem, idx) => (
+                    <div key={diem._id || idx} className="flex items-center gap-3">
+                      <Tag color="blue">
+                        {departureTime
+                          .add(diem.offsetMinutes, "minute")
+                          .format("DD/MM/YYYY HH:mm")}
+                      </Tag>
+                      <span className="text-gray-700">{diem.diaDiem}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {selectedJourney.diemTra && selectedJourney.diemTra.length > 0 && (
+              <>
+                <Divider className="my-2" />
+                <p className="text-sm text-gray-500 mb-1">Điểm trả</p>
+                <div className="space-y-1">
+                  {selectedJourney.diemTra.map((diem, idx) => (
+                    <div key={diem._id || idx} className="flex items-center gap-3">
+                      <Tag color="orange">
+                        {arrivalTime
+                          .subtract(diem.offsetMinutes, "minute")
+                          .format("DD/MM/YYYY HH:mm")}
+                      </Tag>
+                      <span className="text-gray-700">{diem.diaDiem}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         {/* Trạng thái */}
         <Form.Item

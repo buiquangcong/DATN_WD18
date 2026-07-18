@@ -48,6 +48,9 @@ function JourneyEditPage() {
         {/* Điểm Đón */}
         <div className="mb-4">
           <p className="font-medium mb-2">Điểm Đón</p>
+          <p className="text-gray-500 text-sm mb-2">
+            Số phút tính từ lúc xe khởi hành (VD: 0 = đón ngay tại bến xuất phát, 15 = đón sau 15 phút)
+          </p>
           <Form.List name="diemDon">
             {(fields, { add, remove }) => (
               <>
@@ -55,10 +58,15 @@ function JourneyEditPage() {
                   <Space key={key} className="flex mb-2" align="baseline">
                     <Form.Item
                       {...restField}
-                      name={[name, "thoiGian"]}
-                      rules={[{ required: true, message: "Nhập giờ" }]}
+                      name={[name, "offsetMinutes"]}
+                      rules={[{ required: true, message: "Nhập số phút" }]}
                     >
-                      <Input placeholder="Giờ (VD: 14:00)" style={{ width: 130 }} />
+                      <InputNumber
+                        placeholder="Số phút"
+                        min={0}
+                        style={{ width: 130 }}
+                        addonAfter="phút"
+                      />
                     </Form.Item>
                     <Form.Item
                       {...restField}
@@ -81,6 +89,9 @@ function JourneyEditPage() {
         {/* Điểm Trả */}
         <div className="mb-4">
           <p className="font-medium mb-2">Điểm Trả</p>
+          <p className="text-gray-500 text-sm mb-2">
+            Số phút tính trước khi xe đến bến cuối (VD: 0 = trả ngay tại bến cuối, 20 = trả trước khi đến 20 phút)
+          </p>
           <Form.List name="diemTra">
             {(fields, { add, remove }) => (
               <>
@@ -88,10 +99,15 @@ function JourneyEditPage() {
                   <Space key={key} className="flex mb-2" align="baseline">
                     <Form.Item
                       {...restField}
-                      name={[name, "thoiGian"]}
-                      rules={[{ required: true, message: "Nhập giờ" }]}
+                      name={[name, "offsetMinutes"]}
+                      rules={[{ required: true, message: "Nhập số phút" }]}
                     >
-                      <Input placeholder="Giờ (VD: 16:00)" style={{ width: 130 }} />
+                      <InputNumber
+                        placeholder="Số phút"
+                        min={0}
+                        style={{ width: 130 }}
+                        addonAfter="phút"
+                      />
                     </Form.Item>
                     <Form.Item
                       {...restField}

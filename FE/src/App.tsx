@@ -63,7 +63,9 @@ import LoginClientPage from "./pages/client/login";
 import TicketSuccessPage from "./pages/client/TicketSuccessPage";
 import RegisterClientPage from "./pages/client/Register";
 import Schedule from "./pages/client/schedule";
-
+import HolidayListPage from "./pages/admin/holiday/ListPage";
+import HolidayAddPage from "./pages/admin/holiday/AddPage";
+import HolidayEditPage from "./pages/admin/holiday/EditPage";
 
 
 
@@ -268,6 +270,11 @@ function App() {
                <Route path="news/add" element={<NewsAddPage/>}></Route>
                <Route path="news/edit/:id" element={<NewsEditPage/>}></Route>
                <Route path="news/detail/:id" element={<DetailPage/>}></Route>
+
+               <Route path="holiday/list" element={<HolidayListPage />} />
+               <Route path="holiday/add" element={<HolidayAddPage />} />
+               <Route path="holiday/edit/:id" element={<HolidayEditPage />} />
+              {/* Template pages */}
               <Route path="products" element={<ProductsPage />} />
               <Route path="blog" element={<BlogPage />} />
             </Route>

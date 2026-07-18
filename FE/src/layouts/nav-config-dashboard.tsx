@@ -56,9 +56,14 @@ export const navData = [
     icon: renderIcon('solar:wad-of-money-bold-duotone'),
   },
   {
-    title: 'Blog',
+    title: 'Tin tức',
     path: '/admin/news/list',
     icon: renderIcon('solar:document-text-bold-duotone'),
+  },
+  {
+    title: 'Ngày lễ',
+    path: '/admin/holiday/list',
+    icon: renderIcon('solar:calendar-bold-duotone'),
   },
   {
     title: 'Đăng nhập',

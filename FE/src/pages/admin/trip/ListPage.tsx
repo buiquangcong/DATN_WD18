@@ -3,18 +3,31 @@ import { useCRUD, useDetail } from "../../../hooks/useCRUD";
 import { useNavigate } from "react-router-dom";
 import type { ColumnsType } from "antd/es/table";
 import { useState, useEffect } from "react";
+import dayjs from "dayjs";
+
+interface DiemType {
+  _id?: string;
+  diaDiem: string;
+  offsetMinutes: number;
+}
 
 interface JourneyType {
   _id: string;
   diemDi: string;
   diemDen: string;
+  quangDuong?: number;
+  thoiGianDiChuyen?: string;
+  diemDon?: DiemType[];
+  diemTra?: DiemType[];
 }
 
 interface BusType {
   _id: string;
   name: string;
   licensePlates: string; 
-  capacity: number;      
+  capacity: number;
+  type?: string;
+  status?: string;
 }
 interface FareRuleType {
   _id: string;
@@ -336,9 +349,13 @@ function TripListPage() {
       <div>
         <h3 className="font-semibold mb-2">Điểm đón</h3>
         <div className="space-y-1">
-          {trip.journey?.diemDon?.map((item: any) => (
-            <p key={item._id}>
-              🕒 {item.thoiGian} - 📍 {item.diaDiem}
+          {trip.journey?.diemDon?.map((item: DiemType, index: number) => (
+            <p key={item._id || index}>
+              🕒{" "}
+              {dayjs(trip.departureTime)
+                .add(item.offsetMinutes, "minute")
+                .format("DD/MM/YYYY HH:mm")}{" "}
+              - 📍 {item.diaDiem}
             </p>
           ))}
         </div>
@@ -349,9 +366,13 @@ function TripListPage() {
       <div>
         <h3 className="font-semibold mb-2">Điểm trả</h3>
         <div className="space-y-1">
-          {trip.journey?.diemTra?.map((item: any) => (
-            <p key={item._id}>
-              🕒 {item.thoiGian} - 📍 {item.diaDiem}
+          {trip.journey?.diemTra?.map((item: DiemType, index: number) => (
+            <p key={item._id || index}>
+              🕒{" "}
+              {dayjs(trip.arrivalTime)
+                .subtract(item.offsetMinutes, "minute")
+                .format("DD/MM/YYYY HH:mm")}{" "}
+              - 📍 {item.diaDiem}
             </p>
           ))}
         </div>

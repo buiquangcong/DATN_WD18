@@ -1,12 +1,21 @@
-import { Button, Form, Select, DatePicker, message, Input, Checkbox, Card, TimePicker, } from "antd";
+import { Button, Form, Select, DatePicker, message, Input, Checkbox, Card, Tag, Divider } from "antd";
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
+
+type DiemType = {
+  _id?: string;
+  diaDiem: string;
+  offsetMinutes: number;
+};
+
 type Journey = {
   _id: string;
   diemDi: string;
   diemDen: string;
+  diemDon?: DiemType[];
+  diemTra?: DiemType[];
 };
 
 type Bus = {
@@ -36,6 +45,23 @@ type FareRule = {
   };
 };
 
+// Cộng/trừ số phút vào 1 chuỗi giờ "HH:mm", trả về "HH:mm" (có thể tràn qua ngày khác)
+const addMinutesToTime = (time: string, minutesToAdd: number) => {
+  if (!time) return "";
+  const [h, m] = time.split(":").map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return "";
+
+  const total = h * 60 + m + minutesToAdd;
+  const normalized = ((total % 1440) + 1440) % 1440;
+
+  const hh = String(Math.floor(normalized / 60)).padStart(2, "0");
+  const mm = String(normalized % 60).padStart(2, "0");
+
+  const dayOffset = Math.floor(total / 1440);
+
+  return dayOffset !== 0 ? `${hh}:${mm} (${dayOffset > 0 ? "+1 ngày" : "-1 ngày"})` : `${hh}:${mm}`;
+};
+
 function TripAddPage() {
   const [form] = Form.useForm();
   const navigate = useNavigate();
@@ -47,6 +73,10 @@ function TripAddPage() {
 
   const [selectedFareRule, setSelectedFareRule] =
     useState<FareRule | null>(null);
+
+  const [selectedJourney, setSelectedJourney] = useState<Journey | null>(null);
+  const [departureHour, setDepartureHour] = useState("");
+  const [arrivalHour, setArrivalHour] = useState("");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -110,6 +140,12 @@ function TripAddPage() {
         "Không tìm thấy bảng giá phù hợp"
       );
     }
+  };
+
+  const handleJourneyChange = (journeyId: string) => {
+    const journey = journeys.find((j) => j._id === journeyId) || null;
+    setSelectedJourney(journey);
+    handleFindFareRule();
   };
 
   const onFinish = async (values: any) => {
@@ -186,9 +222,7 @@ function TripAddPage() {
           >
             <Select
               placeholder="Chọn tuyến"
-              onChange={
-                handleFindFareRule
-              }
+              onChange={handleJourneyChange}
             >
               {journeys.map((item) => (
                 <Select.Option
@@ -282,9 +316,16 @@ function TripAddPage() {
                 message:
                   "Nhập giờ khởi hành",
               },
+              {
+                pattern: /^([01]\d|2[0-3]):([0-5]\d)$/,
+                message: "Định dạng HH:mm",
+              },
             ]}
           >
-            <Input placeholder="07:00" />
+            <Input
+              placeholder="07:00"
+              onChange={(e) => setDepartureHour(e.target.value)}
+            />
           </Form.Item>
           
           <Form.Item
@@ -296,10 +337,57 @@ function TripAddPage() {
                 message:
                   "Nhập giờ đến",
               },
+              {
+                pattern: /^([01]\d|2[0-3]):([0-5]\d)$/,
+                message: "Định dạng HH:mm",
+              },
             ]}
           >
-            <Input placeholder="11:30" />
+            <Input
+              placeholder="11:30"
+              onChange={(e) => setArrivalHour(e.target.value)}
+            />
           </Form.Item>
+
+          {/* Preview giờ đón/trả thực tế */}
+          {selectedJourney && departureHour && arrivalHour && (
+            <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <p className="font-medium mb-2">Giờ đón/trả dự kiến theo lịch này</p>
+
+              {selectedJourney.diemDon && selectedJourney.diemDon.length > 0 && (
+                <>
+                  <p className="text-sm text-gray-500 mb-1">Điểm đón</p>
+                  <div className="space-y-1 mb-3">
+                    {selectedJourney.diemDon.map((diem, idx) => (
+                      <div key={diem._id || idx} className="flex items-center gap-3">
+                        <Tag color="blue">
+                          {addMinutesToTime(departureHour, diem.offsetMinutes)}
+                        </Tag>
+                        <span className="text-gray-700">{diem.diaDiem}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {selectedJourney.diemTra && selectedJourney.diemTra.length > 0 && (
+                <>
+                  <Divider className="my-2" />
+                  <p className="text-sm text-gray-500 mb-1">Điểm trả</p>
+                  <div className="space-y-1">
+                    {selectedJourney.diemTra.map((diem, idx) => (
+                      <div key={diem._id || idx} className="flex items-center gap-3">
+                        <Tag color="orange">
+                          {addMinutesToTime(arrivalHour, -diem.offsetMinutes)}
+                        </Tag>
+                        <span className="text-gray-700">{diem.diaDiem}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
 
           <Form.Item
             label="Các ngày chạy"
