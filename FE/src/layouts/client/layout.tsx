@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Switch, Button, ConfigProvider, theme } from "antd";
+import { useNavigate } from "react-router-dom";
 import {
   BulbOutlined,
   PhoneOutlined,
@@ -15,6 +16,27 @@ interface ClientLayoutProps {
 
 export function ClientLayout({ children }: ClientLayoutProps) {
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const navigate = useNavigate();
+  const token = localStorage.getItem("token");
+  const isLoggedIn = !!token;
+
+  const handleLoginClick = () => {
+    if (isLoggedIn) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      navigate("/khachhang/login");
+    } else {
+      navigate("/khachhang/login");
+    }
+  };
+
+  const handleBookNowClick = () => {
+    if (isLoggedIn) {
+      navigate("/khachhang/trip");
+    } else {
+      navigate("/khachhang/login");
+    }
+  };
 
   const toggleDarkMode = () => {
     setIsDarkMode(!isDarkMode);
@@ -67,10 +89,18 @@ export function ClientLayout({ children }: ClientLayoutProps) {
                 checkedChildren={<BulbOutlined />}
                 unCheckedChildren={<BulbOutlined />}
               />
-              <button className="hidden lg:block text-secondary dark:text-secondary-fixed-dim font-medium hover:text-primary transition-colors px-4 py-2">
-                Login
+              <button
+                onClick={handleLoginClick}
+                className="hidden lg:block text-secondary dark:text-secondary-fixed-dim font-medium hover:text-primary transition-colors px-4 py-2"
+              >
+                {isLoggedIn ? "Logout" : "Login"}
               </button>
-              <Button type="primary" size="large" className="font-bold">
+              <Button
+                type="primary"
+                size="large"
+                className="font-bold"
+                onClick={handleBookNowClick}
+              >
                 Book Now
               </Button>
             </div>

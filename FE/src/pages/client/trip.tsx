@@ -26,17 +26,25 @@ import {
   DollarOutlined,
   CarOutlined,
   SortAscendingOutlined,
-  ClearOutlined
+  ClearOutlined,
+  InfoCircleOutlined,
+  CaretUpOutlined,
+  CaretDownOutlined
 } from "@ant-design/icons";
 import { ClientLayout } from "./layout";
 import dayjs from "dayjs";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
-
 interface FareRule {
   weekdayPrice: number;
   weekendPrice: number;
+}
+
+interface DiemType {
+  _id?: string;
+  diaDiem: string;
+  thoiGian: string;
 }
 
 interface Journey {
@@ -44,11 +52,13 @@ interface Journey {
   diemDen: string;
   thoiGianDiChuyen: string;
   price: number;
+  diemDon?: DiemType[];
+  diemTra?: DiemType[];
 }
 
 interface Bus {
   name: string;
-  type: string; // Sleeper, Seater, Limousine
+  type: string;
 }
 
 interface Seat {
@@ -65,13 +75,20 @@ interface TripData {
   status: string;
   seats: Seat[];
 }
-
 export default function Trip(): React.ReactElement {
   const [trips, setTrips] = useState<TripData[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  const [showPolicy, setShowPolicy] = useState<boolean>(true); // Trạng thái đóng mở chính sách hủy vé
   const navigate = useNavigate();
+  const [expandedTrips, setExpandedTrips] = useState<Record<string, boolean>>({});
 
-  // Search input state (Header form)
+  const toggleTripExpand = (tripId: string) => {
+    setExpandedTrips(prev => ({
+      ...prev,
+      [tripId]: !prev[tripId]
+    }));
+  };
+
   const [diemDi, setDiemDi] = useState<string | undefined>(undefined);
   const [diemDen, setDiemDen] = useState<string | undefined>(undefined);
   const [ngayDi, setNgayDi] = useState<dayjs.Dayjs | null>(null);
@@ -125,7 +142,6 @@ export default function Trip(): React.ReactElement {
     return seatsArray.filter(seat => seat.status === "AVAILABLE").length;
   };
 
-  // 🌟 ĐỒNG BỘ: Hàm tính giá vé thực tế theo FareRule từ file của bạn
   const getTicketPrice = (item: TripData): number => {
     if (!item.departureTime) return item.journey?.price || 0;
     const departureDate = new Date(item.departureTime);
@@ -139,7 +155,6 @@ export default function Trip(): React.ReactElement {
     return item.journey?.price || 0;
   };
 
-  // Lấy danh sách điểm đi/đến động từ DB đổ ra Select Box
   const departures = Array.from(new Set(trips.map(t => t.journey?.diemDi).filter(Boolean)));
   const destinations = Array.from(new Set(trips.map(t => t.journey?.diemDen).filter(Boolean)));
 
@@ -166,7 +181,6 @@ export default function Trip(): React.ReactElement {
     setSortBy("time_asc");
   };
 
-  // Xử lý bộ lọc tìm kiếm động
   const filteredTrips = trips.filter((trip) => {
     if (appliedSearch.diemDi && trip.journey?.diemDi !== appliedSearch.diemDi) {
       return false;
@@ -184,7 +198,6 @@ export default function Trip(): React.ReactElement {
       return false;
     }
 
-    // 🌟 ĐÃ CẬP NHẬT: Lọc khoảng giá dựa trên giá FareRule thực tế sau khi tính toán
     const actualPrice = getTicketPrice(trip);
     if (actualPrice < priceRange[0] || actualPrice > priceRange[1]) {
       return false;
@@ -206,7 +219,6 @@ export default function Trip(): React.ReactElement {
     return true;
   });
 
-  // Xử lý sắp xếp theo tiêu chí dựa trên giá thực tế
   const sortedTrips = [...filteredTrips].sort((a, b) => {
     const priceA = getTicketPrice(a);
     const priceB = getTicketPrice(b);
@@ -431,6 +443,49 @@ export default function Trip(): React.ReactElement {
                 </Space>
               </div>
 
+              {/* 🌟 THÀNH PHẦN CHÍNH SÁCH HỦY VÉ THEO ẢNH MẪU CỦA BẠN 🌟 */}
+              <div style={{ marginBottom: 20 }}>
+                <div
+                  onClick={() => setShowPolicy(!showPolicy)}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 8,
+                    cursor: "pointer",
+                    userSelect: "none"
+                  }}
+                >
+                  <InfoCircleOutlined style={{ color: "#a8a29e", fontSize: 16 }} />
+                  <span style={{ fontWeight: 600, color: "#1c1917", fontSize: 14 }}>Chính sách hủy vé</span>
+                  {showPolicy ? <CaretUpOutlined style={{ fontSize: 12, color: "#1c1917" }} /> : <CaretDownOutlined style={{ fontSize: 12, color: "#1c1917" }} />}
+                </div>
+
+                {showPolicy && (
+                  <div style={{ paddingLeft: 24, marginTop: 12, display: "flex", flexDirection: "column", gap: 6 }}>
+                    <div>
+                      <span style={{ color: "#44403c" }}>Ngoài 2 tiếng trước giờ xe chạy: </span>
+                      <span style={{ color: "#dc2626", fontWeight: 600 }}>Miễn phí hủy vé</span>
+                    </div>
+                    <div>
+                      <span style={{ color: "#44403c" }}>Từ 1 - 2 tiếng trước giờ xe chạy: </span>
+                      <span style={{ color: "#dc2626", fontWeight: 600 }}>Phí hủy 50%</span>
+                    </div>
+                    <div>
+                      <span style={{ color: "#44403c" }}>Từ 1 - 3 vé: </span>
+                      <span style={{ color: "#dc2626", fontWeight: 600 }}>Hủy trước 2 tiếng</span>
+                    </div>
+                    <div>
+                      <span style={{ color: "#44403c" }}>Từ 4 - 10 vé: </span>
+                      <span style={{ color: "#dc2626", fontWeight: 600 }}>Hủy trước 12 tiếng</span>
+                    </div>
+                    <div>
+                      <span style={{ color: "#44403c" }}>Từ 11 - 20 vé: </span>
+                      <span style={{ color: "#dc2626", fontWeight: 600 }}>Hủy trước 24 tiếng</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {loading ? (
                 <div style={{ textAlign: "center", padding: "100px 0" }}>
                   <Button type="text" loading size="large">Đang tải danh sách chuyến đi...</Button>
@@ -462,7 +517,6 @@ export default function Trip(): React.ReactElement {
                       }}
                     >
                       <Row align="middle" justify="space-between" gutter={[16, 16]}>
-                        {/* Thời gian khứ hồi & Tên hành trình */}
                         <Col xs={24} sm={10} md={9} lg={8}>
                           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
                             <div>
@@ -494,9 +548,31 @@ export default function Trip(): React.ReactElement {
                               </Text>
                             </div>
                           </div>
+
+                          <div style={{ marginTop: 12 }}>
+                            <Button
+                              type="link"
+                              size="small"
+                              onClick={() => toggleTripExpand(item._id)}
+                              style={{
+                                color: "#2e7d32",
+                                padding: 0,
+                                fontWeight: 600,
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 4,
+                                fontSize: 13
+                              }}
+                            >
+                              <EnvironmentOutlined />
+                              {expandedTrips[item._id] ? "Ẩn điểm đón/trả" : "Xem điểm đón/trả"}
+                              <span style={{ color: "#64748b", fontWeight: 400, fontSize: 12, marginLeft: 2 }}>
+                                ({ (item.journey?.diemDon?.length || 0) + (item.journey?.diemTra?.length || 0) })
+                              </span>
+                            </Button>
+                          </div>
                         </Col>
 
-                        {/* Cấu trúc Bus */}
                         <Col xs={12} sm={6} md={5} style={{ textAlign: "center" }}>
                           <Text strong style={{ fontSize: 15, display: "block", marginBottom: 6, color: "#334155" }}>
                             {item.bus?.name || "Xe NETBUS Luxury"}
@@ -509,7 +585,6 @@ export default function Trip(): React.ReactElement {
                           </Tag>
                         </Col>
 
-                        {/* Giá vé hiển thị động theo FareRule thực tế */}
                         <Col xs={12} sm={4} md={5} style={{ textAlign: "right" }}>
                           <div style={{ fontSize: 20, color: "#ef4444", fontWeight: 700, lineHeight: 1.2 }}>
                             {`${getTicketPrice(item).toLocaleString("vi-VN")}đ`}
@@ -519,7 +594,6 @@ export default function Trip(): React.ReactElement {
                           </Text>
                         </Col>
 
-                        {/* Nút đặt vé */}
                         <Col xs={24} sm={4} md={5} lg={4}>
                           <Button
                             type="primary"
@@ -532,6 +606,67 @@ export default function Trip(): React.ReactElement {
                           </Button>
                         </Col>
                       </Row>
+
+                      {/* Expanded Pickup/Dropoff Section */}
+                      {expandedTrips[item._id] && (
+                        <div
+                          style={{
+                            marginTop: 16,
+                            paddingTop: 16,
+                            borderTop: "1px dashed #e2e8f0",
+                          }}
+                        >
+                          <Row gutter={[24, 16]}>
+                            {/* Pick-up points */}
+                            <Col xs={24} sm={12}>
+                              <div style={{ fontWeight: 600, color: "#1e293b", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+                                <div style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#3b82f6" }}></div>
+                                <span style={{ fontSize: 13 }}>Điểm đón khách ({item.journey?.diemDon?.length || 0})</span>
+                              </div>
+                              {item.journey?.diemDon && item.journey.diemDon.length > 0 ? (
+                                <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingLeft: 12, borderLeft: "2px solid #eff6ff" }}>
+                                  {item.journey.diemDon.map((diem, idx) => (
+                                    <div key={diem._id || idx} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                                      <Tag color="blue" style={{ margin: 0, fontWeight: 600, borderRadius: 4, fontSize: 11 }}>
+                                        {diem.thoiGian}
+                                      </Tag>
+                                      <Text style={{ color: "#475569", fontSize: 13 }}>{diem.diaDiem}</Text>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <Text type="secondary" style={{ fontStyle: "italic", fontSize: 12, paddingLeft: 12 }}>
+                                  Không có thông tin điểm đón
+                                </Text>
+                              )}
+                            </Col>
+
+                            {/* Drop-off points */}
+                            <Col xs={24} sm={12}>
+                              <div style={{ fontWeight: 600, color: "#1e293b", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+                                <div style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#f97316" }}></div>
+                                <span style={{ fontSize: 13 }}>Điểm trả khách ({item.journey?.diemTra?.length || 0})</span>
+                              </div>
+                              {item.journey?.diemTra && item.journey.diemTra.length > 0 ? (
+                                <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingLeft: 12, borderLeft: "2px solid #fff7ed" }}>
+                                  {item.journey.diemTra.map((diem, idx) => (
+                                    <div key={diem._id || idx} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                                      <Tag color="orange" style={{ margin: 0, fontWeight: 600, borderRadius: 4, fontSize: 11 }}>
+                                        {diem.thoiGian}
+                                      </Tag>
+                                      <Text style={{ color: "#475569", fontSize: 13 }}>{diem.diaDiem}</Text>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <Text type="secondary" style={{ fontStyle: "italic", fontSize: 12, paddingLeft: 12 }}>
+                                  Không có thông tin điểm trả
+                                </Text>
+                              )}
+                            </Col>
+                          </Row>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </Space>

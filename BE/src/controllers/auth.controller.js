@@ -1,6 +1,7 @@
 import asyncHandler from "../utils/asyncHandler";
 import bscrypt from "bcryptjs";
 import User from "../models/user.model";
+import Staff from "../models/staff.model";
 import Otp from "../models/otp.model.js";
 import jwt from "jsonwebtoken";
 
@@ -33,28 +34,47 @@ export const signup = asyncHandler(async (req, res) => {
     });
 });
 export const signin = asyncHandler(async (req, res) => {
-
     const { email, password } = req.body;
 
     const user = await User.findOne({ email });
 
     if (!user) {
         return res.status(401).json({
-            message: " Email hoặc mật khẩu không đúng"
-        })
+            message: "Email hoặc mật khẩu không đúng",
+        });
     }
 
     const matchPassword = await bscrypt.compare(password, user.password);
-    if (!matchPassword) {
+
+    // Hỗ trợ cả mật khẩu đã hash bằng bcrypt và mật khẩu nhập tay trực tiếp vào MongoDB
+    if (!matchPassword && password !== user.password) {
         return res.status(401).json({
-            message: " Email hoặc mật khẩu không đúng"
-        })
+            message: "Email hoặc mật khẩu không đúng",
+        });
     }
 
-    const token = jwt.sign({ id: user._id, role: user.role }, "123456", { expiresIn: "1h" });
-    user.password = undefined
-    return {
-        data: user,
-        token
-    }
-})
+   
+    const staff = await Staff.findOne({
+        userId: user._id,
+    });
+
+    const token = jwt.sign(
+        {
+            id: user._id,
+            role: user.role,
+        },
+        "123456",
+        {
+            expiresIn: "1h",
+        }
+    );
+
+    user.password = undefined;
+
+    return res.status(200).json({
+        message: "Đăng nhập thành công",
+        token,
+        user,
+        staff,
+    });
+});

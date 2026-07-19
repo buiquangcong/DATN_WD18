@@ -52,7 +52,10 @@ const tripSchema = new mongoose.Schema(
       ref: "FareRule",
       required: [true, "Giá vé là bắt buộc"],
     },
-
+    ticketPrice: {
+    type: Number,
+    required: true,
+},
     departureTime: {
       type: Date,
       required: [true, "Thời gian khởi hành là bắt buộc"],

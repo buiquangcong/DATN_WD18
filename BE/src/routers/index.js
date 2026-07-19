@@ -11,8 +11,9 @@ import tkRouter from "./tk.router";
 import giaveRouter from "./giave.router.js";
 import otpRouter from "./otp.router.js";
 import paymentRouter from "./payment.router.js";
+import statisticsRouter from "./statistics.router.js";
 import newsRouter from "./new.router.js";
-
+import holidayRouter from "./holiday.router.js";
 const router = Router();
 
 router.use("/bus", busRouter);
@@ -26,8 +27,9 @@ router.use("/booking", bookingRouter);
 router.use("/tk", tkRouter);
 router.use("/giave", giaveRouter);
 router.use("/mail", otpRouter);
-
+router.use("/holiday",holidayRouter);
 router.use("/payment", paymentRouter);
+router.use("/statistics", statisticsRouter);
 router.use("/news",newsRouter)
 
 export default router;

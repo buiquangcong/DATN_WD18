@@ -14,9 +14,22 @@ const LoginPage = () => {
             return await axios.post("http://localhost:3000/api/auth/signin", value);
         },
         onSuccess: (res) => {
-            const data = res.data.data;
+            const user = res.data.user;
+            const staff = res.data.staff;
             const token = res.data.token;
-            localStorage.setItem("user", JSON.stringify(data));
+
+            if (user?.role !== "admin") {
+                toast.error("Tài khoản không có quyền truy cập trang quản trị!");
+                return;
+            }
+
+            const userData = {
+                ...user,
+                displayName: staff?.ten || user?.username || "Admin",
+                staffId: staff?._id
+            };
+
+            localStorage.setItem("user", JSON.stringify(userData));
             localStorage.setItem("token", token);
             toast.success("Đăng nhập thành công!");
             navigate("/admin/bus/list");

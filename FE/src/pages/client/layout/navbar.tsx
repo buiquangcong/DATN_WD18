@@ -1,5 +1,5 @@
 import React from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { Switch, Button } from "antd";
 import { BulbOutlined } from "@ant-design/icons";
 
@@ -12,6 +12,28 @@ export function Navbar({
   isDarkMode,
   toggleDarkMode,
 }: NavbarProps) {
+  const navigate = useNavigate();
+  const token = localStorage.getItem("token");
+  const isLoggedIn = !!token;
+
+  const handleLoginClick = () => {
+    if (isLoggedIn) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      navigate("/khachhang/login");
+    } else {
+      navigate("/khachhang/login");
+    }
+  };
+
+  const handleBookNowClick = () => {
+    if (isLoggedIn) {
+      navigate("/khachhang/trip");
+    } else {
+      navigate("/khachhang/login");
+    }
+  };
+
   const menus = [
     {
       title: "Trang Chủ",
@@ -22,16 +44,20 @@ export function Navbar({
       path: "/khachhang/trip",
     },
     {
-      title: "Kết quả tìm kiếm",
-      path: "/khachhang/searchresults",
+      title: "Lịch trình",
+      path: "/khachhang/schedule",
     },
+    // {
+    //   title: "Kết quả tìm kiếm",
+    //   path: "/khachhang/searchresults",
+    // },
     {
       title: "Trợ giúp",
       path: "/khachhang/contact",
     },
     {
-      title:"Tin Tức",
-      path:"/khachhang/tintuc",
+      title: "Tin Tức",
+      path: "/khachhang/tintuc",
     }
   ];
 
@@ -60,10 +86,9 @@ export function Navbar({
                 transition-all
                 duration-300
                 border-b-[3px]
-                ${
-                  isActive
-                    ? "text-primary dark:text-inverse-primary border-primary dark:border-inverse-primary"
-                    : "text-secondary dark:text-secondary-fixed-dim border-transparent hover:text-primary"
+                ${isActive
+                  ? "text-primary dark:text-inverse-primary border-primary dark:border-inverse-primary"
+                  : "text-secondary dark:text-secondary-fixed-dim border-transparent hover:text-primary"
                 }
               `
               }
@@ -82,11 +107,19 @@ export function Navbar({
             unCheckedChildren={<BulbOutlined />}
           />
 
-          <button className="hidden lg:block font-medium transition-colors duration-300 px-4 py-2 text-secondary dark:text-secondary-fixed-dim hover:text-primary">
-            Login
+          <button
+            onClick={handleLoginClick}
+            className="hidden lg:block font-medium transition-colors duration-300 px-4 py-2 text-secondary dark:text-secondary-fixed-dim hover:text-primary"
+          >
+            {isLoggedIn ? "Logout" : "Login"}
           </button>
 
-          <Button type="primary" size="large" className="font-bold">
+          <Button
+            type="primary"
+            size="large"
+            className="font-bold"
+            onClick={handleBookNowClick}
+          >
             Book Now
           </Button>
         </div>
