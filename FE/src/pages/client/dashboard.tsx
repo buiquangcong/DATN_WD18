@@ -155,7 +155,7 @@ export default function ClientDashboard() {
  };
 
 
- const fleetTags = ["Dòng xe 38 chỗ", "Dòng xe 45 chỗ"];
+ const fleetTags = ["Dòng xe 16 chỗ", "Dòng xe 29 chỗ","Dòng xe 38 chỗ", "Dòng xe 45 chỗ"];
 
 
  const getFleetImageUrl = (tag: string): string => {
@@ -163,11 +163,15 @@ export default function ClientDashboard() {
      case "Dòng xe 45 chỗ":
        return "/xe.png";
      case "Dòng xe 38 chỗ":
+      return "/netbus_student_promo.png"
+     case "Dòng xe 16 chỗ":
+      return "/netbus_student_promo.png"
+     case "Dòng xe 29 chỗ":
+      return "/netbus_student_promo.png"
      default:
        return "/netbus_student_promo.png";
    }
  };
-
 
  return (
    <ClientLayout>
@@ -433,23 +437,24 @@ export default function ClientDashboard() {
            </div>
            {/* Side Promo Grid */}
            <div className="md:col-span-4 flex flex-col gap-gutter">
-             <div className="bg-[#F8FFF8] dark:bg-slate-900/40 p-8 rounded-2xl border border-outline-variant/30 flex-1 flex flex-col justify-between">
+             <div className="group relative rounded-2xl overflow-hidden h-[450px]">
+             <img 
+             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+             alt="Hành trình xanh cùng NetBus"
+             src="/netbus_exterior.png" 
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-8">
                <div>
-                 <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center text-white mb-6 text-xl">
                    <TrophyOutlined />
-                 </div>
-                 <h4 className="text-headline-md font-headline-md mb-2 dark:text-white">Ưu đãi sinh viên</h4>
-                 <p className="text-secondary dark:text-secondary-fixed-dim">
-                   Giảm ngay 15% cho tất cả các tuyến khi có thẻ sinh viên chính chủ.
-                 </p>
                </div>
-               <a className="text-primary font-bold mt-4 flex items-center gap-1 group" href="#">
+               <a className="text-white font-bold flex items-center gap-2 hover:translate-x-2 transition-transform" href="#">
                  Xem chi tiết <ArrowRightOutlined className="group-hover:translate-x-1 transition-transform" />
                </a>
+               </div>
              </div>
            </div>
+           </div>
          </div>
-       </div>
      </section>
 
 
