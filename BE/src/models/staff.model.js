@@ -2,41 +2,38 @@ import mongoose from "mongoose";
 
 const staffSchema = new mongoose.Schema(
     {
-        // 1. Thêm trường liên kết với bảng User
         userId: {
             type: mongoose.Schema.Types.ObjectId,
-            ref: "User", // Tên này phải khớp với tên Model bên file user.model.js
+            ref: "User", 
             required: true,
-            unique: true, // Đảm bảo 1 tài khoản chỉ đi kèm 1 hồ sơ nhân viên
+            unique: true, 
         },
         ten: {
             type: String,
-            required: true, // Giữ nguyên, lấy từ họ tên lúc tạo tài khoản
+            required: true, 
             trim: true,
         },
-        tuoi: {
-            type: Number,
-            // required: true, <-- Bỏ đi để cập nhật sau
+        namSinh: {
+            type: String,
             default: null,
         },
         gioiTinh: {
             type: String,
             enum: ['Nam', 'Nữ', 'Khác'],
-            // required: true, <-- Bỏ đi để cập nhật sau
             default: 'Khác',
         },
         email: {
             type: String,
-            required: true, // Giữ nguyên, lấy luôn email của tài khoản qua
+            required: true,
+            // Đảm bảo không tạo trùng Index lỗi nếu chưa xử lý DB
         },
         sdt: {
             type: String,
-            // required: true, <-- Bỏ đi để cập nhật sau
-            default: "",
+            unique: true,
+            sparse: true,
         },
         diaChi: {
             type: String,
-            // required: true, <-- Bỏ đi để cập nhật sau
             default: "",
         },
         image: {
@@ -45,8 +42,8 @@ const staffSchema = new mongoose.Schema(
         },
         cccd: {
             type: String,
-            // required: true, <-- Bỏ đi để cập nhật sau
-            default: "",
+            unique: true,
+            sparse: true,
         },
         chucVu: {
             type: String,

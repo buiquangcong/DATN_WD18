@@ -1,19 +1,44 @@
-import React, { useState } from "react";
+import React from "react";
 import { Row, Col, Card, Form, Input, Button, Checkbox, Typography, } from "antd";
 import { UserOutlined, LockOutlined, EyeInvisibleOutlined, EyeTwoTone, ArrowRightOutlined, } from "@ant-design/icons";
+import { useMutation } from "@tanstack/react-query";
+import axios from "axios";
+import toast from "react-hot-toast";
+import { useNavigate } from "react-router-dom";
 
 const { Title, Text, Link } = Typography;
 
 export default function Login() {
-  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+
+  const { mutate, isPending } = useMutation({
+    mutationFn: async (value: any) => {
+      return await axios.post("http://localhost:3000/api/auth/signin", value);
+    },
+    onSuccess: (res) => {
+      const user = res.data.user;
+      const staff = res.data.staff;
+      const token = res.data.token;
+
+      if (user?.role !== "driver") {
+        toast.error("Tài khoản không có quyền truy cập trang tài xế!");
+        return;
+      }
+
+      const userData = { ...user, displayName: staff?.ten || user?.username || "Tài xế", staffId: staff?._id };
+      localStorage.setItem("user", JSON.stringify(userData));
+      localStorage.setItem("token", token);
+      toast.success("Đăng nhập thành công!");
+      navigate("/taixe");
+    },
+    onError: (error: any) => {
+      const errMsg = error.response?.data?.message || "Đăng nhập thất bại!";
+      toast.error(errMsg);
+    }
+  });
 
   const onFinish = (values: any) => {
-    setLoading(true);
-
-    setTimeout(() => {
-      console.log(values);
-      setLoading(false);
-    }, 1500);
+    mutate(values);
   };
 
   return (
@@ -76,12 +101,12 @@ export default function Login() {
                 onFinish={onFinish}
               >
                 <Form.Item
-                  label="Mã nhân viên"
-                  name="staffId"
+                  label="Email/Tên đăng nhập"
+                  name="email"
                   rules={[
                     {
                       required: true,
-                      message: "Vui lòng nhập mã nhân viên",
+                      message: "Vui lòng nhập email/tên đăng nhập",
                     },
                   ]}
                 >
@@ -129,7 +154,7 @@ export default function Login() {
                   type="primary"
                   size="large"
                   block
-                  loading={loading}
+                  loading={isPending}
                   icon={<ArrowRightOutlined />}
                 >
                   Đăng nhập

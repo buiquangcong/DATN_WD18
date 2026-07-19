@@ -18,17 +18,20 @@ const journeySchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
-     
+
     thoiGianDiChuyen: {
       type: String,
       required: true,
     },
+
     diemDon: [
       {
-        thoiGian: {
-          type: String,
+        offsetMinutes: {
+          type: Number,
           required: true,
-          trim: true,
+          min: 0,
+          // Số phút SAU khi xe khởi hành thì đến điểm đón này
+          // VD: 0 = đón ngay tại bến xuất phát, 15 = đón sau 15 phút kể từ giờ khởi hành
         },
         diaDiem: {
           type: String,
@@ -40,10 +43,12 @@ const journeySchema = new mongoose.Schema(
 
     diemTra: [
       {
-        thoiGian: {
-          type: String,
+        offsetMinutes: {
+          type: Number,
           required: true,
-          trim: true,
+          min: 0,
+          // Số phút TRƯỚC khi xe đến bến cuối thì trả khách ở điểm này
+          // VD: 0 = trả ngay tại bến cuối, 20 = trả trước 20 phút so với giờ đến
         },
         diaDiem: {
           type: String,
@@ -67,5 +72,3 @@ const journeySchema = new mongoose.Schema(
 const Journey = mongoose.model("Journey", journeySchema);
 
 export default Journey;
-
-

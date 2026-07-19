@@ -116,6 +116,9 @@ function JourneyAddPage() {
           <p className="font-medium mb-2">
             Điểm Đón
           </p>
+          <p className="text-gray-500 text-sm mb-2">
+            Số phút tính từ lúc xe khởi hành (VD: 0 = đón ngay tại bến xuất phát, 15 = đón sau 15 phút)
+          </p>
 
           <Form.List name="diemDon">
             {(
@@ -138,27 +141,23 @@ function JourneyAddPage() {
                         {...restField}
                         name={[
                           name,
-                          "thoiGian",
+                          "offsetMinutes",
                         ]}
                         rules={[
                           {
                             required: true,
                             message:
-                              "Nhập giờ",
-                          },
-                          {
-                            pattern:
-                              /^([01]\d|2[0-3]):([0-5]\d)$/,
-                            message:
-                              "Định dạng HH:mm",
+                              "Nhập số phút",
                           },
                         ]}
                       >
-                        <Input
-                          placeholder="07:00"
+                        <InputNumber
+                          placeholder="Số phút"
+                          min={0}
                           style={{
                             width: 130,
                           }}
+                          addonAfter="phút"
                         />
                       </Form.Item>
 
@@ -218,6 +217,9 @@ function JourneyAddPage() {
           <p className="font-medium mb-2">
             Điểm Trả
           </p>
+          <p className="text-gray-500 text-sm mb-2">
+            Số phút tính trước khi xe đến bến cuối (VD: 0 = trả ngay tại bến cuối, 20 = trả trước khi đến 20 phút)
+          </p>
 
           <Form.List name="diemTra">
             {(
@@ -240,27 +242,23 @@ function JourneyAddPage() {
                         {...restField}
                         name={[
                           name,
-                          "thoiGian",
+                          "offsetMinutes",
                         ]}
                         rules={[
                           {
                             required: true,
                             message:
-                              "Nhập giờ",
-                          },
-                          {
-                            pattern:
-                              /^([01]\d|2[0-3]):([0-5]\d)$/,
-                            message:
-                              "Định dạng HH:mm",
+                              "Nhập số phút",
                           },
                         ]}
                       >
-                        <Input
-                          placeholder="09:30"
+                        <InputNumber
+                          placeholder="Số phút"
+                          min={0}
                           style={{
                             width: 130,
                           }}
+                          addonAfter="phút"
                         />
                       </Form.Item>
 

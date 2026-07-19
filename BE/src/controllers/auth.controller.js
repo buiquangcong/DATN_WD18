@@ -1,6 +1,7 @@
 import asyncHandler from "../utils/asyncHandler";
 import bscrypt from "bcryptjs";
 import User from "../models/user.model";
+import Staff from "../models/staff.model";
 import Otp from "../models/otp.model.js";
 import jwt from "jsonwebtoken";
 
@@ -45,7 +46,8 @@ export const signin = asyncHandler(async (req, res) => {
 
     const matchPassword = await bscrypt.compare(password, user.password);
 
-    if (!matchPassword) {
+    // Hỗ trợ cả mật khẩu đã hash bằng bcrypt và mật khẩu nhập tay trực tiếp vào MongoDB
+    if (!matchPassword && password !== user.password) {
         return res.status(401).json({
             message: "Email hoặc mật khẩu không đúng",
         });

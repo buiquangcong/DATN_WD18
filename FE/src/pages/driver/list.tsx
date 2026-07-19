@@ -6,9 +6,12 @@ import axios from "axios";
 
 const { Title, Text, Paragraph } = Typography;
 
+<<<<<<< HEAD
 // Thay bằng _id của staff trong MongoDB
 const STAFF_ID = "6a39a1b27d903a00d9d0b493";
 
+=======
+>>>>>>> main
 interface Trip {
   _id: string;
   departureTime: string;
@@ -29,6 +32,7 @@ export default function ListTaixePage() {
   const [loading, setLoading] = useState(true);
   const [trips, setTrips] = useState<Trip[]>([]);
 
+<<<<<<< HEAD
   useEffect(() => {
     axios
       .get( `http://localhost:3000/api/trip/staff/${STAFF_ID}` )
@@ -148,6 +152,144 @@ export default function ListTaixePage() {
                     {currentTrip.journey?.diemDen}
                   </Title>
 
+=======
+
+  useEffect(() => {
+    let currentStaffId = "";
+    try {
+      const userStr = localStorage.getItem("user");
+      if (userStr && userStr !== "undefined") {
+        const user = JSON.parse(userStr);
+        currentStaffId = user.staffId;
+      }
+    } catch (e) {
+      console.error("Lỗi parse user info", e);
+    }
+
+    if (!currentStaffId) {
+      setLoading(false);
+      return;
+    }
+
+    axios
+      .get(`http://localhost:3000/api/trip/staff/${currentStaffId}`)
+      .then((res) => {
+        setTrips(res.data.data);
+      })
+      .catch((err) => {
+        console.log(err);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, []);
+
+  const currentTrip =
+    trips.find((item) => item.status === "đang chạy") ||
+    trips[0];
+
+  const columns = [
+    {
+      title: "Mã chuyến",
+      render: (_: any, record: Trip) =>
+        record._id.slice(-6).toUpperCase(),
+    },
+    {
+      title: "Tuyến đường",
+      render: (_: any, record: Trip) =>
+        `${record.journey?.diemDi} → ${record.journey?.diemDen}`,
+    },
+    {
+      title: "Khởi hành",
+      render: (_: any, record: Trip) =>
+        new Date(record.departureTime).toLocaleString("vi-VN"),
+    },
+    {
+      title: "Xe",
+      render: (_: any, record: Trip) =>
+        record.bus?.name,
+    },
+    {
+      title: "Trạng thái",
+      render: (_: any, record: Trip) => {
+        let color = "default";
+
+        if (record.status === "sắp chạy") color = "blue";
+        if (record.status === "đang chạy") color = "green";
+        if (record.status === "hoàn thành") color = "cyan";
+        if (record.status === "huỷ") color = "red";
+
+        return (
+          <Tag color={color}>
+            {record.status}
+          </Tag>
+        );
+      },
+    },
+    {
+      title: "Hành động",
+      render: () => (
+        <Button type="link">
+          Chi tiết
+        </Button>
+      ),
+    },
+  ];
+
+  if (loading) {
+    return (
+      <ClientLayout>
+        <div className="flex justify-center items-center h-[500px]">
+          <Spin size="large" />
+        </div>
+      </ClientLayout>
+    );
+  }
+    return (
+    <ClientLayout>
+      <div style={{ padding: "32px 0" }}>
+        {/* Welcome */}
+        <div style={{ marginBottom: 40 }}>
+          <Title level={1}>Chuyến xe của tôi</Title>
+
+          <Paragraph type="secondary">
+            Theo dõi các chuyến xe được phân công.
+          </Paragraph>
+        </div>
+
+        {/* Current Trip */}
+        <Card
+          style={{
+            marginBottom: 40,
+            border: "2px solid #52c41a",
+            borderRadius: 12,
+          }}
+        >
+          {currentTrip ? (
+            <Row justify="space-between" align="middle" gutter={[24, 24]}>
+              <Col flex="auto">
+                <Space direction="vertical" size="middle">
+                  <Tag color="green">
+                    {currentTrip.status.toUpperCase()}
+                  </Tag>
+
+                  <Text type="secondary">
+                    Mã chuyến: {currentTrip._id.slice(-6).toUpperCase()}
+                  </Text>
+
+                  <Title level={2}>
+                    {currentTrip.journey?.diemDi}
+
+                    <RightOutlined
+                      style={{
+                        margin: "0 12px",
+                      }}
+                    />
+
+                    {currentTrip.journey?.diemDen}
+                  </Title>
+
+>>>>>>> main
                   <Row gutter={32}>
                     <Col>
                       <Text type="secondary">
