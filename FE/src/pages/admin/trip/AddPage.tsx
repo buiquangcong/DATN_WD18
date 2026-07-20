@@ -1,4 +1,4 @@
-import { Button, Form, Select, DatePicker, message, Input, Checkbox, Card, Tag, Divider } from "antd";
+import { Button, Form, Select, DatePicker, message, Input, Checkbox, Card, Tag, Divider, Spin } from "antd";
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
@@ -68,7 +68,6 @@ function TripAddPage() {
 
   const [journeys, setJourneys] = useState<Journey[]>([]);
   const [buses, setBuses] = useState<Bus[]>([]);
-  const [staffs, setStaffs] = useState<Staff[]>([]);
   const [fareRules, setFareRules] = useState<FareRule[]>([]);
 
   const [selectedFareRule, setSelectedFareRule] =
@@ -77,20 +76,24 @@ function TripAddPage() {
   const [selectedJourney, setSelectedJourney] = useState<Journey | null>(null);
   const [departureHour, setDepartureHour] = useState("");
   const [arrivalHour, setArrivalHour] = useState("");
+  const [weekdays, setWeekdays] = useState<number[]>([]);
+  const [startDate, setStartDate] = useState<dayjs.Dayjs | null>(null);
+  const [endDate, setEndDate] = useState<dayjs.Dayjs | null>(null);
+
+  const [availableStaffs, setAvailableStaffs] = useState<Staff[]>([]);
+  const [loadingDrivers, setLoadingDrivers] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [j, b, s, f] = await Promise.all([
+        const [j, b, f] = await Promise.all([
           axios.get("http://localhost:3000/api/journey"),
           axios.get("http://localhost:3000/api/bus"),
-          axios.get("http://localhost:3000/api/trip/drivers"),
           axios.get("http://localhost:3000/api/giave"),
         ]);
 
         setJourneys(j.data);
         setBuses(b.data);
-        setStaffs(s.data);
         setFareRules(f.data);
       } catch (error) {
         message.error("Không thể tải dữ liệu");
@@ -99,6 +102,58 @@ function TripAddPage() {
 
     fetchData();
   }, []);
+
+  // Khi đủ điều kiện (ngày chạy, khoảng ngày, giờ khởi hành/đến), gọi API lấy tài xế đang rảnh
+  useEffect(() => {
+    const readyToCheck =
+      weekdays.length > 0 &&
+      startDate &&
+      endDate &&
+      /^([01]\d|2[0-3]):([0-5]\d)$/.test(departureHour) &&
+      /^([01]\d|2[0-3]):([0-5]\d)$/.test(arrivalHour);
+
+    if (!readyToCheck) {
+      setAvailableStaffs([]);
+      return;
+    }
+
+    const fetchAvailableDrivers = async () => {
+      setLoadingDrivers(true);
+
+      // Reset tài xế đã chọn trước đó vì điều kiện lịch đã thay đổi
+      form.setFieldValue("staff", undefined);
+
+      try {
+        const res = await axios.get(
+          "http://localhost:3000/api/trip/available-drivers",
+          {
+            params: {
+              weekdays: weekdays.join(","),
+              startDate: startDate!.format("YYYY-MM-DD"),
+              endDate: endDate!.format("YYYY-MM-DD"),
+              departureHour,
+              arrivalHour,
+            },
+          }
+        );
+
+        setAvailableStaffs(res.data);
+
+        if (res.data.length === 0) {
+          message.warning(
+            "Không có tài xế nào rảnh trong khoảng lịch này"
+          );
+        }
+      } catch (error) {
+        message.error("Không thể kiểm tra tài xế rảnh");
+        setAvailableStaffs([]);
+      } finally {
+        setLoadingDrivers(false);
+      }
+    };
+
+    fetchAvailableDrivers();
+  }, [weekdays, startDate, endDate, departureHour, arrivalHour]);
 
   const handleFindFareRule = () => {
     const journeyId =
@@ -266,27 +321,6 @@ function TripAddPage() {
             </Select>
           </Form.Item>
 
-         <Form.Item
-  label="Tài xế"
-  name="staff"
-  rules={[
-    {
-      required: true,
-      message: "Chọn tài xế",
-    },
-  ]}
->
-  <Select placeholder="Chọn tài xế">
-    {staffs.map((item) => (
-      <Select.Option
-        key={item._id}
-        value={item._id}
-      >
-        {item.ten}
-      </Select.Option>
-    ))}
-  </Select>
-</Form.Item>
           <Form.Item
             name="fareRule"
             hidden
@@ -331,6 +365,7 @@ function TripAddPage() {
           <Form.Item
             label="Giờ đến"
             name="arrivalHour"
+            dependencies={["departureHour"]}
             rules={[
               {
                 required: true,
@@ -341,6 +376,31 @@ function TripAddPage() {
                 pattern: /^([01]\d|2[0-3]):([0-5]\d)$/,
                 message: "Định dạng HH:mm",
               },
+              ({ getFieldValue }) => ({
+                validator(_, value) {
+                  const departure = getFieldValue("departureHour");
+
+                  if (
+                    !departure ||
+                    !value ||
+                    !/^([01]\d|2[0-3]):([0-5]\d)$/.test(departure) ||
+                    !/^([01]\d|2[0-3]):([0-5]\d)$/.test(value)
+                  ) {
+                    return Promise.resolve();
+                  }
+
+                  const [depH, depM] = departure.split(":").map(Number);
+                  const [arrH, arrM] = value.split(":").map(Number);
+
+                  if (arrH * 60 + arrM > depH * 60 + depM) {
+                    return Promise.resolve();
+                  }
+
+                  return Promise.reject(
+                    new Error("Giờ đến phải sau giờ khởi hành trong cùng ngày")
+                  );
+                },
+              }),
             ]}
           >
             <Input
@@ -431,6 +491,7 @@ function TripAddPage() {
                   value: 0,
                 },
               ]}
+              onChange={(checked) => setWeekdays(checked as number[])}
             />
           </Form.Item>
 
@@ -447,6 +508,7 @@ function TripAddPage() {
             <DatePicker
               className="w-full"
               disabledDate={disabledPastDate}
+              onChange={(value) => setStartDate(value)}
             />
           </Form.Item>
 
@@ -463,10 +525,10 @@ function TripAddPage() {
             <DatePicker
               className="w-full"
               disabledDate={(current) => {
-                const startDate =
+                const sd =
                   form.getFieldValue("startDate");
 
-                if (!startDate) {
+                if (!sd) {
                   return (
                     current &&
                     current < dayjs().startOf("day")
@@ -475,10 +537,50 @@ function TripAddPage() {
 
                 return (
                   current &&
-                  current < startDate.startOf("day")
+                  current < sd.startOf("day")
                 );
               }}
+              onChange={(value) => setEndDate(value)}
             />
+          </Form.Item>
+
+          {/* Tài xế: chỉ hiện khi đã đủ thông tin lịch, và chỉ liệt kê tài xế đang rảnh */}
+          <Form.Item
+            label="Tài xế"
+            name="staff"
+            rules={[
+              {
+                required: true,
+                message: "Chọn tài xế",
+              },
+            ]}
+            extra={
+              weekdays.length === 0 || !startDate || !endDate || !departureHour || !arrivalHour
+                ? "Chọn đủ ngày chạy, khoảng ngày và giờ khởi hành/đến để xem tài xế đang rảnh"
+                : undefined
+            }
+          >
+            {loadingDrivers ? (
+              <div className="flex items-center gap-2">
+                <Spin size="small" />
+                <span className="text-gray-500 text-sm">Đang kiểm tra tài xế rảnh...</span>
+              </div>
+            ) : (
+              <Select
+                placeholder="Chọn tài xế đang rảnh"
+                disabled={availableStaffs.length === 0}
+                notFoundContent="Không có tài xế nào rảnh trong khoảng lịch này"
+              >
+                {availableStaffs.map((item) => (
+                  <Select.Option
+                    key={item._id}
+                    value={item._id}
+                  >
+                    {item.ten}
+                  </Select.Option>
+                ))}
+              </Select>
+            )}
           </Form.Item>
 
           <Form.Item
