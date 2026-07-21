@@ -106,10 +106,10 @@ function TripEditPage() {
     setSelectedJourney(journey);
   }, [trip, journeys]);
 
-  // Khi đã đủ giờ khởi hành + giờ đến, gọi API lấy tài xế đang rảnh
+  // Khi đã đủ giờ khởi hành + giờ đến + tuyến đường, gọi API lấy tài xế đang rảnh
   // (loại trừ chính chuyến đang sửa, vì nó đang "bận" với chính chuyến này)
   useEffect(() => {
-    if (!departureTime || !arrivalTime || !id) {
+    if (!departureTime || !arrivalTime || !id || !selectedJourney) {
       setAvailableDrivers([]);
       return;
     }
@@ -130,6 +130,7 @@ function TripEditPage() {
               endDate: dateStr,
               departureHour: departureTime.format("HH:mm"),
               arrivalHour: arrivalTime.format("HH:mm"),
+              journey: selectedJourney._id,
               excludeTripId: id,
             },
           }
@@ -156,7 +157,7 @@ function TripEditPage() {
     };
 
     fetchAvailableDrivers();
-  }, [departureTime, arrivalTime, id, trip]);
+  }, [departureTime, arrivalTime, id, trip, selectedJourney]);
 
   const handleJourneyChange = (journeyId: string) => {
     const journey = journeys.find((j) => j._id === journeyId) || null;
