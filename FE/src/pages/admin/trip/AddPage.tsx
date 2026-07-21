@@ -103,14 +103,15 @@ function TripAddPage() {
     fetchData();
   }, []);
 
-  // Khi đủ điều kiện (ngày chạy, khoảng ngày, giờ khởi hành/đến), gọi API lấy tài xế đang rảnh
+  // Khi đủ điều kiện (ngày chạy, khoảng ngày, giờ khởi hành/đến, tuyến đường), gọi API lấy tài xế đang rảnh
   useEffect(() => {
     const readyToCheck =
       weekdays.length > 0 &&
       startDate &&
       endDate &&
       /^([01]\d|2[0-3]):([0-5]\d)$/.test(departureHour) &&
-      /^([01]\d|2[0-3]):([0-5]\d)$/.test(arrivalHour);
+      /^([01]\d|2[0-3]):([0-5]\d)$/.test(arrivalHour) &&
+      selectedJourney;
 
     if (!readyToCheck) {
       setAvailableStaffs([]);
@@ -133,6 +134,7 @@ function TripAddPage() {
               endDate: endDate!.format("YYYY-MM-DD"),
               departureHour,
               arrivalHour,
+              journey: selectedJourney!._id,
             },
           }
         );
@@ -153,7 +155,7 @@ function TripAddPage() {
     };
 
     fetchAvailableDrivers();
-  }, [weekdays, startDate, endDate, departureHour, arrivalHour]);
+  }, [weekdays, startDate, endDate, departureHour, arrivalHour, selectedJourney]);
 
   const handleFindFareRule = () => {
     const journeyId =

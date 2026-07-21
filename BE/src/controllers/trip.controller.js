@@ -232,6 +232,7 @@ export const getAvailableDrivers = asyncHandler(async (req, res) => {
     endDate,
     departureHour,
     arrivalHour,
+    journey, // id của Journey đang chọn, dùng để check khớp vị trí bến
     excludeTripId,
   } = req.query;
 
@@ -255,6 +256,8 @@ export const getAvailableDrivers = asyncHandler(async (req, res) => {
 
   const [depHour, depMinute] = departureHour.split(":");
   const [arrHour, arrMinute] = arrivalHour.split(":");
+
+  const journeyInfo = journey ? await Journey.findById(journey) : null;
 
   // Sinh danh sách các khung giờ (departure/arrival) tương ứng với từng ngày chạy trong khoảng
   const slots = [];
@@ -285,22 +288,79 @@ export const getAvailableDrivers = asyncHandler(async (req, res) => {
     let busy = false;
 
     for (const slot of slots) {
+      // Mở rộng khung giờ query theo LOCATION_CHECK_MAX_GAP_MINUTES (không phải
+      // TURN_AROUND_MINUTES), vì việc check vị trí bến cần nhìn xa hơn nhiều so
+      // với việc check nghỉ tối thiểu 30 phút - nếu chỉ mở rộng 30 phút sẽ bỏ sót
+      // các chuyến cách xa hơn 30 phút nhưng vẫn cần khớp vị trí (trong 12 tiếng)
+      const bufferedStart = new Date(
+        slot.dep.getTime() - LOCATION_CHECK_MAX_GAP_MINUTES * 60000
+      );
+      const bufferedEnd = new Date(
+        slot.arr.getTime() + LOCATION_CHECK_MAX_GAP_MINUTES * 60000
+      );
+
       const query = {
         staff: driver._id,
-        departureTime: { $lt: slot.arr },
-        arrivalTime: { $gt: slot.dep },
+        departureTime: { $lt: bufferedEnd },
+        arrivalTime: { $gt: bufferedStart },
       };
 
       if (excludeTripId) {
         query._id = { $ne: excludeTripId };
       }
 
-      const conflict = await Trip.findOne(query);
+      const nearbyTrips = await Trip.find(query).populate("journey");
 
-      if (conflict) {
-        busy = true;
-        break;
+      for (const ot of nearbyTrips) {
+        const oldDeparture = new Date(ot.departureTime);
+        const oldArrival = new Date(ot.arrivalTime);
+
+        // Trùng giờ trực tiếp
+        if (slot.dep < oldArrival && slot.arr > oldDeparture) {
+          busy = true;
+          break;
+        }
+
+        // Chuyến cũ kết thúc trước, chuyến mới bắt đầu sau -> check nghỉ tối thiểu
+        if (oldArrival <= slot.dep) {
+          const gapMinutes = (slot.dep - oldArrival) / 60000;
+
+          if (gapMinutes < TURN_AROUND_MINUTES) {
+            busy = true;
+            break;
+          }
+
+          if (
+            journeyInfo &&
+            gapMinutes <= LOCATION_CHECK_MAX_GAP_MINUTES &&
+            ot.journey?.diemDen !== journeyInfo.diemDi
+          ) {
+            busy = true;
+            break;
+          }
+        }
+
+        // Chuyến mới kết thúc trước, chuyến cũ bắt đầu sau -> check nghỉ tối thiểu
+        if (oldDeparture >= slot.arr) {
+          const gapMinutes = (oldDeparture - slot.arr) / 60000;
+
+          if (gapMinutes < TURN_AROUND_MINUTES) {
+            busy = true;
+            break;
+          }
+
+          if (
+            journeyInfo &&
+            gapMinutes <= LOCATION_CHECK_MAX_GAP_MINUTES &&
+            journeyInfo.diemDen !== ot.journey?.diemDi
+          ) {
+            busy = true;
+            break;
+          }
+        }
       }
+
+      if (busy) break;
     }
 
     if (!busy) {
@@ -352,12 +412,19 @@ export const createOne = asyncHandler(async (req, res) => {
     });
   }
 
+  const newDeparture = new Date(departureTime);
+  const newArrival = new Date(arrivalTime);
+
+  if (newArrival <= newDeparture) {
+    return res.status(400).json({
+      message: "Thời gian đến phải sau thời gian khởi hành",
+    });
+  }
+
   // ===========================
   // Kiểm tra xe (thời gian + vị trí bến)
   // ===========================
 
-  const newDeparture = new Date(departureTime);
-  const newArrival = new Date(arrivalTime);
 
   const busError = await checkBusAvailability(
     bus,
@@ -471,6 +538,12 @@ export const updateOne = asyncHandler(async (req, res) => {
   const busId = bus || oldTrip.bus;
   const newDeparture = new Date(departureTime || oldTrip.departureTime);
   const newArrival = new Date(arrivalTime || oldTrip.arrivalTime);
+
+  if (newArrival <= newDeparture) {
+    return res.status(400).json({
+      message: "Thời gian đến phải sau thời gian khởi hành",
+    });
+  }
 
   // ==========================
   // Kiểm tra xe (thời gian + vị trí bến)
@@ -593,6 +666,19 @@ export const deleteOne = asyncHandler(async (req, res) => {
 
 export const createSchedule = asyncHandler(async (req, res) => {
   const {journey,bus,staff,fareRule,departureHour,arrivalHour,weekdays,startDate,endDate,status,} = req.body;
+
+  // Validate giờ đến phải sau giờ khởi hành trong cùng ngày
+  // (chưa hỗ trợ lịch chạy xuyên đêm qua ngày hôm sau)
+  const [depH, depM] = departureHour.split(":").map(Number);
+  const [arrH, arrM] = arrivalHour.split(":").map(Number);
+  const depMinutesOfDay = depH * 60 + depM;
+  const arrMinutesOfDay = arrH * 60 + arrM;
+
+  if (arrMinutesOfDay <= depMinutesOfDay) {
+    return res.status(400).json({
+      message: "Giờ đến phải sau giờ khởi hành trong cùng ngày",
+    });
+  }
 
   const busInfo = await Bus.findById(bus);
 
