@@ -1,4 +1,4 @@
-import {Button,Form,Input,Select,Spin,} from "antd";
+import { Button, Form, Input, Select, Spin, } from "antd";
 import { useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { useCRUD, useDetail } from "../../../hooks/useCRUD";
@@ -6,18 +6,19 @@ function UserEditPage() {
     const [form] = Form.useForm();
     const { id } = useParams();
     const { Edit } = useCRUD("tk");
-    const { data: user, isLoading } = useDetail("tk",id);
+    const { data: user, isLoading } = useDetail("tk", id);
     useEffect(() => {
         if (user) {
             form.setFieldsValue({
                 username: user.username,
                 email: user.email,
                 role: user.role,
+                avatar: user.avatar,
             });
         }
     }, [user, form]);
     const onFinish = (values: any) => {
-        const data = { _id: id, ...values,};
+        const data = { _id: id, ...values, };
         if (!values.password) {
             delete data.password;
         }
@@ -65,6 +66,18 @@ function UserEditPage() {
                     <Input />
                 </Form.Item>
                 <Form.Item
+                    label="Ảnh đại diện"
+                    name="avatar"
+                    rules={[
+                        {
+                            type: "url",
+                            message: "Link ảnh không hợp lệ",
+                        },
+                    ]}
+                >
+                    <Input placeholder="https://example.com/avatar.jpg" />
+                </Form.Item>
+                <Form.Item
                     label="Vai trò"
                     name="role"
                 >
@@ -79,7 +92,7 @@ function UserEditPage() {
                                 label: "Admin",
                                 value: "admin"
                             },
-                             {
+                            {
                                 label: "driver",
                                 value: "driver"
                             },
