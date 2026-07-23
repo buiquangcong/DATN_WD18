@@ -199,12 +199,12 @@ export default function DriverDashboard() {
       <Row gutter={[24, 24]}>
         {/* Active Trips */}
         <Col xs={24}>
-          <Card title={<Text strong style={{ color: "#52c41a" }}>DANH SÁCH CHUYẾN XE CỦA {driverName.toUpperCase()}</Text>}>
-            {trips.length === 0 ? (
-                <Text type="secondary">Hiện chưa có chuyến đi nào được phân công cho bạn.</Text>
+          <Card title={<Text strong style={{ color: "#52c41a" }}>DANH SÁCH CHUYẾN XE HÔM NAY CỦA {driverName.toUpperCase()}</Text>}>
+            {todayTrips.length === 0 ? (
+                <Text type="secondary">Hôm nay chưa có chuyến đi nào được phân công cho bạn.</Text>
             ) : (
                 <Table 
-                  dataSource={trips} 
+                  dataSource={todayTrips} 
                   columns={columns} 
                   rowKey="_id"
                   pagination={{ pageSize: 5 }}
