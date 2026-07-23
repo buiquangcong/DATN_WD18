@@ -63,6 +63,7 @@ import LoginClientPage from "./pages/client/login";
 import TicketSuccessPage from "./pages/client/TicketSuccessPage";
 import RegisterClientPage from "./pages/client/Register";
 import Schedule from "./pages/client/schedule";
+import ProfileClientPage from "./pages/client/profile";
 import HolidayListPage from "./pages/admin/holiday/ListPage";
 import HolidayAddPage from "./pages/admin/holiday/AddPage";
 import HolidayEditPage from "./pages/admin/holiday/EditPage";
@@ -207,6 +208,7 @@ function App() {
             <Route path="/khachhang/tintuc/:id" element={<ChiTietTinTucPage />} />
             <Route path="/khachhang/register" element={<RegisterClientPage />} />
             <Route path="/khachhang/schedule" element={<Schedule />} />
+            <Route path="/khachhang/profile" element={<ProfileClientPage />} />
             {/* Driver Route with ProtectedRoute */}
             <Route
               path="/taixe"

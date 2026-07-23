@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import axios from "axios"
 import toast from "react-hot-toast"
 import { useNavigate } from "react-router-dom"
+import { useEffect } from "react"
 
 const BASE_URL = "http://localhost:3000/api"
 
@@ -27,6 +28,24 @@ export const useCRUD = (resource: ResourceType) => {
     const refresh = () => {
         queryClient.invalidateQueries({ queryKey: [resource] })
     }
+
+    // Auto-refresh queries on other tabs or during internal updates
+    useEffect(() => {
+        const handleStorageChange = (e: StorageEvent | Event) => {
+            // Invalidate if it is our custom Event, or if it is a native StorageEvent affecting user data
+            if (!("key" in e) || e.key === "user" || e.key === "users_list") {
+                refresh();
+            }
+        };
+
+        window.addEventListener("storage", handleStorageChange);
+        window.addEventListener("user-updated" as any, handleStorageChange);
+
+        return () => {
+            window.removeEventListener("storage", handleStorageChange);
+            window.removeEventListener("user-updated" as any, handleStorageChange);
+        };
+    }, [queryClient, resource]);
 
     const { data: list = [], isLoading, isError } = useQuery<any[], Error>({
         queryKey: [resource],
