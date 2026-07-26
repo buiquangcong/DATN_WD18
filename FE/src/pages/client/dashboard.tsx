@@ -59,6 +59,8 @@ export default function ClientDashboard() {
          data = response.data;
        }
 
+       data = data.filter((t: any) => t.status === "sắp chạy");
+
 
        const uniqueDepartures = Array.from(new Set(data.map((t: any) => t.journey?.diemDi).filter(Boolean))) as string[];
        const uniqueDestinations = Array.from(new Set(data.map((t: any) => t.journey?.diemDen).filter(Boolean))) as string[];
