@@ -115,11 +115,14 @@ export default function Trip(): React.ReactElement {
     setLoading(true);
     try {
       const response = await axios.get<{ data?: TripData[] } & TripData[]>("http://localhost:3000/api/trip");
+      let allTrips: TripData[] = [];
       if (response.data && "data" in response.data && Array.isArray(response.data.data)) {
-        setTrips(response.data.data);
+        allTrips = response.data.data;
       } else if (Array.isArray(response.data)) {
-        setTrips(response.data as unknown as TripData[]);
+        allTrips = response.data as unknown as TripData[];
       }
+      const upcomingTrips = allTrips.filter(t => t.status === "sắp chạy");
+      setTrips(upcomingTrips);
     } catch (error) {
       console.error("Lỗi lấy danh sách chuyến:", error);
       message.error("Không thể kết nối đến máy chủ!");
