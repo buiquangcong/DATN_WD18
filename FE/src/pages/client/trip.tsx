@@ -36,15 +36,17 @@ import dayjs from "dayjs";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
+
 interface FareRule {
   weekdayPrice: number;
   weekendPrice: number;
 }
 
+// 🌟 Đã cập nhật Interface đúng theo Schema Mongoose (Sử dụng offsetMinutes thay vì thoiGian)
 interface DiemType {
   _id?: string;
   diaDiem: string;
-  thoiGian: string;
+  offsetMinutes: number;
 }
 
 interface Journey {
@@ -75,10 +77,11 @@ interface TripData {
   status: string;
   seats: Seat[];
 }
+
 export default function Trip(): React.ReactElement {
   const [trips, setTrips] = useState<TripData[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
-  const [showPolicy, setShowPolicy] = useState<boolean>(true); // Trạng thái đóng mở chính sách hủy vé
+  const [showPolicy, setShowPolicy] = useState<boolean>(true);
   const navigate = useNavigate();
   const [expandedTrips, setExpandedTrips] = useState<Record<string, boolean>>({});
 
@@ -93,7 +96,6 @@ export default function Trip(): React.ReactElement {
   const [diemDen, setDiemDen] = useState<string | undefined>(undefined);
   const [ngayDi, setNgayDi] = useState<dayjs.Dayjs | null>(null);
 
-  // Active filters applied after clicking "Tìm kiếm"
   const [appliedSearch, setAppliedSearch] = useState<{
     diemDi?: string;
     diemDen?: string;
@@ -104,7 +106,6 @@ export default function Trip(): React.ReactElement {
     ngayDi: null,
   });
 
-  // Sidebar filters
   const [selectedBusTypes, setSelectedBusTypes] = useState<string[]>([]);
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 1500000]);
   const [selectedTimeSlots, setSelectedTimeSlots] = useState<string[]>([]);
@@ -135,6 +136,18 @@ export default function Trip(): React.ReactElement {
     if (!dateString) return "--:--";
     const date = new Date(dateString);
     return date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+  };
+
+  // 🌟 Hàm tính Giờ Đón thực tế = Giờ khởi hành + số phút offset
+  const getPickupTime = (departureTimeStr: string, offsetMinutes: number): string => {
+    if (!departureTimeStr) return "--:--";
+    return dayjs(departureTimeStr).add(offsetMinutes, "minute").format("HH:mm");
+  };
+
+  // 🌟 Hàm tính Giờ Trả thực tế = Giờ bến cuối - số phút offset
+  const getDropoffTime = (arrivalTimeStr: string, offsetMinutes: number): string => {
+    if (!arrivalTimeStr) return "--:--";
+    return dayjs(arrivalTimeStr).subtract(offsetMinutes, "minute").format("HH:mm");
   };
 
   const getAvailableSeatsCount = (seatsArray: Seat[]): number => {
@@ -443,7 +456,7 @@ export default function Trip(): React.ReactElement {
                 </Space>
               </div>
 
-              {/* 🌟 THÀNH PHẦN CHÍNH SÁCH HỦY VÉ THEO ẢNH MẪU CỦA BẠN 🌟 */}
+              {/* CHÍNH SÁCH HỦY VÉ */}
               <div style={{ marginBottom: 20 }}>
                 <div
                   onClick={() => setShowPolicy(!showPolicy)}
@@ -627,8 +640,9 @@ export default function Trip(): React.ReactElement {
                                 <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingLeft: 12, borderLeft: "2px solid #eff6ff" }}>
                                   {item.journey.diemDon.map((diem, idx) => (
                                     <div key={diem._id || idx} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                                      {/* 🌟 Hiển thị GIỜ ĐÓN THỰC TẾ đã được tính toán bằng dayjs */}
                                       <Tag color="blue" style={{ margin: 0, fontWeight: 600, borderRadius: 4, fontSize: 11 }}>
-                                        {diem.thoiGian}
+                                        {getPickupTime(item.departureTime, diem.offsetMinutes)}
                                       </Tag>
                                       <Text style={{ color: "#475569", fontSize: 13 }}>{diem.diaDiem}</Text>
                                     </div>
@@ -651,8 +665,9 @@ export default function Trip(): React.ReactElement {
                                 <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingLeft: 12, borderLeft: "2px solid #fff7ed" }}>
                                   {item.journey.diemTra.map((diem, idx) => (
                                     <div key={diem._id || idx} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                                      {/* 🌟 Hiển thị GIỜ TRẢ THỰC TẾ đã được tính toán bằng dayjs */}
                                       <Tag color="orange" style={{ margin: 0, fontWeight: 600, borderRadius: 4, fontSize: 11 }}>
-                                        {diem.thoiGian}
+                                        {getDropoffTime(item.arrivalTime, diem.offsetMinutes)}
                                       </Tag>
                                       <Text style={{ color: "#475569", fontSize: 13 }}>{diem.diaDiem}</Text>
                                     </div>
