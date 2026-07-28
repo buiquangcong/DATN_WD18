@@ -25,7 +25,7 @@ export default function Login() {
         return;
       }
 
-      const userData = { ...user, displayName: staff?.ten || user?.username || "Tài xế", staffId: staff?._id };
+      const userData = { ...user, displayName: staff?.ten || user?.username || "Tài xế", staffId: staff?._id, avatar: staff?.image || user?.avatar || "" };
       localStorage.setItem("user", JSON.stringify(userData));
       localStorage.setItem("token", token);
       toast.success("Đăng nhập thành công!");

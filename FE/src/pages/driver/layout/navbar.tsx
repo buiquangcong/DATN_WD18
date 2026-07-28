@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
-import { Button } from "antd";
-import { UserOutlined } from "@ant-design/icons";
+import { Button, Avatar } from "antd";
+import { UserOutlined, LogoutOutlined } from "@ant-design/icons";
 
 interface NavbarProps {
   isDarkMode: boolean;
@@ -13,13 +13,37 @@ export function Navbar({
   toggleDarkMode,
 }: NavbarProps) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [driverUser, setDriverUser] = useState<any>(null);
 
   useEffect(() => {
     const userStr = localStorage.getItem("user");
     if (userStr && userStr !== "undefined") {
-      setIsLoggedIn(true);
+      try {
+        const userObj = JSON.parse(userStr);
+        setIsLoggedIn(true);
+        setDriverUser(userObj);
+
+        if (userObj?.staffId) {
+          fetch(`http://localhost:3000/api/staff/detail/${userObj.staffId}`)
+            .then((res) => res.json())
+            .then((data) => {
+              const staffData = data?.data || data;
+              if (staffData) {
+                setDriverUser((prev: any) => ({
+                  ...prev,
+                  displayName: staffData.ten || prev?.displayName || prev?.username || "Tài xế",
+                  avatar: staffData.image || prev?.avatar || prev?.image || "",
+                }));
+              }
+            })
+            .catch(() => {});
+        }
+      } catch (e) {
+        console.error(e);
+      }
     }
   }, []);
+
   const menus = [
     {
       title: "Trang chủ",
@@ -36,18 +60,18 @@ export function Navbar({
   ];
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 h-20 bg-white border-b border-outline-variant/20">
-      <div className="w-full h-full px-16 flex items-center justify-between">
+    <nav className="fixed top-0 left-0 right-0 z-50 h-20 bg-white border-b border-outline-variant/20 shadow-xs">
+      <div className="w-full h-full px-8 md:px-16 flex items-center justify-between">
         
         <NavLink
           to="/taixe"
-            className="text-[28px] font-extrabold tracking-tight text-primary leading-none"
+          className="text-[28px] font-extrabold tracking-tight text-primary leading-none"
         >
           NETBUS
         </NavLink>
 
         {/* Menu */}
-        <div className="hidden md:flex items-center gap-14 ml-20">
+        <div className="hidden md:flex items-center gap-10 lg:gap-14 ml-10">
           {menus.map((item) => (
             <NavLink
               key={item.path}
@@ -55,16 +79,16 @@ export function Navbar({
               end={item.path === "/taixe"}
               className={({ isActive }) =>
                 `
-                h-24
+                h-20
                 flex
                 items-center
-                border-b-[4px]
-                text-[18px]
+                border-b-[3px]
+                text-[17px]
                 font-medium
                 transition-all
                 ${
                   isActive
-                    ? "border-primary text-primary"
+                    ? "border-primary text-primary font-semibold"
                     : "border-transparent text-gray-600 hover:text-primary"
                 }
               `
@@ -76,11 +100,11 @@ export function Navbar({
         </div>
 
         {/* Right */}
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-4">
           <Button
             type="primary"
             className="
-              !h-6
+              !h-8
               !px-5
               !rounded-full
               !font-bold
@@ -92,16 +116,33 @@ export function Navbar({
           </Button>
 
           {isLoggedIn ? (
-            <div
-              className="hidden lg:flex items-center gap-2 text-red-500 font-semibold text-lg hover:text-red-600 transition cursor-pointer"
-              onClick={() => {
-                localStorage.removeItem("user");
-                localStorage.removeItem("token");
-                window.location.href = "/taixe/login";
-              }}
-            >
-              <UserOutlined />
-              <span>Đăng xuất</span>
+            <div className="flex items-center gap-4">
+              {/* Driver Profile (Avatar + Name) next to Book Now */}
+              <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-green-50/80 border border-green-200/80 shadow-xs">
+                <Avatar
+                  src={driverUser?.avatar || driverUser?.image}
+                  icon={<UserOutlined />}
+                  className="bg-green-700 text-white font-bold flex-shrink-0 border border-green-600"
+                  size={34}
+                />
+                <span className="font-semibold text-gray-800 text-base max-w-[160px] truncate">
+                  {driverUser?.displayName || driverUser?.ten || driverUser?.username || "Tài xế"}
+                </span>
+              </div>
+
+              {/* Logout button */}
+              <div
+                className="hidden lg:flex items-center gap-1.5 text-red-500 hover:text-red-600 font-semibold text-base transition cursor-pointer"
+                onClick={() => {
+                  localStorage.removeItem("user");
+                  localStorage.removeItem("token");
+                  window.location.href = "/taixe/login";
+                }}
+                title="Đăng xuất"
+              >
+                <LogoutOutlined className="text-lg" />
+                <span>Đăng xuất</span>
+              </div>
             </div>
           ) : (
             <NavLink
