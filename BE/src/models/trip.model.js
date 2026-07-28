@@ -73,7 +73,7 @@ const tripSchema = new mongoose.Schema(
     },
 
     seats: [seatStatusSchema],
-  },
+  }, 
   {
     timestamps: true,
     versionKey: false,
