@@ -1,4 +1,4 @@
-import { Popconfirm, Space, Table, Button, Tag, Input, Select, Avatar, Card } from "antd";
+import { Popconfirm, Space, Table, Button, Tag, Input, Select, Avatar, Card, Modal } from "antd";
 import { useCRUD } from "../../../hooks/useCRUD";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
@@ -15,6 +15,8 @@ interface StaffType {
     image?: string;
     cccd: string;
     chucVu: 'Admin' | 'Driver' | 'Staff';
+    bangLai?: string;
+    anhBangLai?: string;
 }
 
 function ListPage() {
@@ -22,6 +24,8 @@ function ListPage() {
     const { list, Delete, isLoading } = useCRUD("staff");
     const [searchText, setSearchText] = useState("");
     const [selectedChucVu, setSelectedChucVu] = useState<string>("All");
+    const [previewImage, setPreviewImage] = useState("");
+    const [isPreviewOpen, setIsPreviewOpen] = useState(false);
     const filteredList = list.filter((item: StaffType) => {
         const matchesSearch =
             item.ten?.toLowerCase().includes(searchText.toLowerCase()) ||
@@ -62,7 +66,7 @@ function ListPage() {
             title: "Chức vụ",
             dataIndex: "chucVu",
             key: "chucVu",
-            render: (chucVu: string) => {
+            render: (chucVu: string, record: StaffType) => {
                 let color = "geekblue";
                 let label = "Nhân viên";
                 if (chucVu === "Admin") {
@@ -73,9 +77,29 @@ function ListPage() {
                     label = "Tài xế";
                 }
                 return (
-                    <Tag color={color} className="font-semibold uppercase tracking-wider text-xs px-2.5 py-0.5 rounded-md">
-                        {label}
-                    </Tag>
+                    <Space direction="vertical" size={4} align="start">
+                        <Tag color={color} className="font-semibold uppercase tracking-wider text-xs px-2.5 py-0.5 rounded-md">
+                            {label}
+                        </Tag>
+                        {chucVu === "Driver" && record.bangLai && (
+                            <Tag color="cyan" className="text-xs">
+                                Bằng: {record.bangLai}
+                            </Tag>
+                        )}
+                        {chucVu === "Driver" && record.anhBangLai && (
+                            <Button 
+                                type="link" 
+                                size="small" 
+                                className="p-0 text-xs text-blue-500 hover:text-blue-400 h-auto"
+                                onClick={() => {
+                                    setPreviewImage(record.anhBangLai || "");
+                                    setIsPreviewOpen(true);
+                                }}
+                            >
+                                Xem ảnh bằng lái
+                            </Button>
+                        )}
+                    </Space>
                 );
             },
         },
@@ -184,6 +208,23 @@ function ListPage() {
                     />
                 </div>
             </Card>
+
+            <Modal
+                title="Ảnh chụp bằng lái xe"
+                open={isPreviewOpen}
+                footer={null}
+                onCancel={() => setIsPreviewOpen(false)}
+                destroyOnClose
+                centered
+            >
+                <div className="flex justify-center items-center p-2">
+                    <img 
+                        src={previewImage} 
+                        alt="Ảnh bằng lái xe" 
+                        className="max-w-full max-h-[70vh] object-contain rounded-lg border shadow-sm"
+                    />
+                </div>
+            </Modal>
         </div>
     )
 

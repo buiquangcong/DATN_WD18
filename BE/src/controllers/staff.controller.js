@@ -10,6 +10,20 @@ export const getAll = asyncHandler(async (req, res) => {
 
 
 export const createOne = asyncHandler(async (req, res) => {
+    const { chucVu, bangLai, anhBangLai } = req.body;
+    if (chucVu === "Driver" || chucVu === "Tài xế") {
+        if (!bangLai || !bangLai.trim() || !anhBangLai || !anhBangLai.trim()) {
+            return res.status(400).json({
+                message: "Nhân viên giữ chức vụ Tài xế bắt buộc phải có bằng lái xe và ảnh chụp minh chứng!"
+            });
+        }
+        const allowedLicenses = ["D", "E", "F", "FB2", "FC", "FD", "FE"];
+        if (!allowedLicenses.includes(bangLai.trim().toUpperCase())) {
+            return res.status(400).json({
+                message: "Bằng lái xe của tài xế phải từ hạng D trở lên (D, E, F, FC, FD, FE)!"
+            });
+        }
+    }
     const staff = await Staff.create(req.body);
     return res.status(201).json(staff);
 });
@@ -27,7 +41,7 @@ export const getOne = asyncHandler(async (req, res) => {
 });
 
 export const updateOne = asyncHandler(async (req, res) => {
-    const { ten, namSinh, gioiTinh, email, sdt, diaChi, image, chucVu, cccd } = req.body;
+    const { ten, namSinh, gioiTinh, email, sdt, diaChi, image, chucVu, cccd, bangLai, anhBangLai } = req.body;
     
     const updateData = {};
     
@@ -39,13 +53,42 @@ export const updateOne = asyncHandler(async (req, res) => {
     if (diaChi !== undefined) updateData.diaChi = diaChi;
     if (image !== undefined) updateData.image = image;
     if (cccd !== undefined) updateData.cccd = cccd;
+    if (bangLai !== undefined) updateData.bangLai = bangLai;
+    if (anhBangLai !== undefined) updateData.anhBangLai = anhBangLai;
 
 
+    let finalRole = "";
     if (chucVu) {
         const role = chucVu.toString().trim();
-        if (role === "Quản trị viên" || role === "Admin") updateData.chucVu = "Admin";
-        else if (role === "Tài xế" || role === "Driver") updateData.chucVu = "Driver";
-        else if (role === "Nhân viên" || role === "Staff") updateData.chucVu = "Staff";
+        if (role === "Quản trị viên" || role === "Admin") finalRole = "Admin";
+        else if (role === "Tài xế" || role === "Driver") finalRole = "Driver";
+        else if (role === "Nhân viên" || role === "Staff") finalRole = "Staff";
+        updateData.chucVu = finalRole;
+    }
+
+    const existingStaff = await Staff.findById(req.params.id);
+    if (!existingStaff) {
+        return res.status(404).json({
+            message: "Không tìm thấy nhân viên để cập nhật"
+        });
+    }
+
+    const checkedRole = finalRole || existingStaff.chucVu;
+    const checkedLicense = bangLai !== undefined ? bangLai : existingStaff.bangLai;
+    const checkedLicenseImage = anhBangLai !== undefined ? anhBangLai : existingStaff.anhBangLai;
+
+    if (checkedRole === "Driver") {
+        if (!checkedLicense || !checkedLicense.trim() || !checkedLicenseImage || !checkedLicenseImage.trim()) {
+            return res.status(400).json({
+                message: "Nhân viên giữ chức vụ Tài xế bắt buộc phải có bằng lái xe và ảnh chụp minh chứng!"
+            });
+        }
+        const allowedLicenses = ["D", "E", "F", "FB2", "FC", "FD", "FE"];
+        if (!allowedLicenses.includes(checkedLicense.trim().toUpperCase())) {
+            return res.status(400).json({
+                message: "Bằng lái xe của tài xế phải từ hạng D trở lên (D, E, F, FC, FD, FE)!"
+            });
+        }
     }
 
     const staff = await Staff.findByIdAndUpdate(
@@ -56,12 +99,6 @@ export const updateOne = asyncHandler(async (req, res) => {
             runValidators: true 
         }
     );
-
-    if (!staff) {
-        return res.status(404).json({
-            message: "Không tìm thấy nhân viên để cập nhật"
-        });
-    }
 
     return res.json({
         message: "Cập nhật thông tin nhân viên thành công!",
