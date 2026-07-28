@@ -275,6 +275,48 @@ export default function ProfileClientPage() {
     passwordForm.resetFields();
   };
 
+  const [isSendingMail, setIsSendingMail] = useState(false);
+
+  const handleForgotPassword = () => {
+    const email = userData?.email;
+    if (!email) {
+      toast.error("Không tìm thấy email của tài khoản!");
+      return;
+    }
+
+    Modal.confirm({
+      title: "Xác nhận gửi link khôi phục",
+      content: (
+        <div>
+          <p>Hệ thống sẽ gửi liên kết khôi phục mật khẩu tới email của bạn:</p>
+          <p className="font-bold text-emerald-700 text-center text-lg my-3">{email}</p>
+          <p className="text-xs text-slate-500">
+            * Liên kết sẽ có hiệu lực trong vòng 15 phút. Vui lòng kiểm tra kỹ hộp thư của bạn sau khi gửi (bao gồm cả thư mục Spam).
+          </p>
+        </div>
+      ),
+      okText: "Gửi Email",
+      cancelText: "Hủy",
+      okButtonProps: { className: "bg-emerald-600 border-none hover:bg-emerald-500 font-bold" },
+      onOk: async () => {
+        setIsSendingMail(true);
+        try {
+          const res = await axios.post("http://localhost:3000/api/auth/forgot-password", { email });
+          if (res.data?.success) {
+            toast.success("Đã gửi link khôi phục mật khẩu! Vui lòng kiểm tra hộp thư.");
+          } else {
+            toast.error(res.data?.message || "Có lỗi xảy ra khi gửi email!");
+          }
+        } catch (error: any) {
+          const errMsg = error.response?.data?.message || "Gửi email khôi phục thất bại!";
+          toast.error(errMsg);
+        } finally {
+          setIsSendingMail(false);
+        }
+      }
+    });
+  };
+
   // Avatar presets option
   // const avatarPresets = [
   //   "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix",
@@ -857,15 +899,26 @@ export default function ProfileClientPage() {
                           <Input.Password size="large" prefix={<LockOutlined />} placeholder="••••••••" />
                         </Form.Item>
 
-                        <Button
-                          type="primary"
-                          htmlType="submit"
-                          size="large"
-                          icon={<CheckCircleOutlined />}
-                          className="bg-emerald-600 hover:bg-emerald-500 font-bold rounded-xl border-none"
-                        >
-                          Cập nhật mật khẩu
-                        </Button>
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2">
+                          <Button
+                            type="primary"
+                            htmlType="submit"
+                            size="large"
+                            icon={<CheckCircleOutlined />}
+                            className="bg-emerald-600 hover:bg-emerald-500 font-bold rounded-xl border-none"
+                          >
+                            Cập nhật mật khẩu
+                          </Button>
+                          
+                          <Button
+                            type="link"
+                            onClick={handleForgotPassword}
+                            loading={isSendingMail}
+                            className="text-emerald-600 hover:text-emerald-500 font-semibold p-0 text-left"
+                          >
+                            Quên mật khẩu?
+                          </Button>
+                        </div>
                       </Form>
 
                       <Divider />

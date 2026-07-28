@@ -64,6 +64,7 @@ import TicketSuccessPage from "./pages/client/TicketSuccessPage";
 import RegisterClientPage from "./pages/client/Register";
 import Schedule from "./pages/client/schedule";
 import ProfileClientPage from "./pages/client/profile";
+import ResetPasswordPage from "./pages/client/ResetPassword";
 import HolidayListPage from "./pages/admin/holiday/ListPage";
 import HolidayAddPage from "./pages/admin/holiday/AddPage";
 import HolidayEditPage from "./pages/admin/holiday/EditPage";
@@ -209,6 +210,7 @@ function App() {
             <Route path="/khachhang/register" element={<RegisterClientPage />} />
             <Route path="/khachhang/schedule" element={<Schedule />} />
             <Route path="/khachhang/profile" element={<ProfileClientPage />} />
+            <Route path="/khachhang/reset-password" element={<ResetPasswordPage />} />
             {/* Driver Route with ProtectedRoute */}
             <Route
               path="/taixe"
