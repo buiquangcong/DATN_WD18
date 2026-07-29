@@ -1,8 +1,8 @@
-import { Popconfirm, Space, Table, Button, Tag } from "antd";
+import { useState } from "react";
+import { Popconfirm, Space, Table, Button, Tag, Input, Card } from "antd";
 import { useCRUD } from "../../../hooks/useCRUD";
 import { useNavigate } from "react-router-dom";
 import type { ColumnsType } from "antd/es/table";
-
 
 interface BusType {
   _id: string;
@@ -15,8 +15,21 @@ interface BusType {
 
 function ListPage() {
   const navigate = useNavigate();
-  const { list, Delete } = useCRUD("bus");
+  const { list, Delete, isLoading } = useCRUD("bus");
 
+  // State quản lý từ khóa tìm kiếm
+  const [searchText, setSearchText] = useState<string>("");
+
+  // Lọc dữ liệu dựa trên từ khóa (Tên xe hoặc Biển số)
+  const filteredList = list?.filter((item: BusType) => {
+    if (!searchText.trim()) return true;
+    const searchLower = searchText.toLowerCase().trim();
+
+    return (
+      item.name?.toLowerCase().includes(searchLower) ||
+      item.licensePlates?.toLowerCase().includes(searchLower)
+    );
+  });
 
   const columns: ColumnsType<BusType> = [
     {
@@ -40,7 +53,6 @@ function ListPage() {
       dataIndex: "type",
       key: "type",
       render: (type: string) => {
-
         return type === "Sleeper" ? "Xe giường nằm" : type;
       },
     },
@@ -83,7 +95,9 @@ function ListPage() {
             cancelText="Không"
             okButtonProps={{ danger: true }}
           >
-            <Button type="primary" danger>Xóa</Button>
+            <Button type="primary" danger>
+              Xóa
+            </Button>
           </Popconfirm>
         </Space>
       ),
@@ -91,22 +105,58 @@ function ListPage() {
   ];
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-semibold text-gray-800">Quản Lý Danh Sách Xe Bus / Khách</h1>
-        <Button type="primary" size="large" onClick={() => navigate("/admin/bus/add")}>
+    <div className="p-6 w-full space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">
+            Quản Lý Danh Sách Xe Bus / Khách
+          </h1>
+          <p className="text-sm text-gray-500">
+            Quản lý thông tin phương tiện, sức chứa và trạng thái hoạt động.
+          </p>
+        </div>
+        <Button
+          type="primary"
+          size="large"
+          className="bg-blue-600 hover:bg-blue-700 transition-colors shadow-sm font-semibold rounded-lg"
+          onClick={() => navigate("/admin/bus/add")}
+        >
           Thêm Xe Mới
         </Button>
       </div>
 
-      <div className="overflow-x-auto bg-white rounded-lg shadow-md border border-gray-100">
-        <Table
-          columns={columns}
-          dataSource={list}
-          rowKey="_id" // Thay id thành _id để fix triệt để lỗi "unique key warning"
-          pagination={{ pageSize: 10, showSizeChanger: true }}
-        />
-      </div>
+      {/* Thẻ Card bao bọc Thanh tìm kiếm và Bảng dữ liệu */}
+      <Card className="shadow-xs border border-gray-100 rounded-xl bg-white">
+        {/* Ô tìm kiếm kéo dài giống hệt trang Nhân Viên */}
+        <div className="flex flex-col md:flex-row gap-4 mb-6">
+          <div className="flex-1">
+            <Input.Search
+              placeholder="Tìm kiếm theo tên xe hoặc biển số xe..."
+              allowClear
+              size="large"
+              onChange={(e) => setSearchText(e.target.value)}
+              value={searchText}
+              className="w-full"
+            />
+          </div>
+        </div>
+
+        {/* Bảng danh sách */}
+        <div className="overflow-x-auto">
+          <Table
+            columns={columns}
+            dataSource={filteredList}
+            rowKey="_id"
+            loading={isLoading}
+            pagination={{
+              pageSize: 10,
+              showSizeChanger: true,
+              showTotal: (total) => `Tổng số ${total} xe`,
+            }}
+          />
+        </div>
+      </Card>
     </div>
   );
 }
