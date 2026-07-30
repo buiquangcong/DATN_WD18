@@ -6,15 +6,44 @@ import Staff from "../models/staff.model.js";
 import FareRule from "../models/giave.model.js";
 import Booking from "../models/booking.model.js";
 import Journey from "../models/journey.model.js";
-import {
-  TURN_AROUND_MINUTES,
-  LOCATION_CHECK_MAX_GAP_MINUTES,
-  checkBusAvailability,
-  checkStaffAvailability,
-} from "../services/tripAvailability.service.js";
+import {TURN_AROUND_MINUTES,LOCATION_CHECK_MAX_GAP_MINUTES,checkBusAvailability,checkStaffAvailability,} from "../services/tripAvailability.service.js";
 import { calculateTicketPrice } from "../services/tripPricing.service.js";
+const updateTripStatus = async () => {
+  const now = new Date();
 
+  // ==============================
+  // Sắp chạy -> Đang chạy
+  // ==============================
+  await Trip.updateMany(
+    {
+      departureTime: { $lte: now },
+      arrivalTime: { $gt: now },
+      status: "sắp chạy",
+    },
+    {
+      $set: {
+        status: "đang chạy",
+      },
+    }
+  );
+
+  // ==============================
+  // Đang chạy -> Hoàn thành
+  // ==============================
+  await Trip.updateMany(
+    {
+      arrivalTime: { $lte: now },
+      status: "đang chạy",
+    },
+    {
+      $set: {
+        status: "hoàn thành",
+      },
+    }
+  );
+};
 export const getAll = asyncHandler(async (req, res) => {
+   await updateTripStatus();
   const trips = await Trip.find()
     .populate("journey")
     .populate("bus")
@@ -25,6 +54,7 @@ export const getAll = asyncHandler(async (req, res) => {
 });
 
 export const getOne = asyncHandler(async (req, res) => {
+   await updateTripStatus();
   const trip = await Trip.findById(req.params.id)
     .populate("journey")
     .populate("bus")

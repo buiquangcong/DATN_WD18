@@ -473,30 +473,31 @@ function TripEditPage() {
 
         {/* Trạng thái */}
         <Form.Item
-          name="status"
-          label="Trạng thái"
-        >
-          <Select
-            options={[
-              {
-                value: "sắp chạy",
-                label: "Sắp chạy",
-              },
-              {
-                value: "đang chạy",
-                label: "Đang chạy",
-              },
-              {
-                value: "hoàn thành",
-                label: "Hoàn thành",
-              },
-              {
-                value: "huỷ",
-                label: "Huỷ",
-              },
-            ]}
-          />
-        </Form.Item>
+  label="Trạng thái"
+  name="status"
+>
+  <Select
+    disabled={trip?.status === "hoàn thành"}
+    options={[
+      {
+        value: "sắp chạy",
+        label: "Sắp chạy",
+      },
+      {
+        value: "đang chạy",
+        label: "Đang chạy",
+      },
+      {
+        value: "hoàn thành",
+        label: "Hoàn thành",
+      },
+      {
+        value: "huỷ",
+        label: "Huỷ",
+      },
+    ]}
+  />
+</Form.Item>
 
         <Button
           type="primary"
