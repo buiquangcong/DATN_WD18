@@ -15,7 +15,8 @@ import {
   Tag,
   Divider,
   Switch,
-  Tabs
+  Tabs,
+  Modal
 } from "antd";
 import {
   UserOutlined,
@@ -189,42 +190,78 @@ export default function ProfileDriverPage() {
   };
 
   // Change password handler - gọi API backend
+
   const handleChangePassword = async (values: any) => {
-    if (!values.currentPassword || !values.newPassword || !values.confirmPassword) {
-      toast.error("Vui lòng nhập đầy đủ tất cả các trường mật khẩu!");
-      return;
-    }
-
-    if (values.newPassword.length < 6) {
-      toast.error("Mật khẩu mới phải có tối thiểu 6 ký tự!");
-      return;
-    }
-
     if (values.newPassword !== values.confirmPassword) {
       toast.error("Mật khẩu xác nhận không trùng khớp!");
       return;
     }
 
     if (!userData?._id) {
-      toast.error("Không tìm thấy thông tin tài khoản. Vui lòng đăng nhập lại!");
+      toast.error("Không tìm thấy thông tin tài khoản!");
       return;
     }
 
-    setChangingPassword(true);
     try {
-      await axios.put(`http://localhost:3000/api/tk/change-password/${userData._id}`, {
+      const response = await axios.post("http://localhost:3000/api/auth/change-password", {
+        userId: userData._id,
         currentPassword: values.currentPassword,
         newPassword: values.newPassword,
-        confirmPassword: values.confirmPassword,
       });
-      toast.success("Đổi mật khẩu thành công! Vui lòng bảo mật mật khẩu mới.");
-      passwordForm.resetFields();
+
+      if (response.data?.success) {
+        toast.success("Đổi mật khẩu thành công! Vui lòng bảo mật mật khẩu mới.");
+        passwordForm.resetFields();
+      } else {
+        toast.error(response.data?.message || "Đổi mật khẩu thất bại!");
+      }
     } catch (err: any) {
-      const msg = err?.response?.data?.message || "Đổi mật khẩu thất bại. Vui lòng thử lại!";
-      toast.error(msg);
-    } finally {
-      setChangingPassword(false);
+      console.error("Lỗi đổi mật khẩu:", err);
+      const errMsg = err.response?.data?.message || "Đổi mật khẩu thất bại! Vui lòng thử lại.";
+      toast.error(errMsg);
     }
+  };
+
+  const [isSendingMail, setIsSendingMail] = useState(false);
+
+  const handleForgotPassword = () => {
+    const email = userData?.email;
+    if (!email) {
+      toast.error("Không tìm thấy email của tài khoản!");
+      return;
+    }
+
+    Modal.confirm({
+      title: "Xác nhận gửi link khôi phục",
+      content: (
+        <div>
+          <p>Hệ thống sẽ gửi liên kết khôi phục mật khẩu tới email của bạn:</p>
+          <p className="font-bold text-emerald-700 text-center text-lg my-3">{email}</p>
+          <p className="text-xs text-slate-500">
+            * Liên kết sẽ có hiệu lực trong vòng 15 phút. Vui lòng kiểm tra kỹ hộp thư của bạn sau khi gửi (bao gồm cả thư mục Spam).
+          </p>
+        </div>
+      ),
+      okText: "Gửi Email",
+      cancelText: "Hủy",
+      okButtonProps: { className: "bg-emerald-600 border-none hover:bg-emerald-500 font-bold" },
+      onOk: async () => {
+        setIsSendingMail(true);
+        try {
+          const res = await axios.post("http://localhost:3000/api/auth/forgot-password", { email });
+          if (res.data?.success) {
+            toast.success("Đã gửi link khôi phục mật khẩu! Vui lòng kiểm tra hộp thư.");
+          } else {
+            toast.error(res.data?.message || "Có lỗi xảy ra khi gửi email!");
+          }
+        } catch (error: any) {
+          const errMsg = error.response?.data?.message || "Gửi email khôi phục thất bại!";
+          toast.error(errMsg);
+        } finally {
+          setIsSendingMail(false);
+        }
+      }
+    });
   };
 
   // Avatar upload handler
@@ -661,32 +698,31 @@ export default function ProfileDriverPage() {
                         <Form.Item
                           name="confirmPassword"
                           label="Xác nhận mật khẩu mới"
-                          dependencies={['newPassword']}
-                          rules={[
-                            { required: true, message: "Vui lòng xác nhận mật khẩu mới" },
-                            ({ getFieldValue }) => ({
-                              validator(_, value) {
-                                if (!value || getFieldValue('newPassword') === value) {
-                                  return Promise.resolve();
-                                }
-                                return Promise.reject(new Error('Mật khẩu xác nhận không trùng khớp!'));
-                              },
-                            }),
-                          ]}
+                          rules={[{ required: true, message: "Vui lòng xác nhận mật khẩu mới" }]}
                         >
                           <Input.Password size="large" prefix={<LockOutlined />} placeholder="••••••••" />
                         </Form.Item>
 
-                        <Button
-                          type="primary"
-                          htmlType="submit"
-                          size="large"
-                          loading={changingPassword}
-                          icon={<CheckCircleOutlined />}
-                          className="bg-emerald-600 hover:bg-emerald-500 font-bold rounded-xl border-none"
-                        >
-                          Cập nhật mật khẩu
-                        </Button>
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2">
+                          <Button
+                            type="primary"
+                            htmlType="submit"
+                            size="large"
+                            icon={<CheckCircleOutlined />}
+                            className="bg-emerald-600 hover:bg-emerald-500 font-bold rounded-xl border-none"
+                          >
+                            Cập nhật mật khẩu
+                          </Button>
+                          
+                          <Button
+                            type="link"
+                            onClick={handleForgotPassword}
+                            loading={isSendingMail}
+                            className="text-emerald-600 hover:text-emerald-500 font-semibold p-0 text-left"
+                          >
+                            Quên mật khẩu?
+                          </Button>
+                        </div>
                       </Form>
 
                       <Divider />
@@ -695,7 +731,7 @@ export default function ProfileDriverPage() {
                         <Title level={5} className="!mb-0">
                           Tính năng bảo mật nâng cao
                         </Title>
-                        <div className="flex justify-between items-center p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700">
+                        <div className="flex justify-between items-center p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border">
                           <div>
                             <Text strong className="block">
                               Xác thực 2 lớp (2FA)
@@ -705,18 +741,6 @@ export default function ProfileDriverPage() {
                             </Text>
                           </div>
                           <Switch defaultChecked onChange={(checked) => toast.success(checked ? "Đã bật 2FA" : "Đã tắt 2FA")} />
-                        </div>
-
-                        <div className="flex justify-between items-center p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700">
-                          <div>
-                            <Text strong className="block">
-                              Thông báo đăng nhập
-                            </Text>
-                            <Text type="secondary" className="text-xs">
-                              Nhận thông báo qua Email khi có ai đăng nhập vào tài khoản từ thiết bị mới.
-                            </Text>
-                          </div>
-                          <Switch onChange={(checked) => toast.success(checked ? "Đã bật thông báo đăng nhập" : "Đã tắt thông báo đăng nhập")} />
                         </div>
                       </div>
                     </div>
