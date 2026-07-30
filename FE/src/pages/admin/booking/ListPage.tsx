@@ -8,6 +8,7 @@ interface TripType {
   _id: string;
 
   journey?: {
+    id: string;
     diemDi: string;
     diemDen: string;
   };
@@ -38,9 +39,7 @@ interface BookingType {
     email: string;
   };
 
-  trip?: {
-    _id: string;
-  };
+  trip?: TripType;
 
   seats: string[];
   totalPrice: number;
@@ -82,8 +81,11 @@ function BookingListPage() {
 
   const { data: booking } = useDetail("booking", selectedId);
 
-  const getBookingCount = (tripId: string) =>
-    (bookings || []).filter((b: BookingType) => b.trip?._id === tripId).length;
+  useEffect(() => {
+    if (booking) {
+      setOpen(true);
+    }
+  }, [booking]);
 
   // Logic lọc danh sách đặt vé
   const filteredList = list?.filter((item: BookingType) => {
@@ -104,51 +106,6 @@ function BookingListPage() {
   });
 
   const columns: ColumnsType<BookingType> = [
-    {
-      title: "Thời gian khởi hành",
-      dataIndex: "departureTime",
-      render: (time: string) => (
-        <span>{new Date(time).toLocaleString("vi-VN")}</span>
-      ),
-    },
-    {
-      title: "Giá vé",
-      render: (_, record) => (
-        <span className="text-green-600 font-medium">
-          {record.ticketPrice?.toLocaleString("vi-VN")} đ
-        </span>
-      ),
-    },
-    {
-      title: "Nhân viên",
-      render: (_, record) => (
-        <span>{record.staff?.ten || "Chưa phân công"}</span>
-      ),
-    },
-    {
-      title: "Số đơn đặt vé",
-      render: (_, record) => (
-        <Tag color="blue">{getBookingCount(record._id)} đơn</Tag>
-      ),
-    },
-    {
-      title: "Trạng thái",
-      dataIndex: "status",
-      render: (status: string) => (
-        <Tag color={tripStatusColorMap[status] || "default"}>{status}</Tag>
-      ),
-    },
-    {
-      title: "Hành động",
-      render: (_, record) => (
-        <Button onClick={() => handleViewDetail(record._id)}>
-          Xem chi tiết
-        </Button>
-      ),
-    },
-  ];
-
-  const bookingColumns: ColumnsType<BookingType> = [
     {
       title: "Khách hàng",
       render: (_, record) => record.user?.username || "Hành khách NETBUS",
@@ -297,38 +254,75 @@ function BookingListPage() {
           <Button
             onClick={() => {
               setOpen(false);
-              setSelectedTripId(undefined);
+              setSelectedId(undefined);
             }}
           >
             Đóng
           </Button>
         }
-        width={900}
-        title={
-          selectedTrip
-            ? `Danh sách khách đặt vé: ${selectedTrip.journey?.diemDi} → ${selectedTrip.journey?.diemDen}`
-            : "Danh sách khách đặt vé"
-        }
+        width={600}
+        title="Chi tiết đơn đặt vé"
         onCancel={() => {
           setOpen(false);
-          setSelectedTripId(undefined);
+          setSelectedId(undefined);
         }}
       >
-        {selectedTrip && (
-          <div className="mb-4 text-sm text-gray-500">
-            Khởi hành:{" "}
-            {new Date(selectedTrip.departureTime).toLocaleString("vi-VN")} —
-            Xe: {selectedTrip.bus?.name} ({selectedTrip.bus?.licensePlates})
+        {booking ? (
+          <div className="space-y-4 pt-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs text-gray-400">Khách hàng</p>
+                <p className="font-semibold">{booking.user?.username || "Hành khách NETBUS"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400">Email</p>
+                <p>{booking.user?.email || "Chưa cập nhật"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400">Tuyến đường</p>
+                <p className="font-semibold text-blue-600">
+                  {booking.trip?.journey?.diemDi || "Chưa rõ"} → {booking.trip?.journey?.diemDen || "Chưa rõ"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400">Thời gian khởi hành</p>
+                <p>{booking.trip?.departureTime ? new Date(booking.trip.departureTime).toLocaleString("vi-VN") : "---"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400">Xe & Biển số</p>
+                <p>{booking.trip?.bus?.name || "Chưa rõ"} ({booking.trip?.bus?.licensePlates || "Chưa rõ"})</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400">Nhân viên phụ trách</p>
+                <p>{booking.trip?.staff?.ten || "Chưa phân công"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400">Số lượng ghế / Mã ghế</p>
+                <p className="font-semibold text-emerald-600">
+                  {booking.seats?.length || 0} vé ({booking.seats?.join(", ") || "Chưa rõ"})
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400">Tổng tiền thanh toán</p>
+                <p className="font-bold text-red-600 text-lg">
+                  {(booking.totalPrice || 0).toLocaleString("vi-VN")} đ
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400">Trạng thái đơn hàng</p>
+                <Tag color={bookingStatusColorMap[booking.status] || "orange"}>
+                  {booking.status || "Chờ xác nhận"}
+                </Tag>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400">Ngày đặt vé</p>
+                <p>{booking.createdAt ? new Date(booking.createdAt).toLocaleString("vi-VN") : "---"}</p>
+              </div>
+            </div>
           </div>
+        ) : (
+          <p className="text-center py-4">Đang tải chi tiết đơn hàng...</p>
         )}
-
-        <Table
-          rowKey="_id"
-          dataSource={tripBookings}
-          columns={bookingColumns}
-          pagination={{ pageSize: 5 }}
-          locale={{ emptyText: "Chưa có khách nào đặt vé chuyến này" }}
-        />
       </Modal>
     </div>
   );
