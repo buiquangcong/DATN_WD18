@@ -33,14 +33,25 @@ const bookingSchema = new mongoose.Schema(
     },
 
    status: {
-  type: String,
-  enum: [
-    "Chờ xác nhận",
-    "Đã xác nhận",
-    "Đã huỷ",
-  ],
-  default: "Chờ xác nhận",
-},
+     type: String,
+     enum: [
+       "Chờ xác nhận",
+       "Đã xác nhận",
+       "Đã huỷ",
+       "Yêu cầu hoàn tiền",
+       "Đã hoàn tiền"
+     ],
+     default: "Chờ xác nhận",
+   },
+   refundInfo: {
+     nganHang: { type: String, default: "" },
+     soTaiKhoan: { type: String, default: "" },
+     tenChuTaiKhoan: { type: String, default: "" },
+     lyDoHuy: { type: String, default: "" },
+     anhMinhChung: { type: String, default: "" },
+     requestedAt: { type: Date },
+     processedAt: { type: Date }
+   },
   },
   {
     timestamps: true,
