@@ -23,6 +23,7 @@ type Bus = {
   _id: string;
   name?: string;
   bienSo?: string;
+  licensePlates?: string;
 };
 
 type Driver = {
@@ -46,12 +47,14 @@ function TripEditPage() {
   const { data: trip, isLoading } = useDetail("trip", id);
 
   const [journeys, setJourneys] = useState<Journey[]>([]);
-  const [buses, setBuses] = useState<Bus[]>([]);
   const [fareRules, setFareRules] = useState<FareRule[]>([]);
 
   const [selectedJourney, setSelectedJourney] = useState<Journey | null>(null);
   const [departureTime, setDepartureTime] = useState<Dayjs | null>(null);
   const [arrivalTime, setArrivalTime] = useState<Dayjs | null>(null);
+
+  const [availableBuses, setAvailableBuses] = useState<Bus[]>([]);
+  const [loadingBuses, setLoadingBuses] = useState(false);
 
   const [availableDrivers, setAvailableDrivers] = useState<Driver[]>([]);
   const [loadingDrivers, setLoadingDrivers] = useState(false);
@@ -59,14 +62,12 @@ function TripEditPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [j, b, f] = await Promise.all([
+        const [j, f] = await Promise.all([
           axios.get("http://localhost:3000/api/journey"),
-          axios.get("http://localhost:3000/api/bus"),
           axios.get("http://localhost:3000/api/giave"),
         ]);
 
         setJourneys(j.data);
-        setBuses(b.data);
         setFareRules(f.data);
       } catch {
         message.error("Load dữ liệu thất bại");
@@ -105,6 +106,59 @@ function TripEditPage() {
     const journey = journeys.find((j) => j._id === trip.journey._id) || null;
     setSelectedJourney(journey);
   }, [trip, journeys]);
+
+  // Khi đã đủ giờ khởi hành + giờ đến + tuyến đường, gọi API lấy xe đang rảnh
+  // (loại trừ chính chuyến đang sửa, vì nó đang "bận" với chính chuyến này)
+  useEffect(() => {
+    if (!departureTime || !arrivalTime || !id || !selectedJourney) {
+      setAvailableBuses([]);
+      return;
+    }
+
+    const fetchAvailableBuses = async () => {
+      setLoadingBuses(true);
+
+      try {
+        const dateStr = departureTime.format("YYYY-MM-DD");
+        const weekday = departureTime.day(); // 0-6, khớp với getDay() bên BE
+
+        const res = await axios.get(
+          "http://localhost:3000/api/trip/available-buses",
+          {
+            params: {
+              weekdays: String(weekday),
+              startDate: dateStr,
+              endDate: dateStr,
+              departureHour: departureTime.format("HH:mm"),
+              arrivalHour: arrivalTime.format("HH:mm"),
+              journey: selectedJourney._id,
+              excludeTripId: id,
+            },
+          }
+        );
+
+        setAvailableBuses(res.data);
+
+        // Nếu xe đang chọn (trip.bus) không còn nằm trong danh sách rảnh,
+        // thêm tạm vào đầu danh sách để không mất lựa chọn hiện tại khi mở trang Edit
+        const currentBusId = trip?.bus?._id;
+        if (
+          currentBusId &&
+          !res.data.some((b: Bus) => b._id === currentBusId) &&
+          trip?.bus
+        ) {
+          setAvailableBuses((prev) => [trip.bus, ...prev]);
+        }
+      } catch {
+        message.error("Không thể kiểm tra xe rảnh");
+        setAvailableBuses([]);
+      } finally {
+        setLoadingBuses(false);
+      }
+    };
+
+    fetchAvailableBuses();
+  }, [departureTime, arrivalTime, id, trip, selectedJourney]);
 
   // Khi đã đủ giờ khởi hành + giờ đến + tuyến đường, gọi API lấy tài xế đang rảnh
   // (loại trừ chính chuyến đang sửa, vì nó đang "bận" với chính chuyến này)
@@ -214,36 +268,6 @@ function TripEditPage() {
             {journeys.map((j) => (
               <Select.Option key={j._id} value={j._id}>
                 {j.diemDi} → {j.diemDen}
-              </Select.Option>
-            ))}
-          </Select>
-        </Form.Item>
-
-        {/* Xe */}
-        <Form.Item
-          name="bus"
-          label="Xe"
-          rules={[{ required: true, message: "Chọn xe" }]}
-        >
-          <Select>
-            {buses.map((b) => (
-              <Select.Option key={b._id} value={b._id}>
-                {b.name || b.bienSo || "Xe"}
-              </Select.Option>
-            ))}
-          </Select>
-        </Form.Item>
-
-        {/* Bảng giá */}
-        <Form.Item
-          name="fareRule"
-          label="Bảng giá"
-          rules={[{ required: true, message: "Chọn bảng giá" }]}
-        >
-          <Select>
-            {fareRules.map((f) => (
-              <Select.Option key={f._id} value={f._id}>
-                {f.weekdayPrice.toLocaleString("vi-VN")} đ
               </Select.Option>
             ))}
           </Select>
@@ -369,14 +393,61 @@ function TripEditPage() {
           </div>
         )}
 
-        {/* Tài xế: chỉ hiện khi đã đủ giờ khởi hành/đến, chỉ liệt kê tài xế đang rảnh */}
+        {/* Xe: chỉ hiện khi đã đủ giờ khởi hành/đến/tuyến, chỉ liệt kê xe đang rảnh */}
+        <Form.Item
+          name="bus"
+          label="Xe"
+          rules={[{ required: true, message: "Chọn xe" }]}
+          extra={
+            !departureTime || !arrivalTime || !selectedJourney
+              ? "Chọn tuyến đường và thời gian khởi hành/đến để xem xe đang rảnh"
+              : undefined
+          }
+        >
+          {loadingBuses ? (
+            <div className="flex items-center gap-2">
+              <Spin size="small" />
+              <span className="text-gray-500 text-sm">Đang kiểm tra xe rảnh...</span>
+            </div>
+          ) : (
+            <Select
+              placeholder="Chọn xe đang rảnh"
+              disabled={availableBuses.length === 0}
+              notFoundContent="Không có xe nào rảnh vào khung giờ này"
+            >
+              {availableBuses.map((b) => (
+                <Select.Option key={b._id} value={b._id}>
+                  {b.name || b.bienSo || "Xe"}
+                  {b.licensePlates ? ` - ${b.licensePlates}` : ""}
+                </Select.Option>
+              ))}
+            </Select>
+          )}
+        </Form.Item>
+
+        {/* Bảng giá */}
+        <Form.Item
+          name="fareRule"
+          label="Bảng giá"
+          rules={[{ required: true, message: "Chọn bảng giá" }]}
+        >
+          <Select>
+            {fareRules.map((f) => (
+              <Select.Option key={f._id} value={f._id}>
+                {f.weekdayPrice.toLocaleString("vi-VN")} đ
+              </Select.Option>
+            ))}
+          </Select>
+        </Form.Item>
+
+        {/* Tài xế: chỉ hiện khi đã đủ giờ khởi hành/đến/tuyến, chỉ liệt kê tài xế đang rảnh */}
         <Form.Item
           name="staff"
           label="Tài xế"
           rules={[{ required: true, message: "Chọn tài xế" }]}
           extra={
-            !departureTime || !arrivalTime
-              ? "Chọn thời gian khởi hành và đến để xem tài xế đang rảnh"
+            !departureTime || !arrivalTime || !selectedJourney
+              ? "Chọn tuyến đường và thời gian khởi hành/đến để xem tài xế đang rảnh"
               : undefined
           }
         >
