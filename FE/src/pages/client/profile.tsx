@@ -313,13 +313,35 @@ export default function ProfileClientPage() {
   };
 
   // Change password handler
-  const handleChangePassword = (values: any) => {
+  const handleChangePassword = async (values: any) => {
     if (values.newPassword !== values.confirmPassword) {
       toast.error("Mật khẩu xác nhận không trùng khớp!");
       return;
     }
-    toast.success("Đổi mật khẩu thành công! Vui lòng bảo mật mật khẩu mới.");
-    passwordForm.resetFields();
+
+    if (!userData?._id) {
+      toast.error("Không tìm thấy thông tin tài khoản!");
+      return;
+    }
+
+    try {
+      const response = await axios.post("http://localhost:3000/api/auth/change-password", {
+        userId: userData._id,
+        currentPassword: values.currentPassword,
+        newPassword: values.newPassword,
+      });
+
+      if (response.data?.success) {
+        toast.success("Đổi mật khẩu thành công! Vui lòng bảo mật mật khẩu mới.");
+        passwordForm.resetFields();
+      } else {
+        toast.error(response.data?.message || "Đổi mật khẩu thất bại!");
+      }
+    } catch (err: any) {
+      console.error("Lỗi đổi mật khẩu:", err);
+      const errMsg = err.response?.data?.message || "Đổi mật khẩu thất bại! Vui lòng thử lại.";
+      toast.error(errMsg);
+    }
   };
 
   const [isSendingMail, setIsSendingMail] = useState(false);
