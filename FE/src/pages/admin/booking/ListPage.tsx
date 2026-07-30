@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Table, Button, Space, Tag, Modal, Popconfirm, Input, Select, Card } from "antd";
 import { useCRUD, useDetail } from "../../../hooks/useCRUD";
-import { Table, Button, Space, Tag, Modal, Popconfirm } from "antd";
 import { useNavigate } from "react-router-dom";
 import type { ColumnsType } from "antd/es/table";
 

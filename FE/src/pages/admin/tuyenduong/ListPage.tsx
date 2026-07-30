@@ -1,4 +1,4 @@
-import { Popconfirm, Space, Table, Button, Tag, Modal, Divider } from "antd";
+import { Popconfirm, Space, Table, Button, Tag, Modal, Divider, Input, Select, Card } from "antd";
 import { useCRUD, useDetail } from "../../../hooks/useCRUD";
 import { useNavigate } from "react-router-dom";
 import type { ColumnsType } from "antd/es/table";
@@ -14,7 +14,7 @@ interface JourneyType {
   _id: string;
   diemDi: string;
   diemDen: string;
-  quangDuong: string;
+  quangDuong: string | number;
   thoiGianDiChuyen: string;
   price: number;
   diemDon: DiemType[];
@@ -24,15 +24,37 @@ interface JourneyType {
 
 function JourneyListPage() {
   const navigate = useNavigate();
-  const { list, Delete } = useCRUD("journey");
+  const { list, Delete, isLoading } = useCRUD("journey");
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
   const [open, setOpen] = useState(false);
+  
+  // State quản lý tìm kiếm và bộ lọc trạng thái
+  const [searchText, setSearchText] = useState("");
+  const [selectedTrangThai, setSelectedTrangThai] = useState<string>("All");
+
   const { data: journey } = useDetail("journey", selectedId);
 
   const handleView = (id: string) => {
     setSelectedId(id);
     setOpen(true);
   };
+
+  // Logic lọc danh sách hành trình
+  const filteredList = list?.filter((item: JourneyType) => {
+    const searchLower = searchText.toLowerCase().trim();
+
+    const matchesSearch =
+      !searchLower ||
+      String(item.diemDi || "").toLowerCase().includes(searchLower) ||
+      String(item.diemDen || "").toLowerCase().includes(searchLower) ||
+      String(item.quangDuong ?? "").toLowerCase().includes(searchLower);
+
+    const matchesTrangThai =
+      selectedTrangThai === "All" ||
+      (selectedTrangThai === "active" ? item.trangThai === true : item.trangThai === false);
+
+    return matchesSearch && matchesTrangThai;
+  });
 
   const columns: ColumnsType<JourneyType> = [
     {
@@ -51,7 +73,7 @@ function JourneyListPage() {
       title: "Quãng Đường",
       dataIndex: "quangDuong",
       key: "quangDuong",
-      render: (quangDuong: string) => <span className="text-gray-600">{quangDuong}</span>,
+      render: (quangDuong: string | number) => <span className="text-gray-600">{quangDuong}</span>,
     },
     {
       title: "Thời Gian Di Chuyển",
@@ -113,22 +135,66 @@ function JourneyListPage() {
   ];
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-semibold text-gray-800">Quản Lý Danh Sách tuyến đường</h1>
-        <Button type="primary" size="large" onClick={() => navigate("/admin/journey/add")}>
+    <div className="p-6 w-full space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">Quản Lý Danh Sách Tuyến Đường</h1>
+          <p className="text-sm text-gray-500">Quản lý các tuyến đường, điểm đón trả và lịch trình di chuyển.</p>
+        </div>
+        <Button 
+          type="primary" 
+          size="large" 
+          className="bg-blue-600 hover:bg-blue-700 transition-colors shadow-sm font-semibold rounded-lg"
+          onClick={() => navigate("/admin/journey/add")}
+        >
           Thêm Hành Trình Mới
         </Button>
       </div>
 
-      <div className="overflow-x-auto bg-white rounded-lg shadow-md border border-gray-100">
-        <Table
-          columns={columns}
-          dataSource={list}
-          rowKey="_id"
-          pagination={{ pageSize: 10, showSizeChanger: true }}
-        />
-      </div>
+      {/* Card chứa Thanh tìm kiếm, Bộ lọc và Bảng dữ liệu */}
+      <Card className="shadow-xs border border-gray-100 rounded-xl bg-white">
+        <div className="flex flex-col md:flex-row gap-4 mb-6">
+          <div className="flex-1">
+            <Input.Search
+              placeholder="Tìm kiếm theo điểm đi, điểm đến hoặc quãng đường..."
+              allowClear
+              size="large"
+              onChange={(e) => setSearchText(e.target.value)}
+              value={searchText}
+              className="w-full"
+            />
+          </div>
+          <div className="w-full md:w-64">
+            <Select
+              placeholder="Lọc theo trạng thái"
+              size="large"
+              className="w-full"
+              defaultValue="All"
+              onChange={(value) => setSelectedTrangThai(value)}
+              options={[
+                { value: "All", label: "Tất cả trạng thái" },
+                { value: "active", label: "Hoạt động" },
+                { value: "inactive", label: "Dừng hoạt động" },
+              ]}
+            />
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <Table
+            columns={columns}
+            dataSource={filteredList}
+            rowKey="_id"
+            loading={isLoading}
+            pagination={{ 
+              pageSize: 10, 
+              showSizeChanger: true,
+              showTotal: (total) => `Tổng số ${total} tuyến đường`,
+            }}
+          />
+        </div>
+      </Card>
 
       {/* Modal chi tiết */}
       <Modal
