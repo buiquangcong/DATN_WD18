@@ -154,3 +154,32 @@ export const resetPassword = asyncHandler(async (req, res) => {
         });
     }
 });
+
+export const changePassword = asyncHandler(async (req, res) => {
+    const { userId, currentPassword, newPassword } = req.body;
+
+    if (!userId || !currentPassword || !newPassword) {
+        return res.status(400).json({ message: "Thiếu thông tin đổi mật khẩu!" });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+        return res.status(404).json({ message: "Tài khoản không tồn tại trên hệ thống!" });
+    }
+
+    const matchPassword = await bscrypt.compare(currentPassword, user.password);
+
+    // Support both bcrypt hashed password and plain-text passwords stored directly
+    if (!matchPassword && currentPassword !== user.password) {
+        return res.status(400).json({ message: "Mật khẩu hiện tại không chính xác!" });
+    }
+
+    const hashedPassword = await bscrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    await user.save();
+
+    return res.status(200).json({
+        success: true,
+        message: "Đổi mật khẩu thành công!"
+    });
+});
