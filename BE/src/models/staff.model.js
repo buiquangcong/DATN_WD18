@@ -50,6 +50,14 @@ const staffSchema = new mongoose.Schema(
             enum: ['Admin', 'Driver', 'Staff'],
             default: 'Staff'
         },
+        bangLai: {
+            type: String,
+            default: "",
+        },
+        anhBangLai: {
+            type: String,
+            default: "",
+        },
     },
     {
         timestamps: true,
