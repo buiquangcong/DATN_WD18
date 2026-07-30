@@ -1,31 +1,49 @@
 import React, { useState, useEffect } from "react";
 import { Table, Button, Space, Tag, Modal, Popconfirm, Input, Select, Card } from "antd";
 import { useCRUD, useDetail } from "../../../hooks/useCRUD";
+import { Table, Button, Space, Tag, Modal, Popconfirm } from "antd";
 import { useNavigate } from "react-router-dom";
 import type { ColumnsType } from "antd/es/table";
+
+interface TripType {
+  _id: string;
+
+  journey?: {
+    diemDi: string;
+    diemDen: string;
+  };
+
+  bus?: {
+    name: string;
+    licensePlates: string;
+    capacity: number;
+  };
+
+  staff?: {
+    ten: string;
+  };
+
+  departureTime: string;
+  arrivalTime: string;
+  ticketPrice: number;
+
+  status: "sắp chạy" | "đang chạy" | "hoàn thành" | "huỷ";
+}
 
 interface BookingType {
   _id: string;
 
-  user: {
+  user?: {
     _id: string;
     username: string;
     email: string;
   };
 
-  trip: {
+  trip?: {
     _id: string;
-    departureTime: string;
-
-    journey: {
-      diemDi: string;
-      diemDen: string;
-      price: number;
-    };
   };
 
   seats: string[];
-
   totalPrice: number;
 
   status:
@@ -36,6 +54,20 @@ interface BookingType {
 
   createdAt: string;
 }
+
+const bookingStatusColorMap: Record<string, string> = {
+  "Đã xác nhận": "green",
+  "Đã huỷ": "red",
+  "Hoàn thành": "blue",
+  "Chờ xác nhận": "orange",
+};
+
+const tripStatusColorMap: Record<string, string> = {
+  "sắp chạy": "blue",
+  "đang chạy": "green",
+  "hoàn thành": "gray",
+  "huỷ": "red",
+};
 
 function BookingListPage() {
   const navigate = useNavigate();
@@ -51,11 +83,8 @@ function BookingListPage() {
 
   const { data: booking } = useDetail("booking", selectedId);
 
-  useEffect(() => {
-    if (booking) {
-      setOpen(true);
-    }
-  }, [booking]);
+  const getBookingCount = (tripId: string) =>
+    (bookings || []).filter((b: BookingType) => b.trip?._id === tripId).length;
 
   // Logic lọc danh sách đặt vé
   const filteredList = list?.filter((item: BookingType) => {
@@ -77,15 +106,54 @@ function BookingListPage() {
 
   const columns: ColumnsType<BookingType> = [
     {
-      title: "STT",
-      render: (_, __, index) => index + 1,
+      title: "Thời gian khởi hành",
+      dataIndex: "departureTime",
+      render: (time: string) => (
+        <span>{new Date(time).toLocaleString("vi-VN")}</span>
+      ),
     },
+    {
+      title: "Giá vé",
+      render: (_, record) => (
+        <span className="text-green-600 font-medium">
+          {record.ticketPrice?.toLocaleString("vi-VN")} đ
+        </span>
+      ),
+    },
+    {
+      title: "Nhân viên",
+      render: (_, record) => (
+        <span>{record.staff?.ten || "Chưa phân công"}</span>
+      ),
+    },
+    {
+      title: "Số đơn đặt vé",
+      render: (_, record) => (
+        <Tag color="blue">{getBookingCount(record._id)} đơn</Tag>
+      ),
+    },
+    {
+      title: "Trạng thái",
+      dataIndex: "status",
+      render: (status: string) => (
+        <Tag color={tripStatusColorMap[status] || "default"}>{status}</Tag>
+      ),
+    },
+    {
+      title: "Hành động",
+      render: (_, record) => (
+        <Button onClick={() => handleViewDetail(record._id)}>
+          Xem chi tiết
+        </Button>
+      ),
+    },
+  ];
 
+  const bookingColumns: ColumnsType<BookingType> = [
     {
       title: "Khách hàng",
       render: (_, record) => record.user?.username || "Hành khách NETBUS",
     },
-
     {
       title: "Tuyến đường",
       render: (_, record) => {
@@ -100,14 +168,12 @@ function BookingListPage() {
         );
       },
     },
-
     {
-      title: "Số vé",
+      title: "Ghế",
       render: (_, record) => (
         <Tag color="blue">{record.seats?.length || 0} vé</Tag>
       ),
     },
-
     {
       title: "Tổng tiền",
       render: (_, record) => (
@@ -116,26 +182,14 @@ function BookingListPage() {
         </span>
       ),
     },
-
     {
       title: "Trạng thái",
       render: (_, record) => (
-        <Tag
-          color={
-            record.status === "Đã xác nhận"
-              ? "green"
-              : record.status === "Đã huỷ"
-              ? "red"
-              : record.status === "Hoàn thành"
-              ? "blue"
-              : "orange"
-          }
-        >
+        <Tag color={bookingStatusColorMap[record.status] || "orange"}>
           {record.status || "Chờ xác nhận"}
         </Tag>
       ),
     },
-
     {
       title: "Ngày đặt",
       render: (_, record) =>
@@ -143,7 +197,6 @@ function BookingListPage() {
           ? new Date(record.createdAt).toLocaleString("vi-VN")
           : "Đang cập nhật...",
     },
-
     {
       title: "Hành động",
       render: (_, record) => (
@@ -151,7 +204,7 @@ function BookingListPage() {
           <Button onClick={() => setSelectedId(record._id)}>Chi tiết</Button>
 
           <Button
-            type="primary"
+            size="small"
             onClick={() => navigate(`/admin/booking/edit/${record._id}`)}
           >
             Sửa
@@ -163,7 +216,9 @@ function BookingListPage() {
             cancelText="Không"
             onConfirm={() => Delete(record._id)}
           >
-            <Button danger>Xóa</Button>
+            <Button size="small" danger>
+              Xóa
+            </Button>
           </Popconfirm>
         </Space>
       ),
@@ -239,82 +294,42 @@ function BookingListPage() {
       {/* Modal Chi Tiết */}
       <Modal
         open={open}
-        footer={null}
-        width={700}
-        title="Chi tiết đặt vé"
+        footer={
+          <Button
+            onClick={() => {
+              setOpen(false);
+              setSelectedTripId(undefined);
+            }}
+          >
+            Đóng
+          </Button>
+        }
+        width={900}
+        title={
+          selectedTrip
+            ? `Danh sách khách đặt vé: ${selectedTrip.journey?.diemDi} → ${selectedTrip.journey?.diemDen}`
+            : "Danh sách khách đặt vé"
+        }
         onCancel={() => {
           setOpen(false);
-          setSelectedId(undefined);
+          setSelectedTripId(undefined);
         }}
       >
-        {booking && (
-          <div className="space-y-4">
-            <div>
-              <b>Khách hàng:</b> {booking.user?.username || "Hành khách NETBUS"}
-            </div>
-
-            <div>
-              <b>Email:</b> {booking.user?.email || "Chưa cập nhật"}
-            </div>
-
-            <div>
-              <b>Tuyến đường:</b>{" "}
-              {booking.trip ? (
-                <>
-                  {booking.trip.journey?.diemDi || "Chưa rõ"}
-                  {" → "}
-                  {booking.trip.journey?.diemDen || "Chưa rõ"}
-                </>
-              ) : (
-                <span style={{ color: "#ff4d4f" }}>Chuyến xe không tồn tại</span>
-              )}
-            </div>
-
-            <div>
-              <b>Ngày khởi hành:</b>{" "}
-              {booking.trip?.departureTime
-                ? new Date(booking.trip.departureTime).toLocaleString("vi-VN")
-                : "Đang cập nhật..."}
-            </div>
-
-            <div>
-              <b>Ghế đã đặt:</b> {booking.seats?.join(", ") || "Chưa chọn"}
-            </div>
-
-            <div>
-              <b>Số lượng vé:</b> {booking.seats?.length || 0}
-            </div>
-
-            <div>
-              <b>Tổng tiền:</b> {(booking.totalPrice || 0).toLocaleString("vi-VN")} đ
-            </div>
-
-            <div>
-              <b>Trạng thái:</b>
-              <Tag
-                className="ml-2"
-                color={
-                  booking.status === "Đã xác nhận"
-                    ? "green"
-                    : booking.status === "Đã huỷ"
-                    ? "red"
-                    : booking.status === "Hoàn thành"
-                    ? "blue"
-                    : "orange"
-                }
-              >
-                {booking.status || "Chờ xác nhận"}
-              </Tag>
-            </div>
-
-            <div>
-              <b>Ngày đặt:</b>{" "}
-              {booking.createdAt
-                ? new Date(booking.createdAt).toLocaleString("vi-VN")
-                : "Đang cập nhật..."}
-            </div>
+        {selectedTrip && (
+          <div className="mb-4 text-sm text-gray-500">
+            Khởi hành:{" "}
+            {new Date(selectedTrip.departureTime).toLocaleString("vi-VN")} —
+            Xe: {selectedTrip.bus?.name} ({selectedTrip.bus?.licensePlates})
           </div>
         )}
+
+        <Table
+          rowKey="_id"
+          dataSource={tripBookings}
+          columns={bookingColumns}
+          pagination={{ pageSize: 5 }}
+          locale={{ emptyText: "Chưa có khách nào đặt vé chuyến này" }}
+        />
       </Modal>
     </div>
   );
