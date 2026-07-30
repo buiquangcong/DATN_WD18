@@ -46,6 +46,7 @@ import TaiXePage from "./pages/driver/dashboard";
 import Feedback from "./pages/driver/feedback";
 import ListTaixePage from "./pages/driver/list";
 import Login from "./pages/driver/login";
+import ProfileDriverPage from "./pages/driver/profile";
 import TinTucPage from "./pages/client/tintuc"
 import ChiTietTinTucPage from "./pages/client/chitiettintuc"
 
@@ -223,7 +224,9 @@ function App() {
               <Route index element={<TaiXePage />} />
               <Route path="feedback" element={<Feedback />} />
               <Route path="list" element={<ListTaixePage />} />
+              <Route path="profile" element={<ProfileDriverPage />} />
             </Route>
+            <Route path="/taixe/profile" element={<ProfileDriverPage />} />
             <Route path="/taixe/login" element={<Login />} />
 
             {/* Admin Routes with Dashboard Layout */}

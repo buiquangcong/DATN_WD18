@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ConfigProvider, theme } from "antd";
 import { PhoneOutlined } from "@ant-design/icons";
 import { Navbar } from "./navbar";
@@ -10,6 +10,11 @@ interface ClientLayoutProps {
 
 export function ClientLayout({ children }: ClientLayoutProps) {
   const [isDarkMode, setIsDarkMode] = useState(false);
+
+  // Ensure dark class is synced on mount
+  useEffect(() => {
+    document.documentElement.classList.remove("dark");
+  }, []);
 
   const toggleDarkMode = () => {
     setIsDarkMode(!isDarkMode);
