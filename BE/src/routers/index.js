@@ -14,6 +14,7 @@ import paymentRouter from "./payment.router.js";
 import statisticsRouter from "./statistics.router.js";
 import newsRouter from "./new.router.js";
 import holidayRouter from "./holiday.router.js";
+import refundRouter from "./refund.router.js";
 const router = Router();
 
 router.use("/bus", busRouter);
@@ -30,6 +31,7 @@ router.use("/mail", otpRouter);
 router.use("/holiday",holidayRouter);
 router.use("/payment", paymentRouter);
 router.use("/statistics", statisticsRouter);
-router.use("/news",newsRouter)
+router.use("/news",newsRouter);
+router.use("/refund", refundRouter);
 
 export default router;

@@ -52,6 +52,7 @@ import ChiTietTinTucPage from "./pages/client/chitiettintuc"
 import BookingListPage from "./pages/admin/booking/ListPage";
 import BookingEditPage from "./pages/admin/booking/EditPage";
 import BookingAddPage from "./pages/admin/booking/AddPage";
+import RefundListPage from "./pages/admin/refund/ListPage";
 
 
 import DashboardPage from "./pages/admin/dashboard";
@@ -269,6 +270,7 @@ function App() {
               <Route path="booking/list" element={<BookingListPage />} />
               <Route path="booking/add" element={<BookingAddPage />} />
               <Route path="booking/edit/:id" element={<BookingEditPage />} />
+              <Route path="refund/list" element={<RefundListPage />} />
                {/* tintuc*/}
                <Route path="news/list" element={<NewsListPage/>}></Route>
                <Route path="news/add" element={<NewsAddPage/>}></Route>
