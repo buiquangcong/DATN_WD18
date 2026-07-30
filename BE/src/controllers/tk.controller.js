@@ -2,6 +2,7 @@ import asyncHandler from "../utils/asyncHandler.js";
 import User from "../models/user.model.js";
 import Staff from "../models/staff.model.js";
 import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
 
 export const getAll = asyncHandler(async (req, res) => {
     const users = await User.find().select("-password");
@@ -89,4 +90,59 @@ export const deleteOne = asyncHandler(async (req, res) => {
     return res.json({
         message: "Xóa tài khoản và hồ sơ nhân viên tương ứng thành công!"
     });
+});
+
+// Đổi mật khẩu tài khoản
+export const changePassword = asyncHandler(async (req, res) => {
+    const { currentPassword, newPassword, confirmPassword } = req.body;
+
+    // Kiểm tra đầy đủ các trường
+    if (!currentPassword || !newPassword || !confirmPassword) {
+        return res.status(400).json({
+            message: "Vui lòng nhập đầy đủ mật khẩu hiện tại, mật khẩu mới và xác nhận mật khẩu mới"
+        });
+    }
+
+    // Kiểm tra mật khẩu mới tối thiểu 6 ký tự
+    if (newPassword.length < 6) {
+        return res.status(400).json({
+            message: "Mật khẩu mới phải có tối thiểu 6 ký tự"
+        });
+    }
+
+    // Kiểm tra mật khẩu mới và xác nhận mật khẩu có trùng khớp không
+    if (newPassword !== confirmPassword) {
+        return res.status(400).json({
+            message: "Mật khẩu mới và xác nhận mật khẩu không trùng khớp"
+        });
+    }
+
+    // Tìm user kèm password
+    const user = await User.findById(req.params.id);
+    if (!user) {
+        return res.status(404).json({ message: "Không tìm thấy tài khoản" });
+    }
+
+    // Kiểm tra mật khẩu hiện tại có đúng không (hỗ trợ cả bcrypt hash và plain-text)
+    const matchPassword = await bcrypt.compare(currentPassword, user.password);
+    if (!matchPassword && currentPassword !== user.password) {
+        return res.status(401).json({
+            message: "Mật khẩu hiện tại không chính xác"
+        });
+    }
+
+    // Kiểm tra mật khẩu mới không trùng mật khẩu cũ
+    const sameAsOld = await bcrypt.compare(newPassword, user.password);
+    if (sameAsOld || newPassword === user.password) {
+        return res.status(400).json({
+            message: "Mật khẩu mới không được trùng với mật khẩu hiện tại"
+        });
+    }
+
+    // Hash mật khẩu mới và lưu
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    await user.save();
+
+    return res.json({ message: "Đổi mật khẩu thành công!" });
 });
