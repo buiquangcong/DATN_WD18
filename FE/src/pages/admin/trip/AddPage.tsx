@@ -64,6 +64,7 @@ const addMinutesToTime = (time: string, minutesToAdd: number) => {
 
 function TripAddPage() {
   const [form] = Form.useForm();
+  const selectedBus = Form.useWatch("bus", form);
   const navigate = useNavigate();
 
   const [journeys, setJourneys] = useState<Journey[]>([]);
