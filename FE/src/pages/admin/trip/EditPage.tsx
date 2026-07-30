@@ -1,4 +1,4 @@
-import {Button,Form,Select,DatePicker,message,Spin,Tag,Divider,} from "antd";
+import { Button, Form, Select, DatePicker, message, Spin, Tag, Divider, } from "antd";
 import { useEffect, useState } from "react";
 import { useCRUD, useDetail } from "../../../hooks/useCRUD";
 import axios from "axios";
@@ -258,7 +258,7 @@ function TripEditPage() {
         layout="vertical"
         onFinish={onFinish}
       >
-                {/* Tuyến đường */}
+        {/* Tuyến đường */}
         <Form.Item
           name="journey"
           label="Tuyến đường"
@@ -473,31 +473,43 @@ function TripEditPage() {
 
         {/* Trạng thái */}
         <Form.Item
-  label="Trạng thái"
-  name="status"
->
-  <Select
-    disabled={trip?.status === "hoàn thành"}
-    options={[
-      {
-        value: "sắp chạy",
-        label: "Sắp chạy",
-      },
-      {
-        value: "đang chạy",
-        label: "Đang chạy",
-      },
-      {
-        value: "hoàn thành",
-        label: "Hoàn thành",
-      },
-      {
-        value: "huỷ",
-        label: "Huỷ",
-      },
-    ]}
-  />
-</Form.Item>
+          label="Trạng thái"
+          name="status"
+        >
+          <Select
+            options={
+              trip?.status === "hoàn thành"
+                ? [
+                  {
+                    value: "hoàn thành",
+                    label: "Hoàn thành",
+                  },
+                  {
+                    value: "huỷ",
+                    label: "Huỷ",
+                  },
+                ]
+                : [
+                  {
+                    value: "sắp chạy",
+                    label: "Sắp chạy",
+                  },
+                  {
+                    value: "đang chạy",
+                    label: "Đang chạy",
+                  },
+                  {
+                    value: "hoàn thành",
+                    label: "Hoàn thành",
+                  },
+                  {
+                    value: "huỷ",
+                    label: "Huỷ",
+                  },
+                ]
+            }
+          />
+        </Form.Item>
 
         <Button
           type="primary"
