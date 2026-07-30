@@ -1,4 +1,5 @@
-import { Button, Form, Input, InputNumber, Select, Card } from "antd";
+import { Button, Form, Input, InputNumber, Select, Card, Upload, Radio } from "antd";
+import { PlusOutlined } from "@ant-design/icons";
 import { useCRUD } from "../../../hooks/useCRUD";
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect } from "react";
@@ -8,6 +9,25 @@ function EditPage() {
     const [form] = Form.useForm();
     const { id } = useParams();
     const navigate = useNavigate();
+
+    const getBase64 = (file: any): Promise<string> =>
+        new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = (error) => reject(error);
+        });
+
+    const getGoogleDriveDirectLink = (url: string): string => {
+        if (!url) return "";
+        const driveRegex = /(?:\/d\/|id=)([\w-]+)/;
+        const match = url.match(driveRegex);
+        if (match && match[1]) {
+            const fileId = match[1];
+            return `https://drive.google.com/uc?export=view&id=${fileId}`;
+        }
+        return url;
+    };
 
     useEffect(() => {
         const staff = list?.find((item: any) => item._id === id);
@@ -27,7 +47,13 @@ function EditPage() {
                 <Form
                     form={form}
                     layout="vertical"
-                    onFinish={(values) => Edit({ id, ...values })}
+                    onFinish={(values) => {
+                        const payload = { ...values };
+                        if (payload.anhBangLai) {
+                            payload.anhBangLai = getGoogleDriveDirectLink(payload.anhBangLai);
+                        }
+                        Edit({ id, ...payload });
+                    }}
                     className="space-y-4"
                 >
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2">
@@ -117,6 +143,56 @@ function EditPage() {
 
                         <Form.Item label="Đường dẫn ảnh đại diện (Image URL)" name="image">
                             <Input placeholder="https://example.com/avatar.jpg" size="large" />
+                        </Form.Item>
+
+                        <Form.Item
+                            noStyle
+                            shouldUpdate={(prevValues, currentValues) => prevValues.chucVu !== currentValues.chucVu}
+                        >
+                            {({ getFieldValue }) => {
+                                const chucVu = getFieldValue("chucVu");
+                                const isDriver = chucVu === "Driver";
+                                return (
+                                    <>
+                                        <Form.Item
+                                            label="Bằng lái xe"
+                                            name="bangLai"
+                                            rules={[
+                                                {
+                                                    required: isDriver,
+                                                    message: "Tài xế bắt buộc phải nhập hạng bằng lái xe",
+                                                },
+                                                {
+                                                    validator: (_, value) => {
+                                                        if (isDriver && value) {
+                                                            const allowed = ["D", "E", "F", "FB2", "FC", "FD", "FE"];
+                                                            if (!allowed.includes(value.trim().toUpperCase())) {
+                                                                return Promise.reject(new Error("Bằng lái xe của tài xế phải từ hạng D trở lên (D, E, F, FC, FD, FE)"));
+                                                            }
+                                                        }
+                                                        return Promise.resolve();
+                                                    }
+                                                }
+                                            ]}
+                                        >
+                                            <Input placeholder={isDriver ? "VD: B2, C, D..." : "Chỉ áp dụng cho Tài xế"} size="large" disabled={!isDriver} />
+                                        </Form.Item>
+
+                                        <Form.Item
+                                            label="Ảnh chụp minh chứng bằng lái (URL / Google Drive Link)"
+                                            name="anhBangLai"
+                                            rules={[
+                                                {
+                                                    required: isDriver,
+                                                    message: "Tài xế bắt buộc phải có ảnh chụp bằng lái xe",
+                                                },
+                                            ]}
+                                        >
+                                            <Input placeholder={isDriver ? "Nhập link ảnh hoặc link chia sẻ từ Google Drive..." : "Chỉ áp dụng cho Tài xế"} size="large" disabled={!isDriver} />
+                                        </Form.Item>
+                                    </>
+                                );
+                            }}
                         </Form.Item>
                     </div>
 
