@@ -14,6 +14,7 @@ type Journey = {
   _id: string;
   diemDi: string;
   diemDen: string;
+  thoiGianDiChuyen?: string;
   diemDon?: DiemType[];
   diemTra?: DiemType[];
 };
@@ -62,9 +63,36 @@ const addMinutesToTime = (time: string, minutesToAdd: number) => {
   return dayOffset !== 0 ? `${hh}:${mm} (${dayOffset > 0 ? "+1 ngày" : "-1 ngày"})` : `${hh}:${mm}`;
 };
 
+// Bản không kèm hậu tố "(+1 ngày)", dùng để điền thẳng vào ô input giờ (yêu cầu đúng định dạng HH:mm)
+const addMinutesPlain = (time: string, minutesToAdd: number) => {
+  const [h, m] = time.split(":").map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return "";
+
+  const total = h * 60 + m + minutesToAdd;
+  const normalized = ((total % 1440) + 1440) % 1440;
+
+  const hh = String(Math.floor(normalized / 60)).padStart(2, "0");
+  const mm = String(normalized % 60).padStart(2, "0");
+
+  return `${hh}:${mm}`;
+};
+
+// Đọc chuỗi "Thời gian di chuyển" (VD: "2 giờ 40 phút", "2h20p", "2h20", "1 giờ 30 phút")
+// và trả về tổng số phút. Trả về 0 nếu không đọc được.
+const parseDurationToMinutes = (text?: string): number => {
+  if (!text) return 0;
+
+  const hourMatch = text.match(/(\d+)\s*(?:giờ|gio|h)/i);
+  const minuteMatch = text.match(/(\d+)\s*(?:phút|phut|p)/i);
+
+  const hours = hourMatch ? parseInt(hourMatch[1], 10) : 0;
+  const minutes = minuteMatch ? parseInt(minuteMatch[1], 10) : 0;
+
+  return hours * 60 + minutes;
+};
+
 function TripAddPage() {
   const [form] = Form.useForm();
-  const selectedBus = Form.useWatch("bus", form);
   const navigate = useNavigate();
 
   const [journeys, setJourneys] = useState<Journey[]>([]);
@@ -103,6 +131,27 @@ function TripAddPage() {
 
     fetchData();
   }, []);
+
+  // Tự động tính "Giờ đến" = "Giờ khởi hành" + "Thời gian di chuyển" của tuyến đường đã chọn.
+  // Vẫn cho phép người dùng tự sửa lại tay sau đó nếu muốn - chỉ tự điền lại khi
+  // đổi Tuyến đường hoặc Giờ khởi hành.
+  useEffect(() => {
+    if (!selectedJourney?.thoiGianDiChuyen) return;
+    if (!/^([01]\d|2[0-3]):([0-5]\d)$/.test(departureHour)) return;
+
+    const durationMinutes = parseDurationToMinutes(
+      selectedJourney.thoiGianDiChuyen
+    );
+
+    if (durationMinutes <= 0) return;
+
+    const computedArrival = addMinutesPlain(departureHour, durationMinutes);
+
+    if (!computedArrival) return;
+
+    form.setFieldValue("arrivalHour", computedArrival);
+    setArrivalHour(computedArrival);
+  }, [selectedJourney, departureHour]);
 
   // Điều kiện chung: đã chọn đủ tuyến đường, ngày chạy, khoảng ngày, giờ khởi hành/đến
   const readyToCheckSchedule =

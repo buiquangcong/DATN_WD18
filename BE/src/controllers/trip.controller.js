@@ -79,15 +79,7 @@ export const getDrivers = asyncHandler(async (req, res) => {
 });
 
 export const getAvailableDrivers = asyncHandler(async (req, res) => {
-  const {
-    weekdays,
-    startDate,
-    endDate,
-    departureHour,
-    arrivalHour,
-    journey, // id của Journey đang chọn, dùng để check khớp vị trí bến
-    excludeTripId,
-  } = req.query;
+  const {weekdays,startDate,endDate,departureHour,arrivalHour,journey, excludeTripId,} = req.query;
 
   if (
     !weekdays ||
@@ -368,14 +360,7 @@ export const getAvailableBuses = asyncHandler(async (req, res) => {
 });
 
 export const createOne = asyncHandler(async (req, res) => {
-  const {
-    journey,
-    bus,
-    staff,
-    departureTime,
-    arrivalTime,
-    fareRule,
-  } = req.body;
+  const {journey,bus,staff,departureTime,arrivalTime,fareRule,} = req.body;
 
   const busInfo = await Bus.findById(bus);
 
@@ -387,10 +372,7 @@ export const createOne = asyncHandler(async (req, res) => {
     });
   }
 
-  const autoSeats = generateSeats(
-    busInfo.capacity,
-    busInfo.type
-  );
+  const autoSeats = generateSeats(busInfo.capacity,busInfo.type);
 
   if (!autoSeats.length) {
     return res.status(400).json({
@@ -421,13 +403,7 @@ export const createOne = asyncHandler(async (req, res) => {
   // Kiểm tra xe (thời gian + vị trí bến)
   // ===========================
 
-  const busError = await checkBusAvailability(
-    bus,
-    journeyInfo,
-    newDeparture,
-    newArrival,
-    null
-  );
+  const busError = await checkBusAvailability(bus,journeyInfo,newDeparture,newArrival,null);
 
   if (busError) {
     return res.status(400).json({
@@ -440,13 +416,7 @@ export const createOne = asyncHandler(async (req, res) => {
   // ===========================
 
   if (staff) {
-    const staffError = await checkStaffAvailability(
-      staff,
-      journeyInfo,
-      newDeparture,
-      newArrival,
-      null
-    );
+    const staffError = await checkStaffAvailability(staff,journeyInfo,newDeparture,newArrival,null);
 
     if (staffError) {
       return res.status(400).json({
@@ -473,16 +443,7 @@ export const createOne = asyncHandler(async (req, res) => {
 
   const ticketPrice = await calculateTicketPrice(fare, newDeparture);
 
-  const trip = await Trip.create({
-    journey,
-    bus,
-    staff,
-    fareRule,
-    ticketPrice,
-    departureTime,
-    arrivalTime,
-    seats: autoSeats,
-  });
+  const trip = await Trip.create({journey,bus,staff,fareRule,ticketPrice,departureTime,arrivalTime,seats: autoSeats,});
 
   return res.status(201).json({
     message:
@@ -712,13 +673,7 @@ export const createSchedule = asyncHandler(async (req, res) => {
       const [depHour, depMinute] =
         departureHour.split(":");
 
-      departureTime.setHours(
-        Number(depHour),
-        Number(depMinute),
-        0,
-        0
-      );
-
+      departureTime.setHours(Number(depHour),Number(depMinute),0,0);
       const arrivalTime = new Date(current);
 
       const [arrHour, arrMinute] =
@@ -741,7 +696,7 @@ export const createSchedule = asyncHandler(async (req, res) => {
         ...trips.map((t) => ({
           departureTime: t.departureTime,
           arrivalTime: t.arrivalTime,
-          journey: journeyInfo, // các chuyến trong lịch này đều dùng chung 1 journey
+          journey: journeyInfo, 
         })),
       ];
 
@@ -908,25 +863,8 @@ export const createSchedule = asyncHandler(async (req, res) => {
         }
       }
 
-      // ==========================
-      // Tính giá theo ngày chạy
-      // ==========================
-
       const ticketPrice = await calculateTicketPrice(fare, departureTime);
-
-      // ==========================
-      // Thêm chuyến
-      // ==========================
-
-      trips.push({
-        journey,
-        bus,
-        staff,
-        fareRule,
-        ticketPrice,
-        departureTime,
-        arrivalTime,
-        status: status || "sắp chạy",
+      trips.push({journey,bus,staff,fareRule,ticketPrice,departureTime,arrivalTime,status: status || "sắp chạy",
         seats: JSON.parse(
           JSON.stringify(autoSeats)
         ),
