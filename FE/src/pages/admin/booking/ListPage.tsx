@@ -155,25 +155,34 @@ function BookingListPage() {
     },
     {
       title: "Hành động",
+      key: "action",
       render: (_, record) => (
         <Space>
-          <Button onClick={() => setSelectedId(record._id)}>Chi tiết</Button>
+          <Button
+            className="rounded-lg shadow-xs"
+            onClick={() => setSelectedId(record._id)}
+          >
+            Xem
+          </Button>
 
           <Button
-            size="small"
+            type="primary"
+            className="bg-emerald-600 hover:bg-emerald-700 border-none rounded-lg font-medium shadow-xs"
             onClick={() => navigate(`/admin/booking/edit/${record._id}`)}
           >
             Sửa
           </Button>
 
           <Popconfirm
-            title="Xóa đơn đặt vé?"
+            title="Xóa bản ghi này?"
+            description="Bạn có chắc chắn muốn xóa không?"
             okText="Có"
             cancelText="Không"
             onConfirm={() => Delete(record._id)}
+            okButtonProps={{ danger: true }}
           >
-            <Button size="small" danger>
-              Xóa
+            <Button danger className="rounded-lg shadow-xs">
+              Xoá
             </Button>
           </Popconfirm>
         </Space>
