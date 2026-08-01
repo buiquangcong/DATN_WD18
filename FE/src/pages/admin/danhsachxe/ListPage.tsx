@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Popconfirm, Space, Table, Button, Tag, Input, Card } from "antd";
+import { Popconfirm, Space, Table, Button, Tag, Input, Card, Select } from "antd";
 import { useCRUD } from "../../../hooks/useCRUD";
 import { useNavigate } from "react-router-dom";
 import type { ColumnsType } from "antd/es/table";
@@ -13,22 +13,57 @@ interface BusType {
   status: string;
 }
 
+// Cấu hình số chỗ ngồi tương ứng với từng loại xe
+const CAPACITY_OPTIONS_MAP: Record<string, number[]> = {
+  Sleeper: [34],
+  Seater: [16, 29, 45],
+};
+
 function ListPage() {
   const navigate = useNavigate();
   const { list, Delete, isLoading } = useCRUD("bus");
 
-  // State quản lý từ khóa tìm kiếm
+  // State quản lý bộ lọc
   const [searchText, setSearchText] = useState<string>("");
+  const [selectedType, setSelectedType] = useState<string | undefined>(undefined);
+  const [selectedCapacity, setSelectedCapacity] = useState<number | undefined>(undefined);
 
-  // Lọc dữ liệu dựa trên từ khóa (Tên xe hoặc Biển số)
+  // Xử lý khi thay đổi Loại xe
+  const handleTypeChange = (type?: string) => {
+    setSelectedType(type);
+    setSelectedCapacity(undefined); // Reset lại sức chứa khi đổi loại xe
+  };
+
+  // Lấy danh sách số chỗ dựa theo loại xe đã chọn
+  const getCapacityOptions = () => {
+    if (selectedType && CAPACITY_OPTIONS_MAP[selectedType]) {
+      return CAPACITY_OPTIONS_MAP[selectedType];
+    }
+    // Nếu chưa chọn loại xe, hiển thị tất cả các số chỗ
+    return [16, 29, 34, 45];
+  };
+
+  // Lọc dữ liệu tổng hợp
   const filteredList = list?.filter((item: BusType) => {
-    if (!searchText.trim()) return true;
-    const searchLower = searchText.toLowerCase().trim();
+    // 1. Lọc theo từ khóa (Tên hoặc Biển số)
+    if (searchText.trim()) {
+      const searchLower = searchText.toLowerCase().trim();
+      const matchName = item.name?.toLowerCase().includes(searchLower);
+      const matchPlate = item.licensePlates?.toLowerCase().includes(searchLower);
+      if (!matchName && !matchPlate) return false;
+    }
 
-    return (
-      item.name?.toLowerCase().includes(searchLower) ||
-      item.licensePlates?.toLowerCase().includes(searchLower)
-    );
+    // 2. Lọc theo Loại xe
+    // if (selectedType && item.type !== selectedType) {
+    //   return false;
+    // }
+
+    // 3. Lọc theo Sức chứa
+    if (selectedCapacity && item.capacity !== selectedCapacity) {
+      return false;
+    }
+
+    return true;
   });
 
   const columns: ColumnsType<BusType> = [
@@ -53,7 +88,9 @@ function ListPage() {
       dataIndex: "type",
       key: "type",
       render: (type: string) => {
-        return type === "Sleeper" ? "Xe giường nằm" : type;
+        if (type === "Sleeper") return "Xe giường nằm";
+        if (type === "Seater") return "Xe ghế ngồi";
+        return type;
       },
     },
     {
@@ -126,9 +163,9 @@ function ListPage() {
         </Button>
       </div>
 
-      {/* Thẻ Card bao bọc Thanh tìm kiếm và Bảng dữ liệu */}
+      {/* Thẻ Card bao bọc Thanh tìm kiếm, Bộ lọc và Bảng dữ liệu */}
       <Card className="shadow-xs border border-gray-100 rounded-xl bg-white">
-        {/* Ô tìm kiếm kéo dài giống hệt trang Nhân Viên */}
+        {/* Thanh tìm kiếm + Bộ lọc Loại xe & Sức chứa */}
         <div className="flex flex-col md:flex-row gap-4 mb-6">
           <div className="flex-1">
             <Input.Search
@@ -140,6 +177,34 @@ function ListPage() {
               className="w-full"
             />
           </div>
+
+          {/* Filter Chọn Loại Xe */}
+          {/* <Select
+            placeholder="Loại xe"
+            size="large"
+            allowClear
+            className="w-full md:w-48"
+            onChange={handleTypeChange}
+            value={selectedType}
+            options={[
+              { label: "Xe giường nằm (Sleeper)", value: "Sleeper" },
+              { label: "Xe ghế ngồi (Seater)", value: "Seater" },
+            ]}
+          /> */}
+
+          {/* Filter Chọn Sức Chứa (Tự động cập nhật theo Loại Xe) */}
+          <Select
+            placeholder="Sức chứa"
+            size="large"
+            allowClear
+            className="w-full md:w-40"
+            onChange={(val) => setSelectedCapacity(val)}
+            value={selectedCapacity}
+            options={getCapacityOptions().map((cap) => ({
+              label: `${cap} chỗ`,
+              value: cap,
+            }))}
+          />
         </div>
 
         {/* Bảng danh sách */}
