@@ -99,7 +99,7 @@ export default function Contact() {
                 </Space>
 
                 <Button type="primary" block href={office.map} target="_blank">
-                  View on Map
+                  Xem trên bản đồ
                 </Button>
               </Space>
             </Card>
@@ -140,34 +140,34 @@ export default function Contact() {
               <Form layout="vertical">
                 <Row gutter={16}>
                   <Col span={12}>
-                    <Form.Item label="Full Name">
-                      <Input placeholder="John Doe" />
+                      <Form.Item label="Họ và tên">
+                      <Input placeholder="Nhập họ và tên" />
                     </Form.Item>
                   </Col>
                   <Col span={12}>
-                    <Form.Item label="Phone Number">
-                      <Input placeholder="+84 ..." />
+                    <Form.Item label="Số điện thoại">
+                      <Input placeholder="Nhập số điện thoại" />
                     </Form.Item>
                   </Col>
                 </Row>
 
-                <Form.Item label="Subject">
+                <Form.Item label="Chủ đề">
                   <Select
                     options={[
-                      { value: "route", label: "Route Inquiry" },
-                      { value: "ticket", label: "Ticket Support" },
-                      { value: "partner", label: "Corporate Partnership" },
-                      { value: "feedback", label: "Feedback & Suggestions" },
+                      { value: "route", label: "Tra cứu tuyến đường" },
+                      { value: "ticket", label: "Hỗ trợ vé" },
+                      { value: "partner", label: "Đối tác kinh doanh" },
+                      { value: "feedback", label: "Phản hồi & Đề xuất" },
                     ]}
                   />
                 </Form.Item>
 
-                <Form.Item label="Message">
-                  <TextArea rows={4} placeholder="How can we help you today?" />
+                <Form.Item label="Nội dung tin nhắn">
+                  <TextArea rows={4} placeholder="Nhập nội dung tin nhắn..." />
                 </Form.Item>
 
                 <Button type="primary" size="large" block>
-                  Send Message
+                  Gửi tin nhắn
                 </Button>
               </Form>
             </Card>
