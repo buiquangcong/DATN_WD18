@@ -114,10 +114,33 @@ Khởi hành: ${finalData.departureTime}`;
           background: #ffffff;
           border-right: 2px dashed #16a34a;
           display: flex;
+          flex-direction: column;
           align-items: center;
           justify-content: center;
           padding: 20px;
           position: relative;
+        }
+        .qr-code-wrapper {
+          padding: 6px;
+          border: 1px solid #16a34a;
+          border-radius: 14px;
+          background: #ffffff;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 104px;
+          height: 104px;
+          overflow: hidden;
+          box-shadow: 0 4px 10px rgba(0, 0, 0, 0.03);
+        }
+        .qr-code-wrapper canvas, .qr-code-wrapper svg {
+          display: block !important;
+          margin: 0 auto !important;
+          padding: 0 !important;
+          max-width: none !important;
+          max-height: none !important;
+          width: 90px !important;
+          height: 90px !important;
         }
         .ticket-main {
           flex: 2.8;
@@ -242,12 +265,12 @@ Khởi hành: ${finalData.departureTime}`;
               <div className="ticket-qr-notch-top"></div>
               <div className="ticket-qr-notch-bottom"></div>
 
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10 }}>
-                <QRCode value={qrValue} size={110} bordered={false} style={{ display: "block" }} />
-                <span style={{ fontSize: 9, color: "#16a34a", fontWeight: "bold", letterSpacing: "1.5px", textTransform: "uppercase" }}>
-                  Quét check-in
-                </span>
+              <div className="qr-code-wrapper">
+                <QRCode value={finalData.id || finalData.ticketCode} size={90} bordered={false} />
               </div>
+              <span style={{ fontSize: 9, color: "#16a34a", fontWeight: "bold", letterSpacing: "1.5px", textTransform: "uppercase", marginTop: "10px" }}>
+                Quét check-in
+              </span>
             </div>
 
             {/* MAIN TICKET */}
