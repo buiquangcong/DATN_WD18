@@ -130,7 +130,7 @@ export function Navbar({ isDarkMode, toggleDarkMode }: NavbarProps) {
             className="font-bold"
             onClick={handleBookNowClick}
           >
-            Book Now
+            Đặt vé ngay
           </Button>
         </div>
       </div>
