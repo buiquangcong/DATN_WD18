@@ -1,64 +1,86 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Popconfirm, Space, Table, Button, Tag, Input, Card, Select } from "antd";
 import { useCRUD } from "../../../hooks/useCRUD";
 import { useNavigate } from "react-router-dom";
 import type { ColumnsType } from "antd/es/table";
+
+interface DriverType {
+  _id: string;
+  name: string;
+  phone?: string;
+}
 
 interface BusType {
   _id: string;
   name: string;
   licensePlates: string;
   capacity: number;
-  type: string;
-  status: string;
+  type: "Sleeper" | "Seater" | "Limousine";
+  hangxe?: string; // Hãng xe (ví dụ: Hyundai, Thaco, Samco, ...)
+  driver?: DriverType | string;
+  status: "hoạt động" | "bảo trì" | "ngừng hoạt động";
 }
 
-// Cấu hình số chỗ ngồi tương ứng với từng loại xe
 const CAPACITY_OPTIONS_MAP: Record<string, number[]> = {
-  Sleeper: [34],
+  Sleeper: [34, 40],
   Seater: [16, 29, 45],
+  Limousine: [9, 11, 19],
 };
 
 function ListPage() {
   const navigate = useNavigate();
   const { list, Delete, isLoading } = useCRUD("bus");
 
-  // State quản lý bộ lọc
   const [searchText, setSearchText] = useState<string>("");
   const [selectedType, setSelectedType] = useState<string | undefined>(undefined);
   const [selectedCapacity, setSelectedCapacity] = useState<number | undefined>(undefined);
+  const [selectedHangXe, setSelectedHangXe] = useState<string | undefined>(undefined);
 
-  // Xử lý khi thay đổi Loại xe
+  // Tự động gom danh sách Hãng xe duy nhất từ dữ liệu trả về để làm bộ lọc
+  const hangXeOptions = useMemo(() => {
+    if (!list) return [];
+    const hangXes = list
+      .map((item: BusType) => item.hangxe)
+      .filter((hang): hang is string => Boolean(hang));
+    return Array.from(new Set(hangXes)).map((hang) => ({
+      label: hang,
+      value: hang,
+    }));
+  }, [list]);
+
   const handleTypeChange = (type?: string) => {
     setSelectedType(type);
-    setSelectedCapacity(undefined); // Reset lại sức chứa khi đổi loại xe
+    setSelectedCapacity(undefined);
   };
 
-  // Lấy danh sách số chỗ dựa theo loại xe đã chọn
   const getCapacityOptions = () => {
     if (selectedType && CAPACITY_OPTIONS_MAP[selectedType]) {
       return CAPACITY_OPTIONS_MAP[selectedType];
     }
-    // Nếu chưa chọn loại xe, hiển thị tất cả các số chỗ
-    return [16, 29, 34, 45];
+    return [16,29, 34, 45];
   };
 
-  // Lọc dữ liệu tổng hợp
   const filteredList = list?.filter((item: BusType) => {
-    // 1. Lọc theo từ khóa (Tên hoặc Biển số)
+    // 1. Tìm theo Tên xe, Biển số hoặc Hãng xe
     if (searchText.trim()) {
       const searchLower = searchText.toLowerCase().trim();
       const matchName = item.name?.toLowerCase().includes(searchLower);
       const matchPlate = item.licensePlates?.toLowerCase().includes(searchLower);
-      if (!matchName && !matchPlate) return false;
+      const matchHangXe = item.hangxe?.toLowerCase().includes(searchLower);
+      if (!matchName && !matchPlate && !matchHangXe) return false;
     }
 
-    // 2. Lọc theo Loại xe
-    // if (selectedType && item.type !== selectedType) {
-    //   return false;
-    // }
+    // 2. Lọc theo Hãng xe
+    if (selectedHangXe && item.hangxe !== selectedHangXe) {
+      return false;
+    }
 
-    // 3. Lọc theo Sức chứa
+    // 3. Lọc theo Loại xe
+    if (selectedType && item.type !== selectedType) {
+      return false;
+    }
+
+    // 4. Lọc theo Sức chứa
     if (selectedCapacity && item.capacity !== selectedCapacity) {
       return false;
     }
@@ -72,6 +94,12 @@ function ListPage() {
       dataIndex: "name",
       key: "name",
       render: (text: string) => <strong className="text-gray-800">{text}</strong>,
+    },
+    {
+      title: "Hãng Xe", // Cột Hãng xe đã được tách riêng
+      dataIndex: "hangxe",
+      key: "hangxe",
+      render: (hangxe?: string) => hangxe || <span className="text-gray-400">Chưa cập nhật</span>,
     },
     {
       title: "Biển Số Xe",
@@ -104,12 +132,24 @@ function ListPage() {
       dataIndex: "status",
       key: "status",
       render: (status: string) => {
-        const isActive = status?.toLowerCase() === "active";
-        return (
-          <Tag color={isActive ? "green" : "red"}>
-            {isActive ? "Hoạt động" : "Bảo trì / Dừng"}
-          </Tag>
-        );
+        // Chuyển về chữ thường để so sánh chính xác
+        const s = status?.toLowerCase();
+
+        let color = "default";
+        let label = status; // Giá trị fallback nếu không khớp
+
+        if (s === "hoạt động" || s === "active") {
+          color = "green";
+          label = "Hoạt động";
+        } else if (s === "bảo trì" || s === "maintenance") {
+          color = "orange";
+          label = "Bảo trì";
+        } else if (s === "ngừng hoạt động" || s === "inactive") {
+          color = "red";
+          label = "Ngừng hoạt động";
+        }
+
+        return <Tag color={color}>{label}</Tag>;
       },
     },
     {
@@ -143,14 +183,13 @@ function ListPage() {
 
   return (
     <div className="p-6 w-full space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">
             Quản Lý Danh Sách Xe Bus / Khách
           </h1>
           <p className="text-sm text-gray-500">
-            Quản lý thông tin phương tiện, sức chứa và trạng thái hoạt động.
+            Quản lý thông tin phương tiện, hãng xe, sức chứa và trạng thái hoạt động.
           </p>
         </div>
         <Button
@@ -163,13 +202,11 @@ function ListPage() {
         </Button>
       </div>
 
-      {/* Thẻ Card bao bọc Thanh tìm kiếm, Bộ lọc và Bảng dữ liệu */}
       <Card className="shadow-xs border border-gray-100 rounded-xl bg-white">
-        {/* Thanh tìm kiếm + Bộ lọc Loại xe & Sức chứa */}
         <div className="flex flex-col md:flex-row gap-4 mb-6">
           <div className="flex-1">
             <Input.Search
-              placeholder="Tìm kiếm theo tên xe hoặc biển số xe..."
+              placeholder="Tìm kiếm theo tên, biển số, hoặc hãng xe..."
               allowClear
               size="large"
               onChange={(e) => setSearchText(e.target.value)}
@@ -177,6 +214,17 @@ function ListPage() {
               className="w-full"
             />
           </div>
+
+          {/* Filter Chọn Hãng Xe */}
+          {/* <Select
+            placeholder="Hãng xe"
+            size="large"
+            allowClear
+            className="w-full md:w-40"
+            onChange={(val) => setSelectedHangXe(val)}
+            value={selectedHangXe}
+            options={hangXeOptions}
+          /> */}
 
           {/* Filter Chọn Loại Xe */}
           {/* <Select
@@ -189,10 +237,11 @@ function ListPage() {
             options={[
               { label: "Xe giường nằm (Sleeper)", value: "Sleeper" },
               { label: "Xe ghế ngồi (Seater)", value: "Seater" },
+              { label: "Xe Limousine", value: "Limousine" },
             ]}
           /> */}
 
-          {/* Filter Chọn Sức Chứa (Tự động cập nhật theo Loại Xe) */}
+          {/* Filter Chọn Sức Chứa */}
           <Select
             placeholder="Sức chứa"
             size="large"
@@ -207,7 +256,6 @@ function ListPage() {
           />
         </div>
 
-        {/* Bảng danh sách */}
         <div className="overflow-x-auto">
           <Table
             columns={columns}
