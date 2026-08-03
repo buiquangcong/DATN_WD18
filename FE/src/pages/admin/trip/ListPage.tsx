@@ -166,9 +166,10 @@ function TripListPage() {
       }
     }
 
-    let bookingId = decodedText.trim();
+    // Trích xuất mã vé ID từ nội dung QR nếu có định dạng text
+    let bookingId = decodedText;
     if (decodedText.includes("Mã vé:")) {
-      const match = decodedText.match(/Mã vé:\s*([^\s\r\n]+)/);
+      const match = decodedText.match(/Mã vé:\s*([^\n\r]+)/);
       if (match && match[1]) {
         bookingId = match[1].trim();
       }
@@ -245,12 +246,13 @@ function TripListPage() {
       console.error("Lỗi khi quét hoặc check-in vé:", err);
       
       // Fallback: Tìm theo orderCode nếu là số
-      if (/^\d+$/.test(decodedText)) {
+      const searchCode = bookingId.trim();
+      if (/^\d+$/.test(searchCode)) {
         try {
           const bookingsRes = await axios.get("http://localhost:3000/api/booking");
           const allBookings = bookingsRes.data || [];
           const foundBooking = allBookings.find(
-            (b: any) => String(b.orderCode) === decodedText
+            (b: any) => String(b.orderCode) === searchCode
           );
 
           if (foundBooking) {

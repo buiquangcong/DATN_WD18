@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button, Result, Typography, Row, Col, Space, Flex, Tag, QRCode } from "antd";
-import { HomeOutlined, PrinterOutlined } from "@ant-design/icons";
+import { HomeOutlined, QrcodeOutlined, PrinterOutlined, ClockCircleOutlined, UserOutlined, EnvironmentOutlined } from "@ant-design/icons";
 import { ClientLayout } from "./layout";
 
 const { Title, Text } = Typography;
@@ -11,11 +11,11 @@ interface TicketData {
   ticketCode: string;
   customerName: string;
   busName: string;
+  licensePlate?: string;
   journey: string;
   seats: string[];
   totalPrice: number;
   departureTime: string;
-  licensePlate?: string;
 }
 
 export default function TicketSuccessPage(): React.ReactElement {
@@ -28,6 +28,9 @@ export default function TicketSuccessPage(): React.ReactElement {
     
     if (cachedTicket) {
       setTicket(JSON.parse(cachedTicket));
+      
+      // Xóa luôn bộ nhớ tạm sau khi đã lấy xong để bảo mật thông tin, tránh bị lưu rác
+      // localStorage.removeItem("latest_ticket_success"); 
     }
   }, []);
 
@@ -37,16 +40,25 @@ export default function TicketSuccessPage(): React.ReactElement {
     ticketCode: "NB-585674",
     customerName: "Hành khách NETBUS",
     busName: "Xe NETBUS Luxury",
+    licensePlate: "29B-123.45",
     journey: "Hành trình → Trống",
     seats: ["Chưa chọn"],
     totalPrice: 0,
-    departureTime: "Đang cập nhật...",
-    licensePlate: "29B-123.45"
+    departureTime: "Đang cập nhật..."
   };
 
   const parts = finalData.journey.split("→");
   const diemDi = parts[0]?.trim() || "Điểm đi";
   const diemDen = parts[1]?.trim() || "Điểm đến";
+
+  const qrValue = `--- VÉ ĐIỆN TỬ NETBUS ---
+Mã vé: ${finalData.id || finalData.ticketCode}
+Mã Code: ${finalData.ticketCode}
+Hành khách: ${finalData.customerName}
+Chuyến xe: ${finalData.busName} (${finalData.journey})
+BKS: ${finalData.licensePlate || "29B-123.45"}
+Vị trí ghế: ${finalData.seats.join(", ")}
+Khởi hành: ${finalData.departureTime}`;
 
   let departureDate = "---";
   let departureTimeOnly = "---";
@@ -102,33 +114,10 @@ export default function TicketSuccessPage(): React.ReactElement {
           background: #ffffff;
           border-right: 2px dashed #16a34a;
           display: flex;
-          flex-direction: column;
           align-items: center;
           justify-content: center;
           padding: 20px;
           position: relative;
-        }
-        .qr-code-wrapper {
-          padding: 6px;
-          border: 1px solid #16a34a;
-          border-radius: 14px;
-          background: #ffffff;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 104px;
-          height: 104px;
-          overflow: hidden;
-          box-shadow: 0 4px 10px rgba(0, 0, 0, 0.03);
-        }
-        .qr-code-wrapper canvas, .qr-code-wrapper svg {
-          display: block !important;
-          margin: 0 auto !important;
-          padding: 0 !important;
-          max-width: none !important;
-          max-height: none !important;
-          width: 90px !important;
-          height: 90px !important;
         }
         .ticket-main {
           flex: 2.8;
@@ -148,10 +137,10 @@ export default function TicketSuccessPage(): React.ReactElement {
           padding: 20px 12px;
           position: relative;
         }
-        .ticket-notch-l-top {
+        .ticket-qr-notch-top {
           position: absolute;
           top: -10px;
-          left: calc(22.4% - 10px);
+          right: -10px;
           width: 20px;
           height: 20px;
           border-radius: 50%;
@@ -159,10 +148,10 @@ export default function TicketSuccessPage(): React.ReactElement {
           border: 1px solid #e2e8f0;
           z-index: 10;
         }
-        .ticket-notch-l-bottom {
+        .ticket-qr-notch-bottom {
           position: absolute;
           bottom: -10px;
-          left: calc(22.4% - 10px);
+          right: -10px;
           width: 20px;
           height: 20px;
           border-radius: 50%;
@@ -170,10 +159,10 @@ export default function TicketSuccessPage(): React.ReactElement {
           border: 1px solid #e2e8f0;
           z-index: 10;
         }
-        .ticket-notch-r-top {
+        .ticket-stub-notch-top {
           position: absolute;
           top: -10px;
-          right: calc(20.4% - 10px);
+          left: -10px;
           width: 20px;
           height: 20px;
           border-radius: 50%;
@@ -181,10 +170,10 @@ export default function TicketSuccessPage(): React.ReactElement {
           border: 1px solid #e2e8f0;
           z-index: 10;
         }
-        .ticket-notch-r-bottom {
+        .ticket-stub-notch-bottom {
           position: absolute;
           bottom: -10px;
-          right: calc(20.4% - 10px);
+          left: -10px;
           width: 20px;
           height: 20px;
           border-radius: 50%;
@@ -211,7 +200,7 @@ export default function TicketSuccessPage(): React.ReactElement {
           display: flex;
           align-items: center;
           justify-content: center;
-          min-width: 90px;
+          min-width: 100px;
           text-align: center;
           letter-spacing: 0.5px;
         }
@@ -247,19 +236,17 @@ export default function TicketSuccessPage(): React.ReactElement {
 
           {/* KHỐI VÉ TOÀN DIỆN */}
           <div className="ticket-container">
-            {/* Top and Bottom Notches */}
-            <div className="ticket-notch-l-top"></div>
-            <div className="ticket-notch-l-bottom"></div>
-            <div className="ticket-notch-r-top"></div>
-            <div className="ticket-notch-r-bottom"></div>
-
             {/* LEFT QR PANEL */}
             <div className="ticket-qr-side">
-              <div className="qr-code-wrapper">
-                <QRCode value={finalData.id || finalData.ticketCode} size={90} bordered={false} />
-              </div>
-              <div style={{ fontSize: 9, color: "#16a34a", fontWeight: "bold", letterSpacing: "1.5px", textTransform: "uppercase", marginTop: "10px" }}>
-                Quét check-in
+              {/* Notches on the right edge of QR side */}
+              <div className="ticket-qr-notch-top"></div>
+              <div className="ticket-qr-notch-bottom"></div>
+
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10 }}>
+                <QRCode value={qrValue} size={110} bordered={false} style={{ display: "block" }} />
+                <span style={{ fontSize: 9, color: "#16a34a", fontWeight: "bold", letterSpacing: "1.5px", textTransform: "uppercase" }}>
+                  Quét check-in
+                </span>
               </div>
             </div>
 
@@ -347,6 +334,10 @@ export default function TicketSuccessPage(): React.ReactElement {
 
             {/* STUB (CUỐNG VÉ) */}
             <div className="ticket-stub">
+              {/* Notches on the left edge of stub */}
+              <div className="ticket-stub-notch-top"></div>
+              <div className="ticket-stub-notch-bottom"></div>
+
               <div className="ticket-stub-vertical">
                 <span style={{ fontSize: 10, color: "#16a34a", fontWeight: "bold", textTransform: "uppercase", letterSpacing: "2px" }}>
                   Cuống vé
@@ -377,4 +368,4 @@ export default function TicketSuccessPage(): React.ReactElement {
       </div>
     </ClientLayout>
   );
-}
+}
