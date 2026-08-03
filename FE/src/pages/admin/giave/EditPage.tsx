@@ -1,24 +1,20 @@
 import { Button, Form, InputNumber, Select, Card } from "antd";
 import { useCRUD } from "../../../hooks/useCRUD";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useEffect } from "react";
 
 function FareRuleEditPage() {
   const { id } = useParams();
-  const navigate = useNavigate();
   const [form] = Form.useForm();
 
   // 1. Lấy danh sách bảng giá vé và danh sách tuyến đường
   const { Edit, list: fareRules } = useCRUD("giave");
   const { list: journeys } = useCRUD("journey");
 
-  // 2. Lắng nghe Tuyến đường đang được chọn trong Form
-  const selectedJourney = Form.useWatch("journey", form);
-
-  // 3. Tìm bản ghi hiện tại đang chỉnh sửa
+  // 2. Tìm bản ghi hiện tại đang chỉnh sửa
   const currentRecord = fareRules?.find((item: any) => item._id === id);
 
-  // 4. Fill dữ liệu ban đầu vào Form khi tải trang
+  // 3. Fill dữ liệu ban đầu vào Form khi tải trang
   useEffect(() => {
     if (currentRecord) {
       form.setFieldsValue({
@@ -31,17 +27,8 @@ function FareRuleEditPage() {
     }
   }, [currentRecord, form]);
 
-  // 5. Lấy danh sách capacity ĐÃ CÓ GIÁ VÉ ở các bản ghi KHÁC (loại trừ ID hiện tại)
-  const existingCapacitiesOfOtherRecords = (fareRules || [])
-    .filter((rule: any) => {
-      const isNotCurrentRecord = rule._id !== id; // Loại trừ chính bản ghi đang edit
-      const journeyId =
-        typeof rule.journey === "object" ? rule.journey?._id : rule.journey;
-      return isNotCurrentRecord && journeyId === selectedJourney;
-    })
-    .map((rule: any) => rule.capacity);
-
-  // Danh sách các loại sức chứa cố định
+  // Danh sách các loại sức chứa cố định (chỉ dùng để hiển thị đúng label,
+  // vì ô này giờ đã khóa không cho sửa)
   const capacityOptions = [
     { label: "16 chỗ", value: 16 },
     { label: "29 chỗ", value: 29 },
@@ -54,7 +41,10 @@ function FareRuleEditPage() {
       _id: id,
       ...values,
     });
-    navigate("/admin/fare-rule");
+    // Không cần navigate thủ công ở đây - useCRUD đã tự điều hướng đến
+    // trang List đúng resource ngay trong onSuccess sau khi Edit thành công.
+    // Gọi navigate thêm ở đây sẽ đua với navigate của useCRUD, gây hiện
+    // trang 404 thoáng qua trước khi bị ghi đè bởi navigate đúng.
   };
 
   return (
@@ -62,7 +52,9 @@ function FareRuleEditPage() {
       <Card>
         <h1 className="text-2xl font-semibold mb-6">Chỉnh Sửa Giá Vé</h1>
         <Form form={form} layout="vertical" onFinish={onFinish}>
-          {/* Tuyến đường */}
+          {/* Tuyến đường - khóa không cho sửa, vì đây là 1 phần khóa định danh
+              bảng giá (journey + capacity), sửa sẽ làm sai lệch các chuyến cũ
+              đang tham chiếu đúng combo này */}
           <Form.Item
             label="Tuyến Đường"
             name="journey"
@@ -72,14 +64,9 @@ function FareRuleEditPage() {
                 message: "Vui lòng chọn tuyến đường",
               },
             ]}
+            extra="Không thể đổi tuyến đường của bảng giá đã tồn tại. Nếu cần áp dụng cho tuyến khác, hãy tạo bảng giá mới."
           >
-            <Select
-              placeholder="Chọn tuyến"
-              onChange={() => {
-                // Đổi tuyến đường thì reset lựa chọn sức chứa
-                form.setFieldsValue({ capacity: undefined });
-              }}
-            >
+            <Select disabled placeholder="Chọn tuyến">
               {journeys?.map((item: any) => (
                 <Select.Option key={item._id} value={item._id}>
                   {item.diemDi} → {item.diemDen}
@@ -88,7 +75,7 @@ function FareRuleEditPage() {
             </Select>
           </Form.Item>
 
-          {/* Sức chứa (Chuyển sang Select & Disable sức chứa bị trùng từ bản ghi khác) */}
+          {/* Sức chứa - khóa không cho sửa, cùng lý do như trên */}
           <Form.Item
             label="Sức Chứa"
             name="capacity"
@@ -98,29 +85,14 @@ function FareRuleEditPage() {
                 message: "Vui lòng chọn sức chứa",
               },
             ]}
+            extra="Không thể đổi sức chứa của bảng giá đã tồn tại. Nếu cần áp dụng cho loại xe khác, hãy tạo bảng giá mới."
           >
-            <Select
-              placeholder={
-                selectedJourney
-                  ? "Chọn sức chứa"
-                  : "Vui lòng chọn tuyến đường trước"
-              }
-              disabled={!selectedJourney}
-            >
-              {capacityOptions.map((item) => {
-                const isAlreadySet = existingCapacitiesOfOtherRecords.includes(
-                  item.value
-                );
-                return (
-                  <Select.Option
-                    key={item.value}
-                    value={item.value}
-                    disabled={isAlreadySet} // Disable nếu bị trùng với bản ghi khác
-                  >
-                    {item.label} {isAlreadySet ? "(Đã có giá vé)" : ""}
-                  </Select.Option>
-                );
-              })}
+            <Select disabled placeholder="Chọn sức chứa">
+              {capacityOptions.map((item) => (
+                <Select.Option key={item.value} value={item.value}>
+                  {item.label}
+                </Select.Option>
+              ))}
             </Select>
           </Form.Item>
 
