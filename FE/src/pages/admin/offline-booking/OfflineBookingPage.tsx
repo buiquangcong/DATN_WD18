@@ -15,6 +15,7 @@ import {
   Alert,
   Modal,
   Divider,
+  Table,
 } from "antd";
 import {
   CreditCardOutlined,
@@ -24,9 +25,11 @@ import {
   ShoppingCartOutlined,
   TeamOutlined,
   UserOutlined,
+  PrinterOutlined,
 } from "@ant-design/icons";
 import axios from "axios";
 import toast from "react-hot-toast";
+import { useNavigate } from "react-router-dom";
 
 interface UserType {
   _id: string;
@@ -66,6 +69,7 @@ interface TripType {
 
 function OfflineBookingPage() {
   const [form] = Form.useForm();
+  const navigate = useNavigate();
   
   // List States
   const [trips, setTrips] = useState<TripType[]>([]);
@@ -90,6 +94,25 @@ function OfflineBookingPage() {
   const [isPayOSModalOpen, setIsPayOSModalOpen] = useState(false);
   const [payOSUrl, setPayOSUrl] = useState("");
   const [currentBookingId, setCurrentBookingId] = useState("");
+  const [pendingTicketData, setPendingTicketData] = useState<any>(null);
+  const [bookingHistory, setBookingHistory] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [sessionPaymentMethods, setSessionPaymentMethods] = useState<{ [key: string]: string }>({});
+
+  const fetchBookingHistory = async () => {
+    setHistoryLoading(true);
+    try {
+      const res = await axios.get("http://localhost:3000/api/booking");
+      const sorted = (res.data || []).sort(
+        (a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      setBookingHistory(sorted);
+    } catch (err) {
+      console.error("Lỗi tải lịch sử đặt vé:", err);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
 
   const playBeep = (isError = false) => {
     try {
@@ -148,6 +171,7 @@ function OfflineBookingPage() {
       }
     };
     fetchInitialData();
+    fetchBookingHistory();
   }, []);
 
   // Fetch detailed selected trip
@@ -278,6 +302,23 @@ function OfflineBookingPage() {
 
       const bookingId = createdBooking._id;
 
+      const ticketStorageData = {
+        id: bookingId,
+        ticketCode: `NB-${createdBooking.orderCode || bookingId.slice(-6).toUpperCase()}`,
+        customerName: values.username || (customerType === "existing" ? (users.find(u => u._id === finalUserId)?.username || "Khách hàng") : "Khách vãng lai"),
+        busName: selectedTrip?.bus?.name || "Xe NETBUS Luxury",
+        licensePlate: selectedTrip?.bus?.licensePlates || "29B-123.45",
+        journey: `${selectedTrip?.journey?.diemDi || "Điểm đi"} → ${selectedTrip?.journey?.diemDen || "Điểm đến"}`,
+        seats: [...chosenSeatCodes],
+        totalPrice: totalAmount,
+        departureTime: selectedTrip?.departureTime 
+          ? new Date(selectedTrip.departureTime).toLocaleString("vi-VN", {
+              dateStyle: "short",
+              timeStyle: "short"
+            })
+          : "Đang cập nhật..."
+      };
+
       // 3. Xử lý theo hình thức thanh toán
       if (paymentMethod === "cash") {
         // Thanh toán TIỀN MẶT tại quầy: Cập nhật trực tiếp lên trạng thái nhân viên chọn
@@ -289,16 +330,22 @@ function OfflineBookingPage() {
 
         playBeep();
         setTimeout(playBeep, 150); // Bíp đôi thành công
-        toast.success("Đặt vé tiền mặt thành công! Đã xuất vé tại quầy.");
+        toast.success("Đặt vé tiền mặt thành công! Đang chuyển hướng in vé...");
         
         // Reset form & reload sơ đồ ghế
         setChosenSeatCodes([]);
-        if (selectedTrip?._id) {
-          handleTripChange(selectedTrip._id);
-        }
-        form.resetFields(["username", "phone", "email"]);
+        localStorage.setItem("latest_ticket_success", JSON.stringify(ticketStorageData));
+        setSessionPaymentMethods(prev => ({ ...prev, [bookingId]: "cash" }));
+        fetchBookingHistory();
+        
+        setTimeout(() => {
+          navigate("/khachhang/booking/success");
+        }, 1500);
       } else {
         // Thanh toán CHUYỂN KHOẢN qua PayOS
+        setPendingTicketData(ticketStorageData);
+        setSessionPaymentMethods(prev => ({ ...prev, [bookingId]: "payos" }));
+        
         const paymentRes = await axios.post("http://localhost:3000/api/payment/create-link", {
           bookingId: bookingId,
         });
@@ -327,12 +374,25 @@ function OfflineBookingPage() {
   // PayOS completion refresh
   const handlePayOSComplete = async () => {
     setIsPayOSModalOpen(false);
-    setChosenSeatCodes([]);
-    if (selectedTrip?._id) {
-      await handleTripChange(selectedTrip._id);
+    
+    if (pendingTicketData) {
+      if (currentBookingId) {
+        setSessionPaymentMethods(prev => ({ ...prev, [currentBookingId]: "payos" }));
+      }
+      localStorage.setItem("latest_ticket_success", JSON.stringify(pendingTicketData));
+      toast.success("Thanh toán thành công! Đang chuyển hướng in vé...");
+      setTimeout(() => {
+        navigate("/khachhang/booking/success");
+      }, 1000);
+    } else {
+      setChosenSeatCodes([]);
+      if (selectedTrip?._id) {
+        await handleTripChange(selectedTrip._id);
+      }
+      form.resetFields(["username", "phone", "email"]);
+      toast.success("Đã hoàn tất kiểm tra và tải lại sơ đồ ghế!");
+      fetchBookingHistory();
     }
-    form.resetFields(["username", "phone", "email"]);
-    toast.success("Đã hoàn tất kiểm tra và tải lại sơ đồ ghế!");
   };
 
   // Render visual seat item
@@ -598,6 +658,14 @@ function OfflineBookingPage() {
           <h1 className="text-2xl font-bold text-gray-900">Đặt vé tại quầy (Offline Booking)</h1>
           <p className="text-gray-500 text-sm">Hệ thống hỗ trợ nhân viên phòng vé đặt vé trực tiếp và thu tiền mặt hoặc thanh toán QR PayOS.</p>
         </div>
+        <Button 
+          type="primary" 
+          icon={<ShoppingCartOutlined />} 
+          onClick={() => navigate("/admin/offline-booking/history")}
+          className="bg-emerald-600 hover:bg-emerald-700 h-10 font-bold rounded-lg self-start md:self-auto"
+        >
+          Xem lịch sử đặt vé tại quầy
+        </Button>
       </div>
 
       <Row gutter={[24, 24]}>
@@ -827,20 +895,20 @@ function OfflineBookingPage() {
                   <Flex justify="center" style={{ marginBottom: 16 }}>
                     <div className="inline-flex p-1 bg-slate-100 rounded-xl border">
                       <button
-                        type="button"
-                        onClick={() => setActiveFloor(1)}
-                        className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                          activeFloor === 1 ? "bg-white text-blue-600 shadow-xs" : "text-gray-500 bg-transparent"
-                        }`}
+                         type="button"
+                         onClick={() => setActiveFloor(1)}
+                         className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                           activeFloor === 1 ? "bg-white text-blue-600 shadow-xs" : "text-gray-500 bg-transparent"
+                         }`}
                       >
                         Tầng 1 (Dưới)
                       </button>
                       <button
-                        type="button"
-                        onClick={() => setActiveFloor(2)}
-                        className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                          activeFloor === 2 ? "bg-white text-blue-600 shadow-xs" : "text-gray-500 bg-transparent"
-                        }`}
+                         type="button"
+                         onClick={() => setActiveFloor(2)}
+                         className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                           activeFloor === 2 ? "bg-white text-blue-600 shadow-xs" : "text-gray-500 bg-transparent"
+                         }`}
                       >
                         Tầng 2 (Trên)
                       </button>
@@ -869,6 +937,7 @@ function OfflineBookingPage() {
         </Card>
       </Col>
     </Row>
+
 
     {/* PayOS Modal Link */}
     <Modal
