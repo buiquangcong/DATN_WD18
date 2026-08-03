@@ -171,6 +171,7 @@ export default function BookingSeats(): React.ReactElement {
                 const myOrderCode = paymentResponse.data?.orderCode || serverOrderCode || createdBookingId.slice(-6).toUpperCase();
 
                 const ticketStorageData = {
+                    id: createdBookingId,
                     ticketCode: `NB-${myOrderCode}`,
                     customerName: userObj?.name || "Hành khách NETBUS",
                     busName: trip?.bus?.name || "Xe NETBUS Luxury",
