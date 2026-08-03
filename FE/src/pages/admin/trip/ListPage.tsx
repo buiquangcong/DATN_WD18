@@ -23,6 +23,7 @@ interface BookingType {
   seats: string[];
   totalPrice: number;
   status: string;
+  createdAt?: string;
 }
 
 const bookingStatusColorMap: Record<string, string> = {
@@ -93,37 +94,6 @@ interface TripType {
   }[];
 }
 
-interface BookingType {
-  _id: string;
-
-  user?: {
-    _id: string;
-    username: string;
-    email: string;
-  };
-
-  trip?: {
-    _id: string;
-  };
-
-  seats: string[];
-  totalPrice: number;
-
-  status:
-    | "Chờ xác nhận"
-    | "Đã xác nhận"
-    | "Đã huỷ"
-    | "Hoàn thành";
-
-  createdAt: string;
-}
-
-const bookingStatusColorMap: Record<string, string> = {
-  "Đã xác nhận": "green",
-  "Đã huỷ": "red",
-  "Hoàn thành": "blue",
-  "Chờ xác nhận": "orange",
-};
 
 function TripListPage() {
   const navigate = useNavigate();
@@ -574,7 +544,7 @@ function TripListPage() {
     (t: TripType) => t._id === selectedBookingTripId
   );
 
-  const tripBookings = (bookings || []).filter(
+  const bookingsForTrip = (bookings || []).filter(
     (b: BookingType) => b.trip?._id === selectedBookingTripId
   );
 
@@ -1016,11 +986,12 @@ function TripListPage() {
 
         <Table
           rowKey="_id"
-          dataSource={tripBookings}
+          dataSource={bookingsForTrip}
           columns={bookingColumns}
           pagination={{ pageSize: 5 }}
           locale={{ emptyText: "Chưa có khách nào đặt vé chuyến này" }}
         />
+      </Modal>
       {/* Style CSS cho hiệu ứng quét camera */}
       <style>{`
         #trip-qr-reader {
