@@ -155,23 +155,25 @@ export default function ClientDashboard() {
  };
 
 
- const fleetTags = ["Dòng xe 16 chỗ", "Dòng xe 29 chỗ","Dòng xe 38 chỗ", "Dòng xe 45 chỗ"];
+ const fleetTags = ["Dòng xe 16 chỗ", "Dòng xe 29 chỗ","Dòng xe 34 chỗ", "Dòng xe 45 chỗ"];
 
 
- const getFleetImageUrl = (tag: string): string => {
-   switch (tag) {
-     case "Dòng xe 45 chỗ":
-       return "/xe.png";
-     case "Dòng xe 38 chỗ":
-      return "/netbus_student_promo.png"
-     case "Dòng xe 16 chỗ":
-      return "/netbus_student_promo.png"
-     case "Dòng xe 29 chỗ":
-      return "/netbus_student_promo.png"
-     default:
-       return "/netbus_student_promo.png";
-   }
- };
+  const getFleetImages = (tag: string): string[] => {
+    switch (tag) {
+      case "Dòng xe 16 chỗ":
+        return ["/xe16.png", "/netbus_exterior.png", "/noithatxe16.png", "/xe166.png"];
+      case "Dòng xe 29 chỗ":
+        return ["/xe29.png", "/netbus_exterior.png", "/noithatxe29.png", "/xe29.png"];
+      case "Dòng xe 34 chỗ":
+        return ["/bus_45_seats.png", "/netbus_exterior.png", "/noithat34.png", "/bus_45_seats.png"];
+      case "Dòng xe 45 chỗ":
+        return ["/xe.png", "/netbus_exterior.png", "/noithatxe45.png", "/xe.png"];
+      default:
+        return ["/xe.png", "/netbus_exterior.png", "/netbus_student_promo.png", "/bus_45_seats.png"];
+    }
+  };
+
+  const fleetImages = getFleetImages(selectedFleetTag);
 
  return (
    <ClientLayout>
@@ -484,34 +486,15 @@ export default function ClientDashboard() {
            </div>
          </div>
          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-           <div className="aspect-square rounded-xl overflow-hidden group">
-             <img
-               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-               alt="Fleet interior"
-               src={getFleetImageUrl(selectedFleetTag)}
-             />
-           </div>
-           <div className="aspect-square rounded-xl overflow-hidden group">
-             <img
-               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-               alt="Fleet aerodynamic body"
-               src="/netbus_exterior.png"
-             />
-           </div>
-           <div className="aspect-square rounded-xl overflow-hidden group col-span-2 lg:col-span-1">
-             <div className="w-full h-full bg-primary flex flex-col items-center justify-center text-white p-6 text-center">
-               <CompassOutlined className="text-4xl mb-4" />
-               <p className="font-headline-md text-headline-md">100% Electric Fleet</p>
-               <p className="text-sm opacity-80 mt-2">Zero emissions, maximum comfort.</p>
+           {fleetImages.map((imgSrc, idx) => (
+             <div key={idx} className="aspect-square rounded-xl overflow-hidden group">
+               <img
+                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                 alt={`${selectedFleetTag} - ảnh ${idx + 1}`}
+                 src={imgSrc}
+               />
              </div>
-           </div>
-           <div className="aspect-square rounded-xl overflow-hidden group">
-             <img
-               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-               alt="Fleet dashboard cockpit"
-               src="https://lh3.googleusercontent.com/aida/AP1WRLsgSpTPnW9D96Y6AZiht-SdwBwdkrB4EBPDppNZ63mZzD3lRMnh9zMx-B8rxI2fODSJmyfVzvFK7jCFkG4O2Oy97tyinERr9grT3UGN6U2NSzJ_YgKx1lYkz0NgVGBj3VJrXv3FlLvgK0iQJb_2Dg956WeQRWSVR7qwHRspaOJ5s84hpB5l0CQCl-axMsG9vLqrqvBBhOE3KZunWR2Cx8qD9bCHQbHc9XfrlFuNvWW64pI_uLy9NoCbyIgk"
-             />
-           </div>
+           ))}
          </div>
        </div>
      </section>
