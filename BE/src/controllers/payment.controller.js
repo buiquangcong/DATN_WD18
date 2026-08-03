@@ -69,7 +69,7 @@ export const handlePayOSWebhook = asyncHandler(async (req, res) => {
 
         if (booking) {
             // 3. Cập nhật trạng thái ghế từ HOLDING sang BOOKED chính thức và lấy thông tin Tuyến đường (journey)
-            const tripData = await Trip.findById(booking.trip).populate("journey");
+            const tripData = await Trip.findById(booking.trip).populate("journey").populate("bus");
             
             if (tripData) {
                 tripData.seats.forEach(seat => {
@@ -92,7 +92,8 @@ export const handlePayOSWebhook = asyncHandler(async (req, res) => {
                     departureTime: tripData?.departureTime || "07:04 16/6/26", 
                     seatNumber: booking.seats.join(", "), 
                     totalPrice: booking.totalPrice,
-                    busType: tripData?.busName || "Xe NETBUS Luxury" // Đồng bộ theo thuộc tính tên xe trên Web của bạn
+                    busType: tripData?.bus?.name || tripData?.busName || "Xe NETBUS Luxury", // Đồng bộ theo thuộc tính tên xe trên Web của bạn
+                    licensePlate: tripData?.bus?.licensePlates || "29B-123.45"
                 });
                 
                 // 🌟 ĐÃ SỬA: Thay đổi 'orderCode' thành 'orderCodeReceived' để tránh lỗi ReferenceError

@@ -35,6 +35,7 @@ interface DetailedTrip {
         name: string;
         type: string;
         capacity: number; // 🌟 Thêm trường để lấy đúng số chỗ phục vụ tính toán Grid
+        licensePlates?: string;
     };
     seats: Seat[];
 }
@@ -173,8 +174,9 @@ export default function BookingSeats(): React.ReactElement {
                 const ticketStorageData = {
                     id: createdBookingId,
                     ticketCode: `NB-${myOrderCode}`,
-                    customerName: userObj?.name || "Hành khách NETBUS",
+                    customerName: userObj?.username || "Hành khách NETBUS",
                     busName: trip?.bus?.name || "Xe NETBUS Luxury",
+                    licensePlate: trip?.bus?.licensePlates || "29B-123.45",
                     journey: `${trip?.journey?.diemDi || "Điểm đi"} → ${trip?.journey?.diemDen || "Điểm đến"}`,
                     seats: chosenSeatCodes,
                     totalPrice: calculatedTotalAmount,

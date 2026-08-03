@@ -11,6 +11,7 @@ interface TicketData {
   ticketCode: string;
   customerName: string;
   busName: string;
+  licensePlate?: string;
   journey: string;
   seats: string[];
   totalPrice: number;
@@ -39,6 +40,7 @@ export default function TicketSuccessPage(): React.ReactElement {
     ticketCode: "NB-585674",
     customerName: "Hành khách NETBUS",
     busName: "Xe NETBUS Luxury",
+    licensePlate: "29B-123.45",
     journey: "Hành trình → Trống",
     seats: ["Chưa chọn"],
     totalPrice: 0,
@@ -48,6 +50,39 @@ export default function TicketSuccessPage(): React.ReactElement {
   const parts = finalData.journey.split("→");
   const diemDi = parts[0]?.trim() || "Điểm đi";
   const diemDen = parts[1]?.trim() || "Điểm đến";
+
+  const qrValue = `--- VÉ ĐIỆN TỬ NETBUS ---
+Mã vé: ${finalData.id || finalData.ticketCode}
+Mã Code: ${finalData.ticketCode}
+Hành khách: ${finalData.customerName}
+Chuyến xe: ${finalData.busName} (${finalData.journey})
+BKS: ${finalData.licensePlate || "29B-123.45"}
+Vị trí ghế: ${finalData.seats.join(", ")}
+Khởi hành: ${finalData.departureTime}`;
+
+  let departureDate = "---";
+  let departureTimeOnly = "---";
+  try {
+    const d = new Date(finalData.departureTime);
+    if (!isNaN(d.getTime())) {
+      const day = String(d.getDate()).padStart(2, "0");
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const year = d.getFullYear();
+      departureDate = `${day}/${month}/${year}`;
+      
+      const hours = String(d.getHours()).padStart(2, "0");
+      const minutes = String(d.getMinutes()).padStart(2, "0");
+      departureTimeOnly = `${hours}:${minutes}`;
+    } else {
+      const prts = finalData.departureTime.split(" ");
+      if (prts.length === 2) {
+        departureTimeOnly = prts[0];
+        departureDate = prts[1];
+      }
+    }
+  } catch (e) {}
+
+  const routeDisplay = `${diemDi} - ${diemDen}`.toUpperCase();
 
   return (
     <ClientLayout>
@@ -62,10 +97,133 @@ export default function TicketSuccessPage(): React.ReactElement {
           }
           @page { margin: 10mm; }
         }
+        .ticket-container {
+          display: flex;
+          width: 100%;
+          max-width: 840px;
+          background: #ffffff;
+          border-radius: 20px;
+          box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+          position: relative;
+          overflow: hidden;
+          border: 1px solid #e2e8f0;
+          margin: 0 auto;
+        }
+        .ticket-qr-side {
+          flex: 1.1;
+          background: #ffffff;
+          border-right: 2px dashed #16a34a;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+          position: relative;
+        }
+        .ticket-main {
+          flex: 2.8;
+          padding: 24px;
+          position: relative;
+          background: radial-gradient(circle at -10% 50%, rgba(22, 163, 74, 0.06) 0%, transparent 60%),
+                      radial-gradient(circle at 100% 100%, rgba(22, 163, 74, 0.08) 0%, transparent 50%);
+        }
+        .ticket-stub {
+          flex: 1;
+          background: #f4fbf7;
+          border-left: 2px dashed #16a34a;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 20px 12px;
+          position: relative;
+        }
+        .ticket-qr-notch-top {
+          position: absolute;
+          top: -10px;
+          right: -10px;
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          background-color: #f1f5f9;
+          border: 1px solid #e2e8f0;
+          z-index: 10;
+        }
+        .ticket-qr-notch-bottom {
+          position: absolute;
+          bottom: -10px;
+          right: -10px;
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          background-color: #f1f5f9;
+          border: 1px solid #e2e8f0;
+          z-index: 10;
+        }
+        .ticket-stub-notch-top {
+          position: absolute;
+          top: -10px;
+          left: -10px;
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          background-color: #f1f5f9;
+          border: 1px solid #e2e8f0;
+          z-index: 10;
+        }
+        .ticket-stub-notch-bottom {
+          position: absolute;
+          bottom: -10px;
+          left: -10px;
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          background-color: #f1f5f9;
+          border: 1px solid #e2e8f0;
+          z-index: 10;
+        }
+        .ticket-field {
+          display: flex;
+          border: 1px solid #16a34a;
+          border-radius: 8px;
+          background: #ffffff;
+          overflow: hidden;
+          margin-bottom: 12px;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+        }
+        .ticket-label {
+          background: #0f2d1e;
+          color: #ffffff;
+          font-size: 11px;
+          font-weight: bold;
+          text-transform: uppercase;
+          padding: 8px 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 100px;
+          text-align: center;
+          letter-spacing: 0.5px;
+        }
+        .ticket-value {
+          padding: 8px 16px;
+          font-size: 13px;
+          font-weight: bold;
+          color: #1e293b;
+          display: flex;
+          align-items: center;
+        }
+        .ticket-stub-vertical {
+          writing-mode: vertical-rl;
+          transform: rotate(180deg);
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          color: #14532d;
+        }
       `}</style>
 
       <div style={{ background: "#f1f5f9", minHeight: "100vh", padding: "40px 0" }}>
-        <div style={{ maxWidth: 450, margin: "0 auto", padding: "0 16px" }}>
+        <div style={{ maxWidth: 880, margin: "0 auto", padding: "0 16px" }}>
           
           <div className="no-print">
             <Result
@@ -77,98 +235,123 @@ export default function TicketSuccessPage(): React.ReactElement {
           </div>
 
           {/* KHỐI VÉ TOÀN DIỆN */}
-          <div style={{
-            borderRadius: "30px",
-            boxShadow: "0 10px 25px rgba(15, 23, 42, 0.08)",
-            overflow: "hidden",
-            background: "#ffffff"
-          }}>
-            <div style={{ background: "#1e293b", padding: "28px 24px 24px 24px", color: "#ffffff" }}>
-              <Flex justify="space-between" align="center" style={{ marginBottom: 24 }}>
-                <Flex align="center" gap={10}>
-                  <img src="/assets/images/Logo.png" alt="NETBUS" style={{ height: "32px", objectFit: "contain" }} />
-                  <Text strong style={{ color: "#ffffff", fontSize: "16px", letterSpacing: "1px" }}>NETBUS</Text>
-                </Flex>
-                <Tag style={{ borderRadius: "20px", backgroundColor: "#16a34a", color: "#fff", border: "none", padding: "2px 12px", fontWeight: 600 }}>
-                  Đã xác nhận
-                </Tag>
-              </Flex>
+          <div className="ticket-container">
+            {/* LEFT QR PANEL */}
+            <div className="ticket-qr-side">
+              {/* Notches on the right edge of QR side */}
+              <div className="ticket-qr-notch-top"></div>
+              <div className="ticket-qr-notch-bottom"></div>
 
-              <Flex justify="space-between" align="center" style={{ marginBottom: 16 }}>
-                <Space direction="vertical" size={2}>
-                  <Text style={{ color: "#cbd5e1", fontSize: "12px", textTransform: "uppercase" }}>Điểm đi</Text>
-                  <Text strong style={{ color: "#ffffff", fontSize: "20px" }}>{diemDi}</Text>
-                </Space>
-                <div style={{ color: "#64748b", fontSize: "20px" }}>➔</div>
-                <Space direction="vertical" size={2} style={{ textAlign: "right" }}>
-                  <Text style={{ color: "#cbd5e1", fontSize: "12px", textTransform: "uppercase" }}>Điểm đến</Text>
-                  <Text strong style={{ color: "#ffffff", fontSize: "20px" }}>{diemDen}</Text>
-                </Space>
-              </Flex>
-
-              <Flex align="center" gap={8} style={{ color: "#cbd5e1", fontSize: "13px" }}>
-                <EnvironmentOutlined style={{ color: "#38bdf8" }} />
-                <Text style={{ color: "#cbd5e1" }}>Dịch vụ: <span style={{ color: "#ffffff", fontWeight: 500 }}>{finalData.busName}</span></Text>
-              </Flex>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10 }}>
+                <QRCode value={qrValue} size={110} bordered={false} style={{ display: "block" }} />
+                <span style={{ fontSize: 9, color: "#16a34a", fontWeight: "bold", letterSpacing: "1.5px", textTransform: "uppercase" }}>
+                  Quét check-in
+                </span>
+              </div>
             </div>
 
-            <div style={{ background: "#ffffff", position: "relative", height: "24px", overflow: "hidden", display: "flex", alignItems: "center" }}>
-              <div style={{ position: "absolute", left: "-12px", width: "24px", height: "24px", borderRadius: "50%", background: "#f1f5f9" }}></div>
-              <div style={{ width: "100%", borderTop: "2px dashed #e2e8f0", margin: "0 20px" }}></div>
-              <div style={{ position: "absolute", right: "-12px", width: "24px", height: "24px", borderRadius: "50%", background: "#f1f5f9" }}></div>
-            </div>
+            {/* MAIN TICKET */}
+            <div className="ticket-main">
+              {/* Header */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <img src="/assets/images/Logo.png" alt="NETBUS" style={{ height: "26px", objectFit: "contain" }} />
+                  <span style={{ fontSize: 18, fontWeight: "bold", color: "#14532d", letterSpacing: "0.5px" }}>NetBus</span>
+                </div>
+                <span style={{ fontSize: 11, fontWeight: "bold", color: "#16a34a", letterSpacing: "1px" }}>NETBUS - CHẠM LÀ ĐI</span>
+              </div>
 
-            <div style={{ background: "#ffffff", padding: "4px 24px 28px 24px" }}>
-              <Row gutter={[16, 20]}>
+              {/* Fields */}
+              <div className="ticket-field">
+                <div className="ticket-label">Hành khách</div>
+                <div className="ticket-value" style={{ textTransform: "uppercase" }}>{finalData.customerName}</div>
+              </div>
+
+              <div className="ticket-field">
+                <div className="ticket-label">Tuyến đường</div>
+                <div className="ticket-value" style={{ color: "#14532d" }}>{routeDisplay}</div>
+              </div>
+
+              <Row gutter={12}>
                 <Col span={12}>
-                  <Space direction="vertical" size={2}>
-                    <Text type="secondary" style={{ fontSize: "11px", textTransform: "uppercase" }}>Hành khách</Text>
-                    <Flex align="center" gap={6}>
-                      <UserOutlined style={{ color: "#64748b", fontSize: "13px" }} />
-                      <Text strong style={{ color: "#0f172a", fontSize: "14px" }}>{finalData.customerName}</Text>
-                    </Flex>
-                  </Space>
+                  <div className="ticket-field">
+                    <div className="ticket-label" style={{ minWidth: 65 }}>Tên xe</div>
+                    <div className="ticket-value">{finalData.busName}</div>
+                  </div>
                 </Col>
-
                 <Col span={12}>
-                  <Space direction="vertical" size={2}>
-                    <Text type="secondary" style={{ fontSize: "11px", textTransform: "uppercase" }}>Thời gian đi</Text>
-                    <Flex align="center" gap={6}>
-                      <ClockCircleOutlined style={{ color: "#64748b", fontSize: "13px" }} />
-                      <Text strong style={{ color: "#0f172a", fontSize: "14px" }}>{finalData.departureTime}</Text>
-                    </Flex>
-                  </Space>
-                </Col>
-
-                <Col span={12}>
-                  <Space direction="vertical" size={2}>
-                    <Text type="secondary" style={{ fontSize: "11px", textTransform: "uppercase" }}>Vị trí giường</Text>
-                    <Text strong style={{ color: "#0284c7", fontSize: "15px" }}>{finalData.seats.join(", ")}</Text>
-                  </Space>
-                </Col>
-
-                <Col span={12}>
-                  <Space direction="vertical" size={2}>
-                    <Text type="secondary" style={{ fontSize: "11px", textTransform: "uppercase" }}>Mã vé điện tử</Text>
-                    <Text strong style={{ color: "#334155", fontSize: "14px" }}>{finalData.ticketCode}</Text>
-                  </Space>
+                  <div className="ticket-field">
+                    <div className="ticket-label" style={{ minWidth: 55 }}>BKS</div>
+                    <div className="ticket-value" style={{ color: "#14532d" }}>{finalData.licensePlate || "29B-123.45"}</div>
+                  </div>
                 </Col>
               </Row>
 
-              <div style={{ height: "1px", background: "#f1f5f9", margin: "24px 0 16px 0" }}></div>
+              <Row gutter={12}>
+                <Col span={12}>
+                  <div className="ticket-field">
+                    <div className="ticket-label" style={{ minWidth: 65 }}>Ngày đi</div>
+                    <div className="ticket-value">{departureDate}</div>
+                  </div>
+                </Col>
+                <Col span={12}>
+                  <div className="ticket-field">
+                    <div className="ticket-label" style={{ minWidth: 70 }}>Giờ chạy</div>
+                    <div className="ticket-value">{departureTimeOnly}</div>
+                  </div>
+                </Col>
+              </Row>
 
-              <Flex justify="space-between" align="center">
-                <Space direction="vertical" size={2}>
-                  <Text type="secondary" style={{ fontSize: "11px", textTransform: "uppercase" }}>Tổng tiền thanh toán</Text>
-                  <Title level={3} style={{ margin: 0, color: "#ef4444", fontWeight: 800 }}>
-                    {finalData.totalPrice.toLocaleString("vi-VN")}đ
-                  </Title>
-                </Space>
+              <Row gutter={12}>
+                <Col span={12}>
+                  <div className="ticket-field">
+                    <div className="ticket-label" style={{ minWidth: 65 }}>Số ghế</div>
+                    <div className="ticket-value" style={{ color: "#0284c7" }}>{finalData.seats.join(", ")}</div>
+                  </div>
+                </Col>
+                <Col span={12}>
+                  <div className="ticket-field">
+                    <div className="ticket-label" style={{ minWidth: 70 }}>Giá vé</div>
+                    <div className="ticket-value" style={{ color: "#ef4444" }}>
+                      {finalData.totalPrice.toLocaleString("vi-VN")} VNĐ
+                    </div>
+                  </div>
+                </Col>
+              </Row>
 
-                <div style={{ padding: "4px", border: "1px solid #e2e8f0", borderRadius: "14px", background: "#ffffff" }}>
-                  <QRCode value={finalData.id || finalData.ticketCode} size={90} bordered={false} />
+              {/* Footer */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                  <div style={{ width: 38, height: 38, borderRadius: "50%", background: "#e8f5e9", border: "2px solid #a5d6a7", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
+                    <span style={{ fontSize: 16 }}>🌿</span>
+                  </div>
                 </div>
-              </Flex>
+                <div style={{ fontSize: 10, color: "#94a3b8" }}>
+                  * Vui lòng chụp màn hình hoặc in vé khi lên xe
+                </div>
+              </div>
+            </div>
+
+            {/* STUB (CUỐNG VÉ) */}
+            <div className="ticket-stub">
+              {/* Notches on the left edge of stub */}
+              <div className="ticket-stub-notch-top"></div>
+              <div className="ticket-stub-notch-bottom"></div>
+
+              <div className="ticket-stub-vertical">
+                <span style={{ fontSize: 10, color: "#16a34a", fontWeight: "bold", textTransform: "uppercase", letterSpacing: "2px" }}>
+                  Cuống vé
+                </span>
+                <span style={{ fontSize: 16, fontWeight: "800", letterSpacing: "1px", margin: "6px 0" }}>
+                  NetBus
+                </span>
+                <span style={{ fontSize: 10, fontWeight: "700", color: "#64748b" }}>
+                  VÉ SỐ: <span style={{ color: "#0f172a" }}>{finalData.ticketCode}</span>
+                </span>
+                <span style={{ fontSize: 9, color: "#16a34a", fontWeight: "bold", marginTop: "10px", letterSpacing: "1px" }}>
+                  KHÁCH HÀNG GIỮ
+                </span>
+              </div>
             </div>
           </div>
 
