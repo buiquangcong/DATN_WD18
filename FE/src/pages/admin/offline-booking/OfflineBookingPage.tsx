@@ -27,6 +27,7 @@ import {
 } from "@ant-design/icons";
 import axios from "axios";
 import toast from "react-hot-toast";
+import { useNavigate } from "react-router-dom";
 
 interface UserType {
   _id: string;
@@ -66,6 +67,7 @@ interface TripType {
 
 function OfflineBookingPage() {
   const [form] = Form.useForm();
+  const navigate = useNavigate();
   
   // List States
   const [trips, setTrips] = useState<TripType[]>([]);
@@ -90,6 +92,7 @@ function OfflineBookingPage() {
   const [isPayOSModalOpen, setIsPayOSModalOpen] = useState(false);
   const [payOSUrl, setPayOSUrl] = useState("");
   const [currentBookingId, setCurrentBookingId] = useState("");
+  const [pendingTicketData, setPendingTicketData] = useState<any>(null);
 
   const playBeep = (isError = false) => {
     try {
@@ -278,6 +281,23 @@ function OfflineBookingPage() {
 
       const bookingId = createdBooking._id;
 
+      const ticketStorageData = {
+        id: bookingId,
+        ticketCode: `NB-${createdBooking.orderCode || bookingId.slice(-6).toUpperCase()}`,
+        customerName: values.username || (customerType === "existing" ? (users.find(u => u._id === finalUserId)?.username || "Khách hàng") : "Khách vãng lai"),
+        busName: selectedTrip?.bus?.name || "Xe NETBUS Luxury",
+        licensePlate: selectedTrip?.bus?.licensePlates || "29B-123.45",
+        journey: `${selectedTrip?.journey?.diemDi || "Điểm đi"} → ${selectedTrip?.journey?.diemDen || "Điểm đến"}`,
+        seats: [...chosenSeatCodes],
+        totalPrice: totalAmount,
+        departureTime: selectedTrip?.departureTime 
+          ? new Date(selectedTrip.departureTime).toLocaleString("vi-VN", {
+              dateStyle: "short",
+              timeStyle: "short"
+            })
+          : "Đang cập nhật..."
+      };
+
       // 3. Xử lý theo hình thức thanh toán
       if (paymentMethod === "cash") {
         // Thanh toán TIỀN MẶT tại quầy: Cập nhật trực tiếp lên trạng thái nhân viên chọn
@@ -289,16 +309,19 @@ function OfflineBookingPage() {
 
         playBeep();
         setTimeout(playBeep, 150); // Bíp đôi thành công
-        toast.success("Đặt vé tiền mặt thành công! Đã xuất vé tại quầy.");
+        toast.success("Đặt vé tiền mặt thành công! Đang chuyển hướng in vé...");
         
         // Reset form & reload sơ đồ ghế
         setChosenSeatCodes([]);
-        if (selectedTrip?._id) {
-          handleTripChange(selectedTrip._id);
-        }
-        form.resetFields(["username", "phone", "email"]);
+        localStorage.setItem("latest_ticket_success", JSON.stringify(ticketStorageData));
+        
+        setTimeout(() => {
+          navigate("/khachhang/booking/success");
+        }, 1500);
       } else {
         // Thanh toán CHUYỂN KHOẢN qua PayOS
+        setPendingTicketData(ticketStorageData);
+        
         const paymentRes = await axios.post("http://localhost:3000/api/payment/create-link", {
           bookingId: bookingId,
         });
@@ -327,12 +350,21 @@ function OfflineBookingPage() {
   // PayOS completion refresh
   const handlePayOSComplete = async () => {
     setIsPayOSModalOpen(false);
-    setChosenSeatCodes([]);
-    if (selectedTrip?._id) {
-      await handleTripChange(selectedTrip._id);
+    
+    if (pendingTicketData) {
+      localStorage.setItem("latest_ticket_success", JSON.stringify(pendingTicketData));
+      toast.success("Thanh toán thành công! Đang chuyển hướng in vé...");
+      setTimeout(() => {
+        navigate("/khachhang/booking/success");
+      }, 1000);
+    } else {
+      setChosenSeatCodes([]);
+      if (selectedTrip?._id) {
+        await handleTripChange(selectedTrip._id);
+      }
+      form.resetFields(["username", "phone", "email"]);
+      toast.success("Đã hoàn tất kiểm tra và tải lại sơ đồ ghế!");
     }
-    form.resetFields(["username", "phone", "email"]);
-    toast.success("Đã hoàn tất kiểm tra và tải lại sơ đồ ghế!");
   };
 
   // Render visual seat item
