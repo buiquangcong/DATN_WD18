@@ -41,10 +41,6 @@ function FareRuleEditPage() {
       _id: id,
       ...values,
     });
-    // Không cần navigate thủ công ở đây - useCRUD đã tự điều hướng đến
-    // trang List đúng resource ngay trong onSuccess sau khi Edit thành công.
-    // Gọi navigate thêm ở đây sẽ đua với navigate của useCRUD, gây hiện
-    // trang 404 thoáng qua trước khi bị ghi đè bởi navigate đúng.
   };
 
   return (
@@ -64,7 +60,7 @@ function FareRuleEditPage() {
                 message: "Vui lòng chọn tuyến đường",
               },
             ]}
-            extra="Không thể đổi tuyến đường của bảng giá đã tồn tại. Nếu cần áp dụng cho tuyến khác, hãy tạo bảng giá mới."
+              // extra="Không thể đổi tuyến đường của bảng giá đã tồn tại. Nếu cần áp dụng cho tuyến khác, hãy tạo bảng giá mới."
           >
             <Select disabled placeholder="Chọn tuyến">
               {journeys?.map((item: any) => (
@@ -85,7 +81,7 @@ function FareRuleEditPage() {
                 message: "Vui lòng chọn sức chứa",
               },
             ]}
-            extra="Không thể đổi sức chứa của bảng giá đã tồn tại. Nếu cần áp dụng cho loại xe khác, hãy tạo bảng giá mới."
+            // extra="Không thể đổi sức chứa của bảng giá đã tồn tại. Nếu cần áp dụng cho loại xe khác, hãy tạo bảng giá mới."
           >
             <Select disabled placeholder="Chọn sức chứa">
               {capacityOptions.map((item) => (
