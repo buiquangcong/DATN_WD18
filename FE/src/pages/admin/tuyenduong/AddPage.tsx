@@ -173,7 +173,7 @@ function JourneyAddPage() {
 
           <div className="grid grid-cols-2 gap-4">
             <Form.Item
-              label="Quãng Đường (km)"
+              label="Quãng Đường (dự kiến) (km)"
               name="quangDuong"
               rules={[{ required: true, message: "Vui lòng nhập quãng đường" }]}
             >
@@ -187,7 +187,7 @@ function JourneyAddPage() {
             </Form.Item>
 
             <Form.Item
-              label="Thời Gian Di Chuyển"
+              label="Thời Gian Di Chuyển (dự kiến)"
               name="thoiGianDiChuyen"
               rules={[
                 { required: true, message: "Vui lòng nhập thời gian di chuyển" },

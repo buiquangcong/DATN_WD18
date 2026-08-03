@@ -1,4 +1,4 @@
-import { Button, Form, Select, DatePicker, message, Spin, Tag, Divider, } from "antd";
+import {Button,Form,Select,DatePicker,message,Spin,Tag,Divider,Input,} from "antd";
 import { useEffect, useState } from "react";
 import { useCRUD, useDetail } from "../../../hooks/useCRUD";
 import axios from "axios";
@@ -24,6 +24,7 @@ type Bus = {
   name?: string;
   bienSo?: string;
   licensePlates?: string;
+  capacity: number;
 };
 
 type Driver = {
@@ -37,6 +38,12 @@ type FareRule = {
   weekendPrice: number;
   holidayPrice: number;
   capacity: number;
+
+  journey?: {
+    _id: string;
+    diemDi: string;
+    diemDen: string;
+  };
 };
 
 function TripEditPage() {
@@ -50,6 +57,7 @@ function TripEditPage() {
   const [fareRules, setFareRules] = useState<FareRule[]>([]);
 
   const [selectedJourney, setSelectedJourney] = useState<Journey | null>(null);
+  const [selectedFareRule, setSelectedFareRule] = useState<FareRule | null>(null);
   const [departureTime, setDepartureTime] = useState<Dayjs | null>(null);
   const [arrivalTime, setArrivalTime] = useState<Dayjs | null>(null);
 
@@ -98,6 +106,12 @@ function TripEditPage() {
 
     if (trip.departureTime) setDepartureTime(dayjs(trip.departureTime));
     if (trip.arrivalTime) setArrivalTime(dayjs(trip.arrivalTime));
+
+    // Hiển thị tạm giá vé hiện tại của chuyến khi mới mở trang, sẽ được tính
+    // lại chính xác ngay khi availableBuses/fareRules load xong (useEffect bên dưới)
+    if (trip.fareRule) {
+      setSelectedFareRule(trip.fareRule);
+    }
   }, [trip, form]);
 
   // Khi đã load xong danh sách journeys và biết trip.journey, đồng bộ selectedJourney
@@ -160,6 +174,16 @@ function TripEditPage() {
     fetchAvailableBuses();
   }, [departureTime, arrivalTime, id, trip, selectedJourney]);
 
+  // Tự soát lại bảng giá ngay khi danh sách xe rảnh vừa load xong (kể cả khi
+  // người dùng chưa đổi gì) - để phát hiện và tự sửa trường hợp dữ liệu cũ của
+  // chuyến đã bị lưu sai (VD bảng giá xe 16 chỗ nhưng xe thực tế là 34 chỗ)
+  useEffect(() => {
+    const currentBusId = form.getFieldValue("bus");
+    if (!currentBusId || availableBuses.length === 0 || !selectedJourney) return;
+
+    handleFindFareRule(currentBusId);
+  }, [availableBuses, selectedJourney, fareRules]);
+
   // Khi đã đủ giờ khởi hành + giờ đến + tuyến đường, gọi API lấy tài xế đang rảnh
   // (loại trừ chính chuyến đang sửa, vì nó đang "bận" với chính chuyến này)
   useEffect(() => {
@@ -213,9 +237,40 @@ function TripEditPage() {
     fetchAvailableDrivers();
   }, [departureTime, arrivalTime, id, trip, selectedJourney]);
 
+  // Tự động tìm đúng bảng giá khớp cả Tuyến đường lẫn số chỗ (capacity) của xe
+  // đang chọn - không cho người dùng tự chọn tay để tránh chọn nhầm bảng giá
+  // của xe khác (VD xe 34 chỗ nhưng lại áp giá của xe 16 chỗ)
+  const handleFindFareRule = (busId: string) => {
+    const bus = availableBuses.find((x) => x._id === busId);
+
+    if (!bus || !selectedJourney) return;
+
+    const rule = fareRules.find(
+      (f) =>
+        f.journey?._id === selectedJourney._id &&
+        f.capacity === bus.capacity
+    );
+
+    if (rule) {
+      setSelectedFareRule(rule);
+      form.setFieldValue("fareRule", rule._id);
+    } else {
+      setSelectedFareRule(null);
+      form.setFieldValue("fareRule", undefined);
+      message.warning("Không tìm thấy bảng giá phù hợp với xe này");
+    }
+  };
+
   const handleJourneyChange = (journeyId: string) => {
     const journey = journeys.find((j) => j._id === journeyId) || null;
     setSelectedJourney(journey);
+
+    // Đổi tuyến thì bảng giá cũ chắc chắn không còn khớp - reset lại và
+    // tính lại theo xe đang chọn (nếu có)
+    const currentBusId = form.getFieldValue("bus");
+    if (currentBusId) {
+      handleFindFareRule(currentBusId);
+    }
   };
 
   const disabledPastDate = (current: any) => {
@@ -223,6 +278,11 @@ function TripEditPage() {
   };
 
   const onFinish = (values: any) => {
+    if (!selectedFareRule) {
+      message.error("Chưa xác định được bảng giá phù hợp cho xe này");
+      return;
+    }
+
     Edit({
       _id: id,
       journey: values.journey,
@@ -258,7 +318,7 @@ function TripEditPage() {
         layout="vertical"
         onFinish={onFinish}
       >
-        {/* Tuyến đường */}
+                {/* Tuyến đường */}
         <Form.Item
           name="journey"
           label="Tuyến đường"
@@ -414,30 +474,36 @@ function TripEditPage() {
               placeholder="Chọn xe đang rảnh"
               disabled={availableBuses.length === 0}
               notFoundContent="Không có xe nào rảnh vào khung giờ này"
+              onChange={handleFindFareRule}
             >
               {availableBuses.map((b) => (
                 <Select.Option key={b._id} value={b._id}>
                   {b.name || b.bienSo || "Xe"}
                   {b.licensePlates ? ` - ${b.licensePlates}` : ""}
+                  {` (${b.capacity} chỗ)`}
                 </Select.Option>
               ))}
             </Select>
           )}
         </Form.Item>
 
-        {/* Bảng giá */}
+        {/* Bảng giá: tự động xác định theo Tuyến đường + số chỗ của xe, không cho chọn tay */}
         <Form.Item
           name="fareRule"
-          label="Bảng giá"
-          rules={[{ required: true, message: "Chọn bảng giá" }]}
+          hidden
         >
-          <Select>
-            {fareRules.map((f) => (
-              <Select.Option key={f._id} value={f._id}>
-                {f.weekdayPrice.toLocaleString("vi-VN")} đ
-              </Select.Option>
-            ))}
-          </Select>
+          <Input />
+        </Form.Item>
+
+        <Form.Item label="Giá vé áp dụng">
+          <Input
+            disabled
+            value={
+              selectedFareRule
+                ? `${selectedFareRule.weekdayPrice.toLocaleString("vi-VN")} đ`
+                : "Chưa xác định - chọn xe để tự động tính"
+            }
+          />
         </Form.Item>
 
         {/* Tài xế: chỉ hiện khi đã đủ giờ khởi hành/đến/tuyến, chỉ liệt kê tài xế đang rảnh */}
@@ -473,41 +539,28 @@ function TripEditPage() {
 
         {/* Trạng thái */}
         <Form.Item
-          label="Trạng thái"
           name="status"
+          label="Trạng thái"
         >
           <Select
-            options={
-              trip?.status === "hoàn thành"
-                ? [
-                  {
-                    value: "hoàn thành",
-                    label: "Hoàn thành",
-                  },
-                  {
-                    value: "huỷ",
-                    label: "Huỷ",
-                  },
-                ]
-                : [
-                  {
-                    value: "sắp chạy",
-                    label: "Sắp chạy",
-                  },
-                  {
-                    value: "đang chạy",
-                    label: "Đang chạy",
-                  },
-                  {
-                    value: "hoàn thành",
-                    label: "Hoàn thành",
-                  },
-                  {
-                    value: "huỷ",
-                    label: "Huỷ",
-                  },
-                ]
-            }
+            options={[
+              {
+                value: "sắp chạy",
+                label: "Sắp chạy",
+              },
+              {
+                value: "đang chạy",
+                label: "Đang chạy",
+              },
+              {
+                value: "hoàn thành",
+                label: "Hoàn thành",
+              },
+              {
+                value: "huỷ",
+                label: "Huỷ",
+              },
+            ]}
           />
         </Form.Item>
 

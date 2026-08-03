@@ -8,42 +8,8 @@ import Booking from "../models/booking.model.js";
 import Journey from "../models/journey.model.js";
 import {TURN_AROUND_MINUTES,LOCATION_CHECK_MAX_GAP_MINUTES,checkBusAvailability,checkStaffAvailability,} from "../services/tripAvailability.service.js";
 import { calculateTicketPrice } from "../services/tripPricing.service.js";
-const updateTripStatus = async () => {
-  const now = new Date();
 
-  // ==============================
-  // Sắp chạy -> Đang chạy
-  // ==============================
-  await Trip.updateMany(
-    {
-      departureTime: { $lte: now },
-      arrivalTime: { $gt: now },
-      status: "sắp chạy",
-    },
-    {
-      $set: {
-        status: "đang chạy",
-      },
-    }
-  );
-
-  // ==============================
-  // Đang chạy -> Hoàn thành
-  // ==============================
-  await Trip.updateMany(
-    {
-      arrivalTime: { $lte: now },
-      status: "đang chạy",
-    },
-    {
-      $set: {
-        status: "hoàn thành",
-      },
-    }
-  );
-};
 export const getAll = asyncHandler(async (req, res) => {
-   await updateTripStatus();
   const trips = await Trip.find()
     .populate("journey")
     .populate("bus")
@@ -54,7 +20,6 @@ export const getAll = asyncHandler(async (req, res) => {
 });
 
 export const getOne = asyncHandler(async (req, res) => {
-   await updateTripStatus();
   const trip = await Trip.findById(req.params.id)
     .populate("journey")
     .populate("bus")
@@ -79,7 +44,15 @@ export const getDrivers = asyncHandler(async (req, res) => {
 });
 
 export const getAvailableDrivers = asyncHandler(async (req, res) => {
-  const {weekdays,startDate,endDate,departureHour,arrivalHour,journey, excludeTripId,} = req.query;
+  const {
+    weekdays,
+    startDate,
+    endDate,
+    departureHour,
+    arrivalHour,
+    journey, // id của Journey đang chọn, dùng để check khớp vị trí bến
+    excludeTripId,
+  } = req.query;
 
   if (
     !weekdays ||
@@ -360,7 +333,14 @@ export const getAvailableBuses = asyncHandler(async (req, res) => {
 });
 
 export const createOne = asyncHandler(async (req, res) => {
-  const {journey,bus,staff,departureTime,arrivalTime,fareRule,} = req.body;
+  const {
+    journey,
+    bus,
+    staff,
+    departureTime,
+    arrivalTime,
+    fareRule,
+  } = req.body;
 
   const busInfo = await Bus.findById(bus);
 
@@ -372,7 +352,10 @@ export const createOne = asyncHandler(async (req, res) => {
     });
   }
 
-  const autoSeats = generateSeats(busInfo.capacity,busInfo.type);
+  const autoSeats = generateSeats(
+    busInfo.capacity,
+    busInfo.type
+  );
 
   if (!autoSeats.length) {
     return res.status(400).json({
@@ -403,7 +386,13 @@ export const createOne = asyncHandler(async (req, res) => {
   // Kiểm tra xe (thời gian + vị trí bến)
   // ===========================
 
-  const busError = await checkBusAvailability(bus,journeyInfo,newDeparture,newArrival,null);
+  const busError = await checkBusAvailability(
+    bus,
+    journeyInfo,
+    newDeparture,
+    newArrival,
+    null
+  );
 
   if (busError) {
     return res.status(400).json({
@@ -416,7 +405,13 @@ export const createOne = asyncHandler(async (req, res) => {
   // ===========================
 
   if (staff) {
-    const staffError = await checkStaffAvailability(staff,journeyInfo,newDeparture,newArrival,null);
+    const staffError = await checkStaffAvailability(
+      staff,
+      journeyInfo,
+      newDeparture,
+      newArrival,
+      null
+    );
 
     if (staffError) {
       return res.status(400).json({
@@ -437,13 +432,30 @@ export const createOne = asyncHandler(async (req, res) => {
     });
   }
 
+  // Chặn trường hợp bảng giá không khớp số chỗ với xe đang chọn (VD bảng giá
+  // của xe 16 chỗ nhưng lại áp cho xe 34 chỗ) - tránh tính sai giá vé
+  if (fare.capacity !== busInfo.capacity) {
+    return res.status(400).json({
+      message: `Bảng giá này áp dụng cho xe ${fare.capacity} chỗ, không khớp với xe đang chọn (${busInfo.capacity} chỗ)`,
+    });
+  }
+
   // ===========================
   // Tính giá theo ngày
   // ===========================
 
   const ticketPrice = await calculateTicketPrice(fare, newDeparture);
 
-  const trip = await Trip.create({journey,bus,staff,fareRule,ticketPrice,departureTime,arrivalTime,seats: autoSeats,});
+  const trip = await Trip.create({
+    journey,
+    bus,
+    staff,
+    fareRule,
+    ticketPrice,
+    departureTime,
+    arrivalTime,
+    seats: autoSeats,
+  });
 
   return res.status(201).json({
     message:
@@ -480,6 +492,14 @@ export const updateOne = asyncHandler(async (req, res) => {
   }
 
   const busId = bus || oldTrip.bus;
+  const busInfo = await Bus.findById(busId);
+
+  if (!busInfo) {
+    return res.status(404).json({
+      message: "Không tìm thấy xe",
+    });
+  }
+
   const newDeparture = new Date(departureTime || oldTrip.departureTime);
   const newArrival = new Date(arrivalTime || oldTrip.arrivalTime);
 
@@ -543,6 +563,14 @@ export const updateOne = asyncHandler(async (req, res) => {
     });
   }
 
+  // Chặn trường hợp bảng giá không khớp số chỗ với xe đang chọn (VD bảng giá
+  // của xe 16 chỗ nhưng lại áp cho xe 34 chỗ) - tránh tính sai giá vé
+  if (fare.capacity !== busInfo.capacity) {
+    return res.status(400).json({
+      message: `Bảng giá này áp dụng cho xe ${fare.capacity} chỗ, không khớp với xe đang chọn (${busInfo.capacity} chỗ)`,
+    });
+  }
+
   req.body.ticketPrice = await calculateTicketPrice(fare, newDeparture);
 
   // ==========================
@@ -566,11 +594,30 @@ export const updateOne = asyncHandler(async (req, res) => {
 export const deleteOne = asyncHandler(async (req, res) => {
   const tripId = req.params.id;
 
-  // Kiểm tra chuyến có người đặt vé chưa
+  const trip = await Trip.findById(tripId);
+
+  if (!trip) {
+    return res.status(404).json({
+      message: "Không tìm thấy chuyến xe",
+    });
+  }
+
+  // Không cho xóa khi chuyến đang chạy (xe đang trên đường, không thể xóa
+  // giữa chừng - dữ liệu chuyến cần giữ lại để đối chiếu)
+  if (trip.status === "đang chạy") {
+    return res.status(400).json({
+      message: "Chuyến xe đang chạy, không thể xoá.",
+    });
+  }
+
+  // Kiểm tra chuyến có người đặt vé chưa - dùng đúng giá trị status tiếng Việt
+  // khớp với booking.controller.js ("Chờ xác nhận"/"Đã xác nhận"), trước đây
+  // đang check nhầm "Pending"/"Confirmed" (tiếng Anh) nên không bao giờ khớp
+  // được dữ liệu thật, khiến chuyến luôn xóa được dù đã có khách đặt vé
   const booked = await Booking.exists({
     trip: tripId,
     status: {
-      $in: ["Pending", "Confirmed"],
+      $in: ["Chờ xác nhận", "Đã xác nhận"],
     },
   });
 
@@ -581,13 +628,7 @@ export const deleteOne = asyncHandler(async (req, res) => {
     });
   }
 
-  const trip = await Trip.findByIdAndDelete(tripId);
-
-  if (!trip) {
-    return res.status(404).json({
-      message: "Không tìm thấy chuyến xe",
-    });
-  }
+  await Trip.findByIdAndDelete(tripId);
 
   return res.json({
     message: "Xóa chuyến xe thành công",
@@ -646,6 +687,14 @@ export const createSchedule = asyncHandler(async (req, res) => {
     });
   }
 
+  // Chặn trường hợp bảng giá không khớp số chỗ với xe đang chọn (VD bảng giá
+  // của xe 16 chỗ nhưng lại áp cho xe 34 chỗ) - tránh tính sai giá vé
+  if (fare.capacity !== busInfo.capacity) {
+    return res.status(400).json({
+      message: `Bảng giá này áp dụng cho xe ${fare.capacity} chỗ, không khớp với xe đang chọn (${busInfo.capacity} chỗ)`,
+    });
+  }
+
   // Lấy sẵn các chuyến hiện có của xe này trong DB (kèm journey để lấy diemDi/diemDen)
   const existingBusTrips = await Trip.find({ bus })
     .populate("journey")
@@ -673,7 +722,13 @@ export const createSchedule = asyncHandler(async (req, res) => {
       const [depHour, depMinute] =
         departureHour.split(":");
 
-      departureTime.setHours(Number(depHour),Number(depMinute),0,0);
+      departureTime.setHours(
+        Number(depHour),
+        Number(depMinute),
+        0,
+        0
+      );
+
       const arrivalTime = new Date(current);
 
       const [arrHour, arrMinute] =
@@ -696,7 +751,7 @@ export const createSchedule = asyncHandler(async (req, res) => {
         ...trips.map((t) => ({
           departureTime: t.departureTime,
           arrivalTime: t.arrivalTime,
-          journey: journeyInfo, 
+          journey: journeyInfo, // các chuyến trong lịch này đều dùng chung 1 journey
         })),
       ];
 
@@ -863,8 +918,25 @@ export const createSchedule = asyncHandler(async (req, res) => {
         }
       }
 
+      // ==========================
+      // Tính giá theo ngày chạy
+      // ==========================
+
       const ticketPrice = await calculateTicketPrice(fare, departureTime);
-      trips.push({journey,bus,staff,fareRule,ticketPrice,departureTime,arrivalTime,status: status || "sắp chạy",
+
+      // ==========================
+      // Thêm chuyến
+      // ==========================
+
+      trips.push({
+        journey,
+        bus,
+        staff,
+        fareRule,
+        ticketPrice,
+        departureTime,
+        arrivalTime,
+        status: status || "sắp chạy",
         seats: JSON.parse(
           JSON.stringify(autoSeats)
         ),
