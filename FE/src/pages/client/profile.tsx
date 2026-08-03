@@ -20,6 +20,7 @@ import {
   Tooltip,
   Radio,
   Flex,
+  QRCode,
 } from "antd";
 import {
   UserOutlined,
@@ -107,7 +108,7 @@ export default function ProfileClientPage() {
       const mapped: BookingRecord[] = userBookings.map((b: any) => {
         let mappedStatus: any = "pending";
         if (b.status === "Đã huỷ" || b.trip?.status === "huỷ") mappedStatus = "cancelled";
-        else if (b.status === "Hoàn thành" || b.trip?.status === "hoàn thành") mappedStatus = "completed";
+        else if (b.status === "Hoàn thành" || b.status === "Đã checkin" || b.status === "Đã check-in" || b.trip?.status === "hoàn thành") mappedStatus = "completed";
         else if (b.status === "Đã xác nhận" || b.status === "Đã thanh toán") mappedStatus = "confirmed";
         else if (b.status === "Yêu cầu hoàn tiền") mappedStatus = "refund_pending";
         else if (b.status === "Đã hoàn tiền") mappedStatus = "refunded";
@@ -1195,8 +1196,8 @@ export default function ProfileClientPage() {
               </div>
             </div>
 
-            <div className="text-center pt-3 bg-slate-50 p-4 rounded-xl border">
-              <QrcodeOutlined className="text-6xl text-slate-800" />
+            <div className="text-center pt-3 bg-slate-50 p-4 rounded-xl border flex flex-col items-center justify-center">
+              <QRCode value={selectedTicket.id} size={150} bordered={false} className="bg-white p-1 rounded-lg" />
               <Text type="secondary" className="block text-xs mt-2">
                 Quét mã QR khi lên xe để làm thủ tục check-in
               </Text>

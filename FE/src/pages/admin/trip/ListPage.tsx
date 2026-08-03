@@ -4,6 +4,35 @@ import { useNavigate } from "react-router-dom";
 import type { ColumnsType } from "antd/es/table";
 import { useState, useEffect } from "react";
 import dayjs from "dayjs";
+import { Html5Qrcode } from "html5-qrcode";
+import toast from "react-hot-toast";
+import axios from "axios";
+import { QrcodeOutlined, TeamOutlined } from "@ant-design/icons";
+
+interface BookingType {
+  _id: string;
+  orderCode?: number | string;
+  user?: {
+    _id: string;
+    username: string;
+    email: string;
+    phone?: string;
+    sdt?: string;
+  };
+  trip?: any;
+  seats: string[];
+  totalPrice: number;
+  status: string;
+}
+
+const bookingStatusColorMap: Record<string, string> = {
+  "Đã xác nhận": "green",
+  "Đã huỷ": "red",
+  "Hoàn thành": "blue",
+  "Đã checkin": "blue",
+  "Đã check-in": "blue",
+  "Chờ xác nhận": "orange",
+};
 
 interface DiemType {
   _id?: string;
@@ -114,9 +143,346 @@ function TripListPage() {
 
   const { data: trip, isLoading } = useDetail("trip", selectedId);
 
+  // State và Logic quét mã QR Check-in Khách
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [cameras, setCameras] = useState<any[]>([]);
+  const [selectedCameraId, setSelectedCameraId] = useState<string>("");
+  const [scannedBooking, setScannedBooking] = useState<BookingType | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const [html5QrCodeInstance, setHtml5QrCodeInstance] = useState<Html5Qrcode | null>(null);
+  const [isCheckingIn, setIsCheckingIn] = useState(false);
+
+  const playBeep = (isError = false) => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(isError ? 220 : 800, audioCtx.currentTime); // low pitch for error, high for success
+      gainNode.gain.setValueAtTime(0.08, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + (isError ? 0.3 : 0.15));
+
+      oscillator.start(audioCtx.currentTime);
+      oscillator.stop(audioCtx.currentTime + (isError ? 0.3 : 0.15));
+    } catch (e) {
+      console.error("Audio Context beep failed", e);
+    }
+  };
+
+  const handleScanSuccess = async (decodedText: string, instance: Html5Qrcode) => {
+    try {
+      // Gọi API lấy chi tiết đặt vé
+      const res = await axios.get(`http://localhost:3000/api/booking/${decodedText}`);
+      const bookingData = res.data;
+
+      if (!bookingData) {
+        playBeep(true);
+        toast.error("Không tìm thấy thông tin vé!");
+        return;
+      }
+
+      // Kiểm tra xem vé có thuộc đúng chuyến xe hiện tại đang xem hay không
+      const tripIdOfBooking = bookingData.trip?._id || bookingData.trip;
+      const currentTripId = trip?._id;
+
+      if (String(tripIdOfBooking) !== String(currentTripId)) {
+        playBeep(true);
+        const journeyDi = bookingData.trip?.journey?.diemDi || "Chưa rõ";
+        const journeyDen = bookingData.trip?.journey?.diemDen || "Chưa rõ";
+        const departureTime = bookingData.trip?.departureTime 
+          ? new Date(bookingData.trip.departureTime).toLocaleString("vi-VN") 
+          : "Chưa rõ";
+        
+        Modal.error({
+          title: "Sai chuyến xe!",
+          content: (
+            <div>
+              <p className="font-semibold text-red-600">Khách hàng đã quét nhầm vé của chuyến xe khác!</p>
+              <p className="mt-2">Hành trình vé này: <strong>{journeyDi} → {journeyDen}</strong></p>
+              <p>Giờ khởi hành: <strong>{departureTime}</strong></p>
+              <p className="text-xs text-gray-500 mt-2">* Vui lòng kiểm tra lại vé của khách hàng hoặc đổi chuyến xe phù hợp.</p>
+            </div>
+          ),
+          okText: "Đã hiểu"
+        });
+        return;
+      }
+
+      // Kiểm tra trạng thái của vé
+      if (bookingData.status === "Hoàn thành" || bookingData.status === "Đã checkin" || bookingData.status === "Đã check-in") {
+        playBeep(true);
+        toast.error(`Vé này đã được check-in trước đó!`);
+        return;
+      }
+
+      if (bookingData.status === "Đã huỷ") {
+        playBeep(true);
+        toast.error(`Vé này đã bị hủy trên hệ thống!`);
+        return;
+      }
+
+      // TIẾN HÀNH TỰ ĐỘNG CHECK-IN NGAY LẬP TỨC
+      await stopScanner(instance);
+      
+      await axios.put(`http://localhost:3000/api/booking/update/${bookingData._id}`, {
+        status: "Đã checkin"
+      });
+
+      playBeep();
+      setTimeout(playBeep, 150); // Bíp đôi
+
+      toast.success(`Tự động Check-in thành công cho khách hàng ${bookingData.user?.username || "NETBUS"}!`);
+
+      // Làm mới dữ liệu chuyến xe hiện tại và bảng danh sách
+      window.dispatchEvent(new Event("storage"));
+      
+      setIsScannerOpen(false);
+    } catch (err: any) {
+      console.error("Lỗi khi quét hoặc check-in vé:", err);
+      
+      // Fallback: Tìm theo orderCode nếu là số
+      if (/^\d+$/.test(decodedText)) {
+        try {
+          const bookingsRes = await axios.get("http://localhost:3000/api/booking");
+          const allBookings = bookingsRes.data || [];
+          const foundBooking = allBookings.find(
+            (b: any) => String(b.orderCode) === decodedText
+          );
+
+          if (foundBooking) {
+            const tripIdOfBooking = foundBooking.trip?._id || foundBooking.trip;
+            const currentTripId = trip?._id;
+
+            if (String(tripIdOfBooking) !== String(currentTripId)) {
+              playBeep(true);
+              const journeyDi = foundBooking.trip?.journey?.diemDi || "Chưa rõ";
+              const journeyDen = foundBooking.trip?.journey?.diemDen || "Chưa rõ";
+              const departureTime = foundBooking.trip?.departureTime 
+                ? new Date(foundBooking.trip.departureTime).toLocaleString("vi-VN") 
+                : "Chưa rõ";
+
+              Modal.error({
+                title: "Sai chuyến xe!",
+                content: (
+                  <div>
+                    <p className="font-semibold text-red-600">Khách hàng đã quét nhầm vé của chuyến xe khác!</p>
+                    <p className="mt-2">Hành trình vé này: <strong>{journeyDi} → {journeyDen}</strong></p>
+                    <p>Giờ khởi hành: <strong>{departureTime}</strong></p>
+                  </div>
+                ),
+                okText: "Đã hiểu"
+              });
+              return;
+            }
+
+            if (foundBooking.status === "Hoàn thành" || foundBooking.status === "Đã checkin" || foundBooking.status === "Đã check-in") {
+              playBeep(true);
+              toast.error(`Vé này đã được check-in trước đó!`);
+              return;
+            }
+
+            if (foundBooking.status === "Đã huỷ") {
+              playBeep(true);
+              toast.error(`Vé này đã bị hủy trên hệ thống!`);
+              return;
+            }
+
+            await stopScanner(instance);
+            
+            await axios.put(`http://localhost:3000/api/booking/update/${foundBooking._id}`, {
+              status: "Đã checkin"
+            });
+
+            playBeep();
+            setTimeout(playBeep, 150);
+
+            toast.success(`Tự động Check-in thành công cho khách hàng ${foundBooking.user?.username || "NETBUS"}!`);
+
+            window.dispatchEvent(new Event("storage"));
+            setIsScannerOpen(false);
+            return;
+          }
+        } catch (e) {}
+      }
+      playBeep(true);
+      toast.error("Quét vé thất bại. Vé không hợp lệ hoặc lỗi kết nối!");
+    }
+  };
+
+  const startScanner = async (cameraId: string) => {
+    if (!cameraId) return;
+    try {
+      setIsScanning(true);
+      setTimeout(async () => {
+        try {
+          const instance = new Html5Qrcode("trip-qr-reader");
+          setHtml5QrCodeInstance(instance);
+          await instance.start(
+            cameraId,
+            {
+              fps: 10,
+              qrbox: { width: 220, height: 220 },
+            },
+            (decodedText) => {
+              handleScanSuccess(decodedText, instance);
+            },
+            () => {
+              // Bỏ qua lỗi đọc camera định kỳ
+            }
+          );
+        } catch (err: any) {
+          console.error("Lỗi khi start camera:", err);
+          toast.error("Không thể kích hoạt camera: " + err.message);
+          setIsScanning(false);
+        }
+      }, 300);
+    } catch (err: any) {
+      console.error(err);
+      setIsScanning(false);
+    }
+  };
+
+  const stopScanner = async (instance?: Html5Qrcode | null) => {
+    const activeInstance = instance || html5QrCodeInstance;
+    if (activeInstance && activeInstance.isScanning) {
+      try {
+        await activeInstance.stop();
+        setHtml5QrCodeInstance(null);
+      } catch (err) {
+        console.error("Lỗi khi dừng camera:", err);
+      }
+    }
+    setIsScanning(false);
+  };
+
+  const handleCloseScanner = async () => {
+    await stopScanner();
+    setIsScannerOpen(false);
+    setScannedBooking(null);
+  };
+
+  const handleCameraChange = async (value: string) => {
+    setSelectedCameraId(value);
+    await stopScanner();
+    startScanner(value);
+  };
+
+  const handleConfirmCheckin = async () => {
+    if (!scannedBooking) return;
+    setIsCheckingIn(true);
+    try {
+      await axios.put(`http://localhost:3000/api/booking/update/${scannedBooking._id}`, {
+        status: "Hoàn thành"
+      });
+
+      playBeep();
+      setTimeout(playBeep, 150);
+
+      toast.success(`Check-in thành công cho khách hàng ${scannedBooking.user?.username || "NETBUS"}!`);
+
+      // Làm mới dữ liệu chuyến xe hiện tại và bảng danh sách
+      window.dispatchEvent(new Event("storage"));
+      
+      setScannedBooking(null);
+      setIsScannerOpen(false);
+    } catch (error: any) {
+      console.error("Lỗi check-in:", error);
+      toast.error(error.response?.data?.message || "Check-in thất bại!");
+    } finally {
+      setIsCheckingIn(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isScannerOpen) {
+      Html5Qrcode.getCameras()
+        .then((devices) => {
+          if (devices && devices.length > 0) {
+            setCameras(devices);
+            const backCamera = devices.find((device) =>
+              device.label.toLowerCase().includes("back") ||
+              device.label.toLowerCase().includes("environment") ||
+              device.label.toLowerCase().includes("sau")
+            );
+            const defaultId = backCamera ? backCamera.id : devices[0].id;
+            setSelectedCameraId(defaultId);
+            startScanner(defaultId);
+          } else {
+            toast.error("Không tìm thấy camera khả dụng!");
+          }
+        })
+        .catch((err) => {
+          console.error("Lỗi lấy danh sách camera:", err);
+          toast.error("Vui lòng cấp quyền truy cập camera!");
+        });
+    } else {
+      stopScanner();
+    }
+    return () => {
+      stopScanner();
+    };
+  }, [isScannerOpen]);
+
   useEffect(() => {
     if (trip) setOpen(true);
   }, [trip]);
+
+  // State và Logic xem Danh sách khách đặt vé
+  const [isCustomerListOpen, setIsCustomerListOpen] = useState(false);
+  const [tripBookings, setTripBookings] = useState<BookingType[]>([]);
+  const [bookingsLoading, setBookingsLoading] = useState(false);
+
+  const fetchTripBookings = async (currentTripId: string) => {
+    if (!currentTripId) return;
+    setBookingsLoading(true);
+    try {
+      const res = await axios.get("http://localhost:3000/api/booking");
+      const allBookings = res.data || [];
+      const filtered = allBookings.filter(
+        (b: any) => String(b.trip?._id || b.trip) === String(currentTripId)
+      );
+      setTripBookings(filtered);
+    } catch (err) {
+      console.error("Lỗi lấy danh sách khách đặt:", err);
+      toast.error("Không thể tải danh sách khách đặt vé!");
+    } finally {
+      setBookingsLoading(false);
+    }
+  };
+
+  const handleOpenCustomerList = async () => {
+    if (!trip?._id) return;
+    setIsCustomerListOpen(true);
+    await fetchTripBookings(trip._id);
+  };
+
+  const handleDirectCheckin = async (bookingId: string, customerName: string) => {
+    try {
+      await axios.put(`http://localhost:3000/api/booking/update/${bookingId}`, {
+        status: "Đã checkin"
+      });
+
+      playBeep();
+      setTimeout(playBeep, 150);
+
+      toast.success(`Check-in thành công cho khách hàng ${customerName}!`);
+      
+      // Đồng bộ làm mới bảng ở trang chính
+      window.dispatchEvent(new Event("storage"));
+
+      // Làm mới danh sách trong modal hiện tại
+      if (trip?._id) {
+        await fetchTripBookings(trip._id);
+      }
+    } catch (error: any) {
+      console.error("Lỗi check-in:", error);
+      toast.error(error.response?.data?.message || "Check-in thất bại!");
+    }
+  };
 
   const handleView = (id: string) => {
     setSelectedId(id);
@@ -379,14 +745,36 @@ function TripListPage() {
           setSelectedId(undefined);
         }}
         footer={
-          <Button
-            onClick={() => {
-              setOpen(false);
-              setSelectedId(undefined);
-            }}
-          >
-            Đóng
-          </Button>
+          <Space>
+            {trip && (
+              <>
+                <Button
+                  type="default"
+                  icon={<TeamOutlined />}
+                  className="border-blue-600 text-blue-600 hover:bg-blue-50 rounded-lg font-medium flex items-center gap-1.5 shadow-xs"
+                  onClick={handleOpenCustomerList}
+                >
+                  Danh sách khách đặt
+                </Button>
+                <Button
+                  type="primary"
+                  icon={<QrcodeOutlined />}
+                  className="bg-emerald-600 hover:bg-emerald-700 border-none rounded-lg font-medium flex items-center gap-1.5 shadow-xs"
+                  onClick={() => setIsScannerOpen(true)}
+                >
+                  Quét QR Check-in Khách
+                </Button>
+              </>
+            )}
+            <Button
+              onClick={() => {
+                setOpen(false);
+                setSelectedId(undefined);
+              }}
+            >
+              Đóng
+            </Button>
+          </Space>
         }
         width={900}
       >
@@ -581,6 +969,360 @@ function TripListPage() {
           pagination={{ pageSize: 5 }}
           locale={{ emptyText: "Chưa có khách nào đặt vé chuyến này" }}
         />
+      {/* Style CSS cho hiệu ứng quét camera */}
+      <style>{`
+        #trip-qr-reader {
+          width: 100% !important;
+          border: none !important;
+          border-radius: 12px;
+          overflow: hidden;
+        }
+        #trip-qr-reader video {
+          border-radius: 12px;
+          object-fit: cover !important;
+        }
+        .scanner-container {
+          position: relative;
+          width: 100%;
+          max-width: 300px;
+          height: 300px;
+          margin: 10px auto;
+          border-radius: 16px;
+          overflow: hidden;
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+          background: #000;
+        }
+        .scanner-overlay {
+          position: absolute;
+          inset: 0;
+          border: 1px solid rgba(34, 197, 94, 0.15);
+          border-radius: 16px;
+          pointer-events: none;
+          z-index: 10;
+        }
+        .scanner-laser {
+          position: absolute;
+          left: 0;
+          right: 0;
+          height: 2px;
+          background: linear-gradient(to right, transparent, #22c55e, transparent);
+          box-shadow: 0 0 6px 2px rgba(34, 197, 94, 0.5);
+          animation: scan 2.5s linear infinite;
+          z-index: 11;
+        }
+        .scanner-corner {
+          position: absolute;
+          width: 16px;
+          height: 16px;
+          border-color: #22c55e;
+          border-style: solid;
+          z-index: 12;
+        }
+        .scanner-corner-tl { top: 20px; left: 20px; border-width: 3px 0 0 3px; border-top-left-radius: 6px; }
+        .scanner-corner-tr { top: 20px; right: 20px; border-width: 3px 3px 0 0; border-top-right-radius: 6px; }
+        .scanner-corner-bl { bottom: 20px; left: 20px; border-width: 0 0 3px 3px; border-bottom-left-radius: 6px; }
+        .scanner-corner-br { bottom: 20px; right: 20px; border-width: 0 3px 3px 0; border-bottom-right-radius: 6px; }
+        @keyframes scan {
+          0% { top: 20px; }
+          50% { top: 280px; }
+          100% { top: 20px; }
+        }
+      `}</style>
+
+      {/* Modal Quét QR Code để checkin vé */}
+      <Modal
+        open={isScannerOpen}
+        title={
+          <Space className="text-gray-800">
+            <QrcodeOutlined className="text-emerald-600 text-lg" />
+            <span className="font-bold text-lg">Quét QR Check-in Hành Khách</span>
+          </Space>
+        }
+        onCancel={handleCloseScanner}
+        footer={null}
+        width={480}
+        destroyOnClose
+        centered
+        className="rounded-2xl"
+      >
+        <div className="space-y-4 pt-2 flex flex-col items-center">
+          {!scannedBooking ? (
+            <>
+              {cameras.length > 0 && (
+                <div className="w-full space-y-1">
+                  <label className="text-xs text-gray-500 font-medium">Chọn Thiết Bị Camera:</label>
+                  <Select
+                    className="w-full"
+                    size="large"
+                    value={selectedCameraId}
+                    onChange={handleCameraChange}
+                    options={cameras.map((cam) => ({
+                      value: cam.id,
+                      label: cam.label || `Camera ${cameras.indexOf(cam) + 1}`,
+                    }))}
+                  />
+                </div>
+              )}
+
+              <div className="scanner-container">
+                <div id="trip-qr-reader" className="w-full h-full"></div>
+                {isScanning && (
+                  <>
+                    <div className="scanner-overlay"></div>
+                    <div className="scanner-laser"></div>
+                    <div className="scanner-corner scanner-corner-tl"></div>
+                    <div className="scanner-corner scanner-corner-tr"></div>
+                    <div className="scanner-corner scanner-corner-bl"></div>
+                    <div className="scanner-corner scanner-corner-br"></div>
+                  </>
+                )}
+              </div>
+
+              <div className="text-center px-4">
+                <p className="text-xs text-gray-500 font-semibold text-amber-700">
+                  Chuyến hiện tại: {trip?.journey?.diemDi} → {trip?.journey?.diemDen} ({trip?.departureTime ? new Date(trip.departureTime).toLocaleTimeString("vi-VN", {hour: '2-digit', minute:'2-digit'}) : ""})
+                </p>
+                <p className="text-[11px] text-gray-400 mt-1">
+                  Đưa mã QR trên vé khách hàng trước camera. Hệ thống sẽ tự động đối chiếu chuyến xe.
+                </p>
+              </div>
+            </>
+          ) : (
+            /* HIỂN THỊ THÔNG TIN VÉ ĐÃ QUÉT */
+            <div className="w-full space-y-4">
+              <Card className="border border-gray-100 rounded-xl bg-slate-50/50 shadow-xs" styles={{ body: { padding: 16 } }}>
+                <div className="text-center pb-2.5 border-b mb-3">
+                  <h3 className="text-sm font-bold text-emerald-800 uppercase tracking-wide">Thông tin vé của khách</h3>
+                  <Tag color="blue" className="font-bold text-xs uppercase px-2.5 py-0.5 mt-1 rounded-full">
+                    {scannedBooking.orderCode ? `NB-${scannedBooking.orderCode}` : "NB-XXXXXX"}
+                  </Tag>
+                </div>
+
+                <div className="space-y-2.5 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Hành khách:</span>
+                    <span className="font-semibold text-gray-800">{scannedBooking.user?.username || "Hành khách NETBUS"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Số điện thoại:</span>
+                    <span className="text-gray-700">{scannedBooking.user?.phone || scannedBooking.user?.sdt || "Không có"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Giờ đi của chuyến:</span>
+                    <span className="font-semibold text-gray-700">
+                      {scannedBooking.trip?.departureTime 
+                        ? new Date(scannedBooking.trip.departureTime).toLocaleString("vi-VN") 
+                        : "---"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Vị trí ghế đã đặt:</span>
+                    <span className="font-bold text-emerald-700 text-sm">{scannedBooking.seats?.join(", ")}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Tổng tiền vé:</span>
+                    <span className="font-bold text-red-600 text-sm">
+                      {(scannedBooking.totalPrice || 0).toLocaleString("vi-VN")} đ
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center pt-2.5 border-t mt-2">
+                    <span className="text-gray-400 font-medium">Trạng thái đặt vé:</span>
+                    <Tag color={
+                      scannedBooking.status === "Hoàn thành" ? "blue" : 
+                      scannedBooking.status === "Đã xác nhận" ? "green" : 
+                      scannedBooking.status === "Đã huỷ" ? "red" : "orange"
+                    }>
+                      {scannedBooking.status || "Chờ xác nhận"}
+                    </Tag>
+                  </div>
+                </div>
+              </Card>
+
+              {/* THÔNG BÁO VÀ NÚT XÁC NHẬN */}
+              <div className="space-y-3">
+                {scannedBooking.status === "Hoàn thành" && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-xl flex items-center gap-2 font-medium">
+                    <span>⚠️ Vé này đã được check-in hoàn thành trước đó.</span>
+                  </div>
+                )}
+
+                {scannedBooking.status === "Đã huỷ" && (
+                  <div className="p-3 bg-red-50 border border-red-200 text-red-800 text-xs rounded-xl flex items-center gap-2 font-medium">
+                    <span>❌ Vé này đã bị hủy, không hợp lệ!</span>
+                  </div>
+                )}
+
+                {scannedBooking.status !== "Hoàn thành" && scannedBooking.status !== "Đã huỷ" && (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl flex items-center gap-2 font-medium">
+                    <span>✅ Vé hợp lệ cho chuyến xe này. Hãy click "Xác nhận Check-in" để đón khách lên xe.</span>
+                  </div>
+                )}
+
+                <div className="flex gap-2 justify-end pt-2">
+                  <Button
+                    size="large"
+                    onClick={() => {
+                      setScannedBooking(null);
+                      if (selectedCameraId) startScanner(selectedCameraId);
+                    }}
+                    className="rounded-lg font-medium"
+                  >
+                    Quét Tiếp
+                  </Button>
+                  
+                  {scannedBooking.status !== "Hoàn thành" && scannedBooking.status !== "Đã huỷ" && (
+                    <Button
+                      type="primary"
+                      size="large"
+                      loading={isCheckingIn}
+                      onClick={handleConfirmCheckin}
+                      className="bg-blue-600 hover:bg-blue-700 border-none rounded-lg font-bold"
+                    >
+                      Xác nhận Check-in
+                    </Button>
+                  )}
+
+                  <Button
+                    size="large"
+                    onClick={handleCloseScanner}
+                    className="rounded-lg font-medium"
+                  >
+                    Đóng
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      {/* Modal hiển thị Danh sách khách hàng đặt vé của chuyến */}
+      <Modal
+        open={isCustomerListOpen}
+        title={
+          <Space className="text-gray-800">
+            <TeamOutlined className="text-blue-600 text-lg" />
+            <span className="font-bold text-lg">Danh sách hành khách đặt vé</span>
+          </Space>
+        }
+        onCancel={() => {
+          setIsCustomerListOpen(false);
+          setTripBookings([]);
+        }}
+        footer={[
+          <Button
+            key="close"
+            onClick={() => {
+              setIsCustomerListOpen(false);
+              setTripBookings([]);
+            }}
+          >
+            Đóng
+          </Button>,
+        ]}
+        width={800}
+        centered
+        destroyOnClose
+      >
+        <div className="space-y-4 pt-2">
+          {trip && (
+            <div className="p-3 bg-slate-50 rounded-xl border flex flex-col sm:flex-row justify-between sm:items-center gap-2 text-xs">
+              <div>
+                Hành trình: <strong className="text-blue-600 text-sm">{trip.journey?.diemDi} → {trip.journey?.diemDen}</strong>
+              </div>
+              <div>
+                Khởi hành: <strong>{new Date(trip.departureTime).toLocaleString("vi-VN")}</strong>
+              </div>
+              <div>
+                Xe & Biển số: <strong>{trip.bus?.name} ({trip.bus?.licensePlates})</strong>
+              </div>
+            </div>
+          )}
+
+          <Table
+            columns={[
+              {
+                title: "Hành khách",
+                render: (_: any, record: BookingType) => (
+                  <div>
+                    <div className="font-semibold text-gray-800">{record.user?.username || "Hành khách NETBUS"}</div>
+                    <div className="text-xs text-gray-400">{record.user?.email || "Chưa cập nhật"}</div>
+                  </div>
+                ),
+              },
+              {
+                title: "Số điện thoại",
+                render: (_: any, record: BookingType) => (
+                  <span>{record.user?.phone || record.user?.sdt || "---"}</span>
+                ),
+              },
+              {
+                title: "Ghế đặt",
+                dataIndex: "seats",
+                render: (seats: string[]) => (
+                  <Space size={4} wrap>
+                    {seats?.map(seat => (
+                      <Tag color="cyan" key={seat} className="font-semibold">{seat}</Tag>
+                    ))}
+                  </Space>
+                ),
+              },
+              {
+                title: "Tổng tiền",
+                dataIndex: "totalPrice",
+                render: (price: number) => (
+                  <span className="font-medium text-red-500 text-xs">
+                    {(price || 0).toLocaleString("vi-VN")} đ
+                  </span>
+                ),
+              },
+              {
+                title: "Trạng thái",
+                dataIndex: "status",
+                render: (status: string) => {
+                  let color = "orange";
+                  if (status === "Hoàn thành") color = "blue";
+                  else if (status === "Đã xác nhận") color = "green";
+                  else if (status === "Đã huỷ") color = "red";
+                  return <Tag color={color}>{status}</Tag>;
+                },
+              },
+              {
+                title: "Hành động",
+                key: "action",
+                render: (_: any, record: BookingType) => {
+                  if (record.status === "Hoàn thành") {
+                    return <span className="text-gray-400 font-medium text-xs">✓ Đã check-in</span>;
+                  }
+                  if (record.status === "Đã huỷ") {
+                    return <span className="text-red-400 font-medium text-xs">Vé đã hủy</span>;
+                  }
+                  return (
+                    <Button
+                      type="primary"
+                      size="small"
+                      className="bg-emerald-600 hover:bg-emerald-700 border-none rounded-md text-xs font-semibold"
+                      onClick={() => handleDirectCheckin(record._id, record.user?.username || "Khách hàng")}
+                    >
+                      Check-in
+                    </Button>
+                  );
+                },
+              },
+            ]}
+            dataSource={tripBookings}
+            rowKey="_id"
+            loading={bookingsLoading}
+            pagination={{
+              pageSize: 5,
+              showTotal: (total) => `Tổng số ${total} lượt đặt vé`,
+            }}
+            size="small"
+            locale={{
+              emptyText: "Chưa có hành khách nào đặt vé cho chuyến xe này.",
+            }}
+          />
+        </div>
       </Modal>
     </div>
   );
