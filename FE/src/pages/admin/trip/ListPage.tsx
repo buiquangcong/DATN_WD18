@@ -174,9 +174,39 @@ function TripListPage() {
   };
 
   const handleScanSuccess = async (decodedText: string, instance: Html5Qrcode) => {
+    if (!trip) return;
+
+    // Kiểm tra chuyến xe đã hoàn thành hay chưa
+    if (trip.status === "hoàn thành") {
+      playBeep(true);
+      toast.error("Chuyến xe đã hoàn thành, không thể check-in!");
+      return;
+    }
+
+    // Kiểm tra thời gian check-in (chỉ được phép trước/sau giờ xe chạy 15 phút)
+    if (trip.departureTime) {
+      const now = dayjs();
+      const departure = dayjs(trip.departureTime);
+      const diffMinutes = now.diff(departure, "minute");
+
+      if (diffMinutes < -15 || diffMinutes > 15) {
+        playBeep(true);
+        toast.error("Chỉ được phép check-in trong khoảng từ 15 phút trước đến 15 phút sau giờ xe chạy!");
+        return;
+      }
+    }
+
+    let bookingId = decodedText.trim();
+    if (decodedText.includes("Mã vé:")) {
+      const match = decodedText.match(/Mã vé:\s*([^\s\r\n]+)/);
+      if (match && match[1]) {
+        bookingId = match[1].trim();
+      }
+    }
+
     try {
       // Gọi API lấy chi tiết đặt vé
-      const res = await axios.get(`http://localhost:3000/api/booking/${decodedText}`);
+      const res = await axios.get(`http://localhost:3000/api/booking/${bookingId}`);
       const bookingData = res.data;
 
       if (!bookingData) {
@@ -461,6 +491,28 @@ function TripListPage() {
   };
 
   const handleDirectCheckin = async (bookingId: string, customerName: string) => {
+    if (!trip) return;
+
+    // Kiểm tra chuyến xe đã hoàn thành hay chưa
+    if (trip.status === "hoàn thành") {
+      playBeep(true);
+      toast.error("Chuyến xe đã hoàn thành, không thể check-in!");
+      return;
+    }
+
+    // Kiểm tra thời gian check-in (chỉ được phép trước/sau giờ xe chạy 15 phút)
+    if (trip.departureTime) {
+      const now = dayjs();
+      const departure = dayjs(trip.departureTime);
+      const diffMinutes = now.diff(departure, "minute");
+
+      if (diffMinutes < -15 || diffMinutes > 15) {
+        playBeep(true);
+        toast.error("Chỉ được phép check-in trong khoảng từ 15 phút trước đến 15 phút sau giờ xe chạy!");
+        return;
+      }
+    }
+
     try {
       await axios.put(`http://localhost:3000/api/booking/update/${bookingId}`, {
         status: "Đã checkin"
