@@ -5,20 +5,23 @@ import {
   Input,
   Select,
   Spin,
+  message,
 } from "antd";
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useCRUD, useDetail } from "../../../hooks/useCRUD";
-
-const days = Array.from({ length: 31 }, (_, i) => ({
-  label: `Ngày ${i + 1}`,
-  value: i + 1,
-}));
 
 const months = Array.from({ length: 12 }, (_, i) => ({
   label: `Tháng ${i + 1}`,
   value: i + 1,
 }));
+
+// Số ngày tối đa của 1 tháng, dùng năm thường (2025, không nhuận) làm mốc
+// để Tháng 2 luôn giới hạn 28 ngày, tránh nhầm lẫn với ngày 29/2 hiếm gặp
+const getDaysInMonth = (month: number | null) => {
+  if (!month) return 31;
+  return new Date(2025, month, 0).getDate();
+};
 
 function HolidayEditPage() {
   const { id } = useParams();
@@ -26,6 +29,17 @@ function HolidayEditPage() {
 
   const { Edit } = useCRUD("holiday");
   const { data, isLoading } = useDetail("holiday", id);
+
+  const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
+
+  const days = useMemo(() => {
+    const maxDay = getDaysInMonth(selectedMonth);
+
+    return Array.from({ length: maxDay }, (_, i) => ({
+      label: `Ngày ${i + 1}`,
+      value: i + 1,
+    }));
+  }, [selectedMonth]);
 
   useEffect(() => {
     if (data) {
@@ -36,8 +50,28 @@ function HolidayEditPage() {
         day: data.day,
         month: data.month,
       });
+
+      // Đồng bộ selectedMonth theo dữ liệu đã có, để dropdown Ngày giới hạn
+      // đúng ngay từ lúc mở trang, không phải đợi người dùng đổi Tháng
+      setSelectedMonth(data.month);
     }
   }, [data, form]);
+
+  const handleMonthChange = (month: number) => {
+    setSelectedMonth(month);
+
+    // Nếu ngày đang chọn không còn hợp lệ với tháng mới (VD đang chọn 30,
+    // đổi sang Tháng 2 chỉ có 28 ngày) thì reset lại để tránh gửi dữ liệu sai
+    const currentDay = form.getFieldValue("day");
+    const maxDay = getDaysInMonth(month);
+
+    if (currentDay && currentDay > maxDay) {
+      form.setFieldValue("day", undefined);
+      message.warning(
+        `Tháng ${month} chỉ có ${maxDay} ngày, vui lòng chọn lại Ngày`
+      );
+    }
+  };
 
   const onFinish = (values: any) => {
     Edit({
@@ -84,7 +118,11 @@ function HolidayEditPage() {
               className="flex-1"
               rules={[{ required: true, message: "Chọn tháng" }]}
             >
-              <Select options={months} placeholder="Chọn tháng" />
+              <Select
+                options={months}
+                placeholder="Chọn tháng"
+                onChange={handleMonthChange}
+              />
             </Form.Item>
           </div>
 

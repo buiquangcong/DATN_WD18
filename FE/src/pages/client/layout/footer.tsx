@@ -126,10 +126,10 @@ export function Footer() {
         </div>
       </div>
       <div className="border-t border-outline-variant/20 py-8 px-margin-desktop max-w-container-max mx-auto flex flex-col md:flex-row justify-between items-center text-label-sm text-secondary gap-4">
-        <p>© 2024 NETBUS Infrastructure. All rights reserved. Driving a greener future.</p>
+        <p>© 2026 NETBUS. Bảo lưu mọi quyền. Hướng tới một tương lai xanh hơn.</p>
         <div className="flex gap-6">
-          <span>Trực tuyến: 25</span>
-          <span>Tổng truy cập: 101,088</span>
+          {/* <span>Trực tuyến: 25</span>
+          <span>Tổng truy cập: 101,088</span> */}
         </div>
       </div>
     </footer>

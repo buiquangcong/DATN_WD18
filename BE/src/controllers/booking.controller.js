@@ -202,6 +202,24 @@ export const updateOne = asyncHandler(async (req, res) => {
         }
     }
 
+    // Nếu chuyển trạng thái sang Đã xác nhận, Đã checkin hoặc Hoàn thành, tiến hành đặt ghế chính thức (BOOKED) trong Trip
+    if (req.body.status === "Đã xác nhận" || req.body.status === "Đã checkin" || req.body.status === "Hoàn thành") {
+        const bookingObj = await Booking.findById(req.params.id);
+        if (bookingObj) {
+            const trip = await Trip.findById(bookingObj.trip);
+            if (trip) {
+                trip.seats.forEach((seat) => {
+                    if (bookingObj.seats.includes(seat.seatCode)) {
+                        seat.status = "BOOKED";
+                        seat.heldBy = null;
+                        seat.expiresAt = null;
+                    }
+                });
+                await trip.save();
+            }
+        }
+    }
+
     const booking = await Booking.findByIdAndUpdate(
         req.params.id,
         req.body,
