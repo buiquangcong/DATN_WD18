@@ -70,13 +70,13 @@ function JourneyListPage() {
       render: (text: string) => <span className="text-gray-600">{text}</span>,
     },
     {
-      title: "Quãng Đường",
+      title: "Quãng Đường (dự kiến)",
       dataIndex: "quangDuong",
       key: "quangDuong",
       render: (quangDuong: string | number) => <span className="text-gray-600">{quangDuong}</span>,
     },
     {
-      title: "Thời Gian Di Chuyển",
+      title: "Thời Gian Di Chuyển (dự kiến)",
       dataIndex: "thoiGianDiChuyen",
       key: "thoiGianDiChuyen",
       render: (time: string) => <span className="text-gray-600">{time}</span>,

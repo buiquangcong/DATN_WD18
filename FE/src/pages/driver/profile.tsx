@@ -13,6 +13,10 @@ import {
   Flex,
   DatePicker,
   Tag,
+  Divider,
+  Switch,
+  Tabs,
+  Modal
 } from "antd";
 import {
   UserOutlined,
@@ -25,6 +29,9 @@ import {
   SaveOutlined,
   ArrowLeftOutlined,
   SafetyCertificateOutlined,
+  LockOutlined,
+  KeyOutlined,
+  CheckCircleOutlined,
 } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -37,10 +44,12 @@ const { Title, Text } = Typography;
 export default function ProfileDriverPage() {
   const navigate = useNavigate();
   const [profileForm] = Form.useForm();
+  const [passwordForm] = Form.useForm();
 
   const [userData, setUserData] = useState<any>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string>("");
+  const [changingPassword, setChangingPassword] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load driver user info from localStorage & API
@@ -178,6 +187,81 @@ export default function ProfileDriverPage() {
 
     window.dispatchEvent(new Event("storage"));
     window.dispatchEvent(new CustomEvent("user-updated", { detail: updatedUser }));
+  };
+
+  // Change password handler - gọi API backend
+
+  const handleChangePassword = async (values: any) => {
+    if (values.newPassword !== values.confirmPassword) {
+      toast.error("Mật khẩu xác nhận không trùng khớp!");
+      return;
+    }
+
+    if (!userData?._id) {
+      toast.error("Không tìm thấy thông tin tài khoản!");
+      return;
+    }
+
+    try {
+      const response = await axios.post("http://localhost:3000/api/auth/change-password", {
+        userId: userData._id,
+        currentPassword: values.currentPassword,
+        newPassword: values.newPassword,
+      });
+
+      if (response.data?.success) {
+        toast.success("Đổi mật khẩu thành công! Vui lòng bảo mật mật khẩu mới.");
+        passwordForm.resetFields();
+      } else {
+        toast.error(response.data?.message || "Đổi mật khẩu thất bại!");
+      }
+    } catch (err: any) {
+      console.error("Lỗi đổi mật khẩu:", err);
+      const errMsg = err.response?.data?.message || "Đổi mật khẩu thất bại! Vui lòng thử lại.";
+      toast.error(errMsg);
+    }
+  };
+
+  const [isSendingMail, setIsSendingMail] = useState(false);
+
+  const handleForgotPassword = () => {
+    const email = userData?.email;
+    if (!email) {
+      toast.error("Không tìm thấy email của tài khoản!");
+      return;
+    }
+
+    Modal.confirm({
+      title: "Xác nhận gửi link khôi phục",
+      content: (
+        <div>
+          <p>Hệ thống sẽ gửi liên kết khôi phục mật khẩu tới email của bạn:</p>
+          <p className="font-bold text-emerald-700 text-center text-lg my-3">{email}</p>
+          <p className="text-xs text-slate-500">
+            * Liên kết sẽ có hiệu lực trong vòng 15 phút. Vui lòng kiểm tra kỹ hộp thư của bạn sau khi gửi (bao gồm cả thư mục Spam).
+          </p>
+        </div>
+      ),
+      okText: "Gửi Email",
+      cancelText: "Hủy",
+      okButtonProps: { className: "bg-emerald-600 border-none hover:bg-emerald-500 font-bold" },
+      onOk: async () => {
+        setIsSendingMail(true);
+        try {
+          const res = await axios.post("http://localhost:3000/api/auth/forgot-password", { email });
+          if (res.data?.success) {
+            toast.success("Đã gửi link khôi phục mật khẩu! Vui lòng kiểm tra hộp thư.");
+          } else {
+            toast.error(res.data?.message || "Có lỗi xảy ra khi gửi email!");
+          }
+        } catch (error: any) {
+          const errMsg = error.response?.data?.message || "Gửi email khôi phục thất bại!";
+          toast.error(errMsg);
+        } finally {
+          setIsSendingMail(false);
+        }
+      }
+    });
   };
 
   // Avatar upload handler
@@ -369,195 +453,301 @@ export default function ProfileDriverPage() {
             </div>
           </Card>
 
-          {/* MAIN CONTENT SECTION - THÔNG TIN CÁ NHÂN & CHỈNH SỬA THÔNG TIN */}
+          {/* MAIN TABBED CONTENT SECTION */}
           <Card
             bordered={false}
-            title={
-              <div className="flex items-center gap-2 text-lg font-bold text-gray-800 dark:text-white py-1">
-                <UserOutlined className="text-emerald-600" />
-                <span>Thông tin cá nhân</span>
-              </div>
-            }
             className="shadow-sm rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800"
           >
-            <div className="py-2">
-              {!isEditing ? (
-                /* READ-ONLY VIEW */
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                      <Text type="secondary" className="text-xs uppercase tracking-wider font-semibold block mb-1">
-                        Họ và tên
-                      </Text>
-                      <Flex align="center" gap={10}>
-                        <UserOutlined className="text-emerald-600 text-lg" />
-                        <Text strong className="text-base text-slate-800 dark:text-slate-100">
-                          {userData?.username}
-                        </Text>
-                      </Flex>
-                    </div>
+            <Tabs
+              defaultActiveKey="profile"
+              size="large"
+              tabBarStyle={{ marginBottom: 24, fontWeight: 600 }}
+              items={[
+                {
+                  key: "profile",
+                  label: (
+                    <span className="flex items-center gap-2">
+                      <UserOutlined /> Thông tin cá nhân
+                    </span>
+                  ),
+                  children: (
+                    <div className="py-2">
+                      {!isEditing ? (
+                        /* READ-ONLY VIEW */
+                        <div className="space-y-6">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                              <Text type="secondary" className="text-xs uppercase tracking-wider font-semibold block mb-1">
+                                Họ và tên
+                              </Text>
+                              <Flex align="center" gap={10}>
+                                <UserOutlined className="text-emerald-600 text-lg" />
+                                <Text strong className="text-base text-slate-800 dark:text-slate-100">
+                                  {userData?.username}
+                                </Text>
+                              </Flex>
+                            </div>
 
-                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                      <Text type="secondary" className="text-xs uppercase tracking-wider font-semibold block mb-1">
-                        Địa chỉ Email
-                      </Text>
-                      <Flex align="center" gap={10}>
-                        <MailOutlined className="text-emerald-600 text-lg" />
-                        <Text strong className="text-base text-slate-800 dark:text-slate-100">
-                          {userData?.email}
-                        </Text>
-                      </Flex>
-                    </div>
+                            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                              <Text type="secondary" className="text-xs uppercase tracking-wider font-semibold block mb-1">
+                                Địa chỉ Email
+                              </Text>
+                              <Flex align="center" gap={10}>
+                                <MailOutlined className="text-emerald-600 text-lg" />
+                                <Text strong className="text-base text-slate-800 dark:text-slate-100">
+                                  {userData?.email}
+                                </Text>
+                              </Flex>
+                            </div>
 
-                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                      <Text type="secondary" className="text-xs uppercase tracking-wider font-semibold block mb-1">
-                        Số điện thoại
-                      </Text>
-                      <Flex align="center" gap={10}>
-                        <PhoneOutlined className="text-emerald-600 text-lg" />
-                        <Text strong className="text-base text-slate-800 dark:text-slate-100">
-                          {userData?.phone}
-                        </Text>
-                      </Flex>
-                    </div>
+                            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                              <Text type="secondary" className="text-xs uppercase tracking-wider font-semibold block mb-1">
+                                Số điện thoại
+                              </Text>
+                              <Flex align="center" gap={10}>
+                                <PhoneOutlined className="text-emerald-600 text-lg" />
+                                <Text strong className="text-base text-slate-800 dark:text-slate-100">
+                                  {userData?.phone}
+                                </Text>
+                              </Flex>
+                            </div>
 
-                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                      <Text type="secondary" className="text-xs uppercase tracking-wider font-semibold block mb-1">
-                        Số CCCD / CMND
-                      </Text>
-                      <Flex align="center" gap={10}>
-                        <IdcardOutlined className="text-emerald-600 text-lg" />
-                        <Text strong className="text-base text-slate-800 dark:text-slate-100">
-                          {userData?.cccd}
-                        </Text>
-                      </Flex>
-                    </div>
+                            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                              <Text type="secondary" className="text-xs uppercase tracking-wider font-semibold block mb-1">
+                                Số CCCD / CMND
+                              </Text>
+                              <Flex align="center" gap={10}>
+                                <IdcardOutlined className="text-emerald-600 text-lg" />
+                                <Text strong className="text-base text-slate-800 dark:text-slate-100">
+                                  {userData?.cccd}
+                                </Text>
+                              </Flex>
+                            </div>
 
-                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                      <Text type="secondary" className="text-xs uppercase tracking-wider font-semibold block mb-1">
-                        Giới tính
-                      </Text>
-                      <Flex align="center" gap={10}>
-                        <UserOutlined className="text-emerald-600 text-lg" />
-                        <Text strong className="text-base text-slate-800 dark:text-slate-100 capitalize">
-                          {userData?.gender === "nam" ? "Nam" : userData?.gender === "nu" ? "Nữ" : "Khác"}
-                        </Text>
-                      </Flex>
-                    </div>
+                            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                              <Text type="secondary" className="text-xs uppercase tracking-wider font-semibold block mb-1">
+                                Giới tính
+                              </Text>
+                              <Flex align="center" gap={10}>
+                                <UserOutlined className="text-emerald-600 text-lg" />
+                                <Text strong className="text-base text-slate-800 dark:text-slate-100 capitalize">
+                                  {userData?.gender === "nam" ? "Nam" : userData?.gender === "nu" ? "Nữ" : "Khác"}
+                                </Text>
+                              </Flex>
+                            </div>
 
-                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                      <Text type="secondary" className="text-xs uppercase tracking-wider font-semibold block mb-1">
-                        Ngày sinh
-                      </Text>
-                      <Flex align="center" gap={10}>
-                        <CalendarOutlined className="text-emerald-600 text-lg" />
-                        <Text strong className="text-base text-slate-800 dark:text-slate-100">
-                          {userData?.dob ? dayjs(userData.dob).format("DD/MM/YYYY") : "Chưa cập nhật"}
-                        </Text>
-                      </Flex>
-                    </div>
-                  </div>
+                            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                              <Text type="secondary" className="text-xs uppercase tracking-wider font-semibold block mb-1">
+                                Ngày sinh
+                              </Text>
+                              <Flex align="center" gap={10}>
+                                <CalendarOutlined className="text-emerald-600 text-lg" />
+                                <Text strong className="text-base text-slate-800 dark:text-slate-100">
+                                  {userData?.dob ? dayjs(userData.dob).format("DD/MM/YYYY") : "Chưa cập nhật"}
+                                </Text>
+                              </Flex>
+                            </div>
+                          </div>
 
-                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                    <Text type="secondary" className="text-xs uppercase tracking-wider font-semibold block mb-1">
-                      Địa chỉ
-                    </Text>
-                    <Flex align="center" gap={10}>
-                      <EnvironmentOutlined className="text-emerald-600 text-lg" />
-                      <Text strong className="text-base text-slate-800 dark:text-slate-100">
-                        {userData?.address}
-                      </Text>
-                    </Flex>
-                  </div>
-                </div>
-              ) : (
-                /* EDIT FORM VIEW */
-                <Form
-                  form={profileForm}
-                  layout="vertical"
-                  onFinish={handleSaveProfile}
-                  className="space-y-4"
-                >
-                  <Row gutter={16}>
-                    <Col xs={24} md={12}>
-                      <Form.Item
-                        name="username"
-                        label="Họ và tên"
-                        rules={[{ required: true, message: "Vui lòng nhập họ và tên" }]}
+                          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                            <Text type="secondary" className="text-xs uppercase tracking-wider font-semibold block mb-1">
+                              Địa chỉ
+                            </Text>
+                            <Flex align="center" gap={10}>
+                              <EnvironmentOutlined className="text-emerald-600 text-lg" />
+                              <Text strong className="text-base text-slate-800 dark:text-slate-100">
+                                {userData?.address}
+                              </Text>
+                            </Flex>
+                          </div>
+                        </div>
+                      ) : (
+                        /* EDIT FORM VIEW */
+                        <Form
+                          form={profileForm}
+                          layout="vertical"
+                          onFinish={handleSaveProfile}
+                          className="space-y-4"
+                        >
+                          <Row gutter={16}>
+                            <Col xs={24} md={12}>
+                              <Form.Item
+                                name="username"
+                                label="Họ và tên"
+                                rules={[{ required: true, message: "Vui lòng nhập họ và tên" }]}
+                              >
+                                <Input size="large" prefix={<UserOutlined />} placeholder="Nhập họ và tên" />
+                              </Form.Item>
+                            </Col>
+
+                            <Col xs={24} md={12}>
+                              <Form.Item
+                                name="email"
+                                label="Địa chỉ Email"
+                                rules={[
+                                  { required: true, message: "Vui lòng nhập email" },
+                                  { type: "email", message: "Email không đúng định dạng" },
+                                ]}
+                              >
+                                <Input size="large" prefix={<MailOutlined />} placeholder="example@gmail.com" />
+                              </Form.Item>
+                            </Col>
+
+                            <Col xs={24} md={12}>
+                              <Form.Item
+                                name="phone"
+                                label="Số điện thoại"
+                                rules={[{ required: true, message: "Vui lòng nhập số điện thoại" }]}
+                              >
+                                <Input size="large" prefix={<PhoneOutlined />} placeholder="VD: 0988 123 456" />
+                              </Form.Item>
+                            </Col>
+
+                            <Col xs={24} md={12}>
+                              <Form.Item name="cccd" label="Số CCCD / CMND">
+                                <Input size="large" prefix={<IdcardOutlined />} placeholder="VD: 03809800xxxx" />
+                              </Form.Item>
+                            </Col>
+
+                            <Col xs={24} md={12}>
+                              <Form.Item name="gender" label="Giới tính">
+                                <Radio.Group size="large" className="w-full">
+                                  <Radio.Button value="nam">Nam</Radio.Button>
+                                  <Radio.Button value="nu">Nữ</Radio.Button>
+                                  <Radio.Button value="khac">Khác</Radio.Button>
+                                </Radio.Group>
+                              </Form.Item>
+                            </Col>
+
+                            <Col xs={24} md={12}>
+                              <Form.Item name="dob" label="Ngày sinh">
+                                <DatePicker size="large" format="DD/MM/YYYY" className="w-full" />
+                              </Form.Item>
+                            </Col>
+
+                            <Col xs={24}>
+                              <Form.Item name="address" label="Địa chỉ thường trú">
+                                <Input.TextArea rows={2} placeholder="Nhập địa chỉ đầy đủ của bạn..." />
+                              </Form.Item>
+                            </Col>
+                          </Row>
+
+                          <div className="flex justify-end gap-3 pt-4 border-t">
+                            <Button size="large" onClick={() => setIsEditing(false)}>
+                              Hủy bỏ
+                            </Button>
+                            <Button
+                              type="primary"
+                              htmlType="submit"
+                              size="large"
+                              icon={<SaveOutlined />}
+                              className="bg-emerald-600 hover:bg-emerald-500 font-bold border-none"
+                            >
+                              Lưu thông tin
+                            </Button>
+                          </div>
+                        </Form>
+                      )}
+                    </div>
+                  ),
+                },
+
+                {
+                  key: "security",
+                  label: (
+                    <span className="flex items-center gap-2">
+                      <KeyOutlined /> Đổi mật khẩu & Bảo mật
+                    </span>
+                  ),
+                  children: (
+                    <div className="max-w-xl py-2 space-y-6">
+                      <div>
+                        <Title level={4} className="!mb-1">
+                          Đổi mật khẩu tài khoản
+                        </Title>
+                        <Text type="secondary" className="text-sm">
+                          Nên sử dụng mật khẩu mạnh kết hợp chữ, số và ký tự đặc biệt.
+                        </Text>
+                      </div>
+
+                      <Form
+                        form={passwordForm}
+                        layout="vertical"
+                        onFinish={handleChangePassword}
+                        className="space-y-3"
                       >
-                        <Input size="large" prefix={<UserOutlined />} placeholder="Nhập họ và tên" />
-                      </Form.Item>
-                    </Col>
+                        <Form.Item
+                          name="currentPassword"
+                          label="Mật khẩu hiện tại"
+                          rules={[{ required: true, message: "Vui lòng nhập mật khẩu hiện tại" }]}
+                        >
+                          <Input.Password size="large" prefix={<LockOutlined />} placeholder="••••••••" />
+                        </Form.Item>
 
-                    <Col xs={24} md={12}>
-                      <Form.Item
-                        name="email"
-                        label="Địa chỉ Email"
-                        rules={[
-                          { required: true, message: "Vui lòng nhập email" },
-                          { type: "email", message: "Email không đúng định dạng" },
-                        ]}
-                      >
-                        <Input size="large" prefix={<MailOutlined />} placeholder="example@gmail.com" />
-                      </Form.Item>
-                    </Col>
+                        <Form.Item
+                          name="newPassword"
+                          label="Mật khẩu mới"
+                          rules={[
+                            { required: true, message: "Vui lòng nhập mật khẩu mới" },
+                            { min: 6, message: "Mật khẩu tối thiểu 6 ký tự" },
+                          ]}
+                        >
+                          <Input.Password size="large" prefix={<LockOutlined />} placeholder="••••••••" />
+                        </Form.Item>
 
-                    <Col xs={24} md={12}>
-                      <Form.Item
-                        name="phone"
-                        label="Số điện thoại"
-                        rules={[{ required: true, message: "Vui lòng nhập số điện thoại" }]}
-                      >
-                        <Input size="large" prefix={<PhoneOutlined />} placeholder="VD: 0988 123 456" />
-                      </Form.Item>
-                    </Col>
+                        <Form.Item
+                          name="confirmPassword"
+                          label="Xác nhận mật khẩu mới"
+                          rules={[{ required: true, message: "Vui lòng xác nhận mật khẩu mới" }]}
+                        >
+                          <Input.Password size="large" prefix={<LockOutlined />} placeholder="••••••••" />
+                        </Form.Item>
 
-                    <Col xs={24} md={12}>
-                      <Form.Item name="cccd" label="Số CCCD / CMND">
-                        <Input size="large" prefix={<IdcardOutlined />} placeholder="VD: 03809800xxxx" />
-                      </Form.Item>
-                    </Col>
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2">
+                          <Button
+                            type="primary"
+                            htmlType="submit"
+                            size="large"
+                            icon={<CheckCircleOutlined />}
+                            className="bg-emerald-600 hover:bg-emerald-500 font-bold rounded-xl border-none"
+                          >
+                            Cập nhật mật khẩu
+                          </Button>
+                          
+                          <Button
+                            type="link"
+                            onClick={handleForgotPassword}
+                            loading={isSendingMail}
+                            className="text-emerald-600 hover:text-emerald-500 font-semibold p-0 text-left"
+                          >
+                            Quên mật khẩu?
+                          </Button>
+                        </div>
+                      </Form>
 
-                    <Col xs={24} md={12}>
-                      <Form.Item name="gender" label="Giới tính">
-                        <Radio.Group size="large" className="w-full">
-                          <Radio.Button value="nam">Nam</Radio.Button>
-                          <Radio.Button value="nu">Nữ</Radio.Button>
-                          <Radio.Button value="khac">Khác</Radio.Button>
-                        </Radio.Group>
-                      </Form.Item>
-                    </Col>
+                      <Divider />
 
-                    <Col xs={24} md={12}>
-                      <Form.Item name="dob" label="Ngày sinh">
-                        <DatePicker size="large" format="DD/MM/YYYY" className="w-full" />
-                      </Form.Item>
-                    </Col>
-
-                    <Col xs={24}>
-                      <Form.Item name="address" label="Địa chỉ thường trú">
-                        <Input.TextArea rows={2} placeholder="Nhập địa chỉ đầy đủ của bạn..." />
-                      </Form.Item>
-                    </Col>
-                  </Row>
-
-                  <div className="flex justify-end gap-3 pt-4 border-t">
-                    <Button size="large" onClick={() => setIsEditing(false)}>
-                      Hủy bỏ
-                    </Button>
-                    <Button
-                      type="primary"
-                      htmlType="submit"
-                      size="large"
-                      icon={<SaveOutlined />}
-                      className="bg-emerald-600 hover:bg-emerald-500 font-bold border-none"
-                    >
-                      Lưu thông tin
-                    </Button>
-                  </div>
-                </Form>
-              )}
-            </div>
+                      <div className="space-y-4">
+                        <Title level={5} className="!mb-0">
+                          Tính năng bảo mật nâng cao
+                        </Title>
+                        <div className="flex justify-between items-center p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border">
+                          <div>
+                            <Text strong className="block">
+                              Xác thực 2 lớp (2FA)
+                            </Text>
+                            <Text type="secondary" className="text-xs">
+                              Gửi mã xác thực về Email mỗi khi đăng nhập trên thiết bị lạ.
+                            </Text>
+                          </div>
+                          <Switch defaultChecked onChange={(checked) => toast.success(checked ? "Đã bật 2FA" : "Đã tắt 2FA")} />
+                        </div>
+                      </div>
+                    </div>
+                  ),
+                },
+              ]}
+            />
           </Card>
 
         </div>

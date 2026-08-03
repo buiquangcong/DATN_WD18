@@ -2,6 +2,7 @@ import asyncHandler from "../utils/asyncHandler.js";
 import User from "../models/user.model.js";
 import Staff from "../models/staff.model.js";
 import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
 
 export const getAll = asyncHandler(async (req, res) => {
     const users = await User.find().select("-password");
@@ -18,14 +19,25 @@ export const getOne = asyncHandler(async (req, res) => {
 
 export const createOne = asyncHandler(async (req, res) => {
     try {
-        // 1. Tạo tài khoản User trước
+        // 1. Kiểm tra xem email đã tồn tại hay chưa
+        if (req.body.email) {
+            const existingUser = await User.findOne({ email: req.body.email });
+            if (existingUser) {
+                return res.status(201).json({
+                    message: "Tài khoản đã tồn tại trên hệ thống!",
+                    data: existingUser
+                });
+            }
+        }
+
+        // 2. Tạo tài khoản User mới
         const user = await User.create(req.body);
 
         if (!user) {
             return res.status(400).json({ message: "Không thể tạo tài khoản" });
         }
 
-        // 2. Đồng bộ chức vụ viết hoa chữ cái đầu cho đúng Enum trong model Staff
+        // 3. Đồng bộ chức vụ viết hoa chữ cái đầu cho đúng Enum trong model Staff
         let validRole = 'Staff';
         if (req.body.role) {
             const roleLower = req.body.role.toLowerCase();
@@ -33,17 +45,19 @@ export const createOne = asyncHandler(async (req, res) => {
             else if (roleLower === 'driver') validRole = 'Driver';
         }
 
-        // 3. Tự tạo Staff tương ứng (Lấy username đắp vào trường 'ten' để không bị lỗi required)
-        await Staff.create({
-            userId: user._id,
-            ten: req.body.username ? req.body.username.split('@')[0] : "Nhân viên mới", // Cứu cánh trường 'ten' bị thiếu
-            email: user.email,
-            chucVu: validRole
-            // Các trường tuoi, gioiTinh, cccd, sdt,... đã có default ở model nên không cần truyền vào đây nữa!
-        });
+        // 4. Chỉ tự tạo Staff tương ứng nếu là Admin, Driver, hoặc Staff
+        const roleStr = req.body.role ? String(req.body.role).toLowerCase() : "";
+        if (["admin", "driver", "staff"].includes(roleStr)) {
+            await Staff.create({
+                userId: user._id,
+                ten: req.body.username ? req.body.username.split('@')[0] : "Nhân viên mới",
+                email: user.email,
+                chucVu: validRole
+            });
+        }
 
         return res.status(201).json({
-            message: "Tạo tài khoản và hồ sơ nhân viên thành công!",
+            message: "Tạo tài khoản thành công!",
             data: user
         });
 
@@ -89,4 +103,59 @@ export const deleteOne = asyncHandler(async (req, res) => {
     return res.json({
         message: "Xóa tài khoản và hồ sơ nhân viên tương ứng thành công!"
     });
+});
+
+// Đổi mật khẩu tài khoản
+export const changePassword = asyncHandler(async (req, res) => {
+    const { currentPassword, newPassword, confirmPassword } = req.body;
+
+    // Kiểm tra đầy đủ các trường
+    if (!currentPassword || !newPassword || !confirmPassword) {
+        return res.status(400).json({
+            message: "Vui lòng nhập đầy đủ mật khẩu hiện tại, mật khẩu mới và xác nhận mật khẩu mới"
+        });
+    }
+
+    // Kiểm tra mật khẩu mới tối thiểu 6 ký tự
+    if (newPassword.length < 6) {
+        return res.status(400).json({
+            message: "Mật khẩu mới phải có tối thiểu 6 ký tự"
+        });
+    }
+
+    // Kiểm tra mật khẩu mới và xác nhận mật khẩu có trùng khớp không
+    if (newPassword !== confirmPassword) {
+        return res.status(400).json({
+            message: "Mật khẩu mới và xác nhận mật khẩu không trùng khớp"
+        });
+    }
+
+    // Tìm user kèm password
+    const user = await User.findById(req.params.id);
+    if (!user) {
+        return res.status(404).json({ message: "Không tìm thấy tài khoản" });
+    }
+
+    // Kiểm tra mật khẩu hiện tại có đúng không (hỗ trợ cả bcrypt hash và plain-text)
+    const matchPassword = await bcrypt.compare(currentPassword, user.password);
+    if (!matchPassword && currentPassword !== user.password) {
+        return res.status(401).json({
+            message: "Mật khẩu hiện tại không chính xác"
+        });
+    }
+
+    // Kiểm tra mật khẩu mới không trùng mật khẩu cũ
+    const sameAsOld = await bcrypt.compare(newPassword, user.password);
+    if (sameAsOld || newPassword === user.password) {
+        return res.status(400).json({
+            message: "Mật khẩu mới không được trùng với mật khẩu hiện tại"
+        });
+    }
+
+    // Hash mật khẩu mới và lưu
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    await user.save();
+
+    return res.json({ message: "Đổi mật khẩu thành công!" });
 });

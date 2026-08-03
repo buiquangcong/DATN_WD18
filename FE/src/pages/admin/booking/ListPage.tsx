@@ -57,6 +57,8 @@ const bookingStatusColorMap: Record<string, string> = {
   "Đã xác nhận": "green",
   "Đã huỷ": "red",
   "Hoàn thành": "blue",
+  "Đã checkin": "blue",
+  "Đã check-in": "blue",
   "Chờ xác nhận": "orange",
 };
 

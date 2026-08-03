@@ -6,12 +6,7 @@ import Staff from "../models/staff.model.js";
 import FareRule from "../models/giave.model.js";
 import Booking from "../models/booking.model.js";
 import Journey from "../models/journey.model.js";
-import {
-  TURN_AROUND_MINUTES,
-  LOCATION_CHECK_MAX_GAP_MINUTES,
-  checkBusAvailability,
-  checkStaffAvailability,
-} from "../services/tripAvailability.service.js";
+import {TURN_AROUND_MINUTES,LOCATION_CHECK_MAX_GAP_MINUTES,checkBusAvailability,checkStaffAvailability,} from "../services/tripAvailability.service.js";
 import { calculateTicketPrice } from "../services/tripPricing.service.js";
 
 export const getAll = asyncHandler(async (req, res) => {
@@ -437,6 +432,14 @@ export const createOne = asyncHandler(async (req, res) => {
     });
   }
 
+  // Chặn trường hợp bảng giá không khớp số chỗ với xe đang chọn (VD bảng giá
+  // của xe 16 chỗ nhưng lại áp cho xe 34 chỗ) - tránh tính sai giá vé
+  if (fare.capacity !== busInfo.capacity) {
+    return res.status(400).json({
+      message: `Bảng giá này áp dụng cho xe ${fare.capacity} chỗ, không khớp với xe đang chọn (${busInfo.capacity} chỗ)`,
+    });
+  }
+
   // ===========================
   // Tính giá theo ngày
   // ===========================
@@ -489,6 +492,14 @@ export const updateOne = asyncHandler(async (req, res) => {
   }
 
   const busId = bus || oldTrip.bus;
+  const busInfo = await Bus.findById(busId);
+
+  if (!busInfo) {
+    return res.status(404).json({
+      message: "Không tìm thấy xe",
+    });
+  }
+
   const newDeparture = new Date(departureTime || oldTrip.departureTime);
   const newArrival = new Date(arrivalTime || oldTrip.arrivalTime);
 
@@ -552,6 +563,14 @@ export const updateOne = asyncHandler(async (req, res) => {
     });
   }
 
+  // Chặn trường hợp bảng giá không khớp số chỗ với xe đang chọn (VD bảng giá
+  // của xe 16 chỗ nhưng lại áp cho xe 34 chỗ) - tránh tính sai giá vé
+  if (fare.capacity !== busInfo.capacity) {
+    return res.status(400).json({
+      message: `Bảng giá này áp dụng cho xe ${fare.capacity} chỗ, không khớp với xe đang chọn (${busInfo.capacity} chỗ)`,
+    });
+  }
+
   req.body.ticketPrice = await calculateTicketPrice(fare, newDeparture);
 
   // ==========================
@@ -575,11 +594,30 @@ export const updateOne = asyncHandler(async (req, res) => {
 export const deleteOne = asyncHandler(async (req, res) => {
   const tripId = req.params.id;
 
-  // Kiểm tra chuyến có người đặt vé chưa
+  const trip = await Trip.findById(tripId);
+
+  if (!trip) {
+    return res.status(404).json({
+      message: "Không tìm thấy chuyến xe",
+    });
+  }
+
+  // Không cho xóa khi chuyến đang chạy (xe đang trên đường, không thể xóa
+  // giữa chừng - dữ liệu chuyến cần giữ lại để đối chiếu)
+  if (trip.status === "đang chạy") {
+    return res.status(400).json({
+      message: "Chuyến xe đang chạy, không thể xoá.",
+    });
+  }
+
+  // Kiểm tra chuyến có người đặt vé chưa - dùng đúng giá trị status tiếng Việt
+  // khớp với booking.controller.js ("Chờ xác nhận"/"Đã xác nhận"), trước đây
+  // đang check nhầm "Pending"/"Confirmed" (tiếng Anh) nên không bao giờ khớp
+  // được dữ liệu thật, khiến chuyến luôn xóa được dù đã có khách đặt vé
   const booked = await Booking.exists({
     trip: tripId,
     status: {
-      $in: ["Pending", "Confirmed"],
+      $in: ["Chờ xác nhận", "Đã xác nhận"],
     },
   });
 
@@ -590,13 +628,7 @@ export const deleteOne = asyncHandler(async (req, res) => {
     });
   }
 
-  const trip = await Trip.findByIdAndDelete(tripId);
-
-  if (!trip) {
-    return res.status(404).json({
-      message: "Không tìm thấy chuyến xe",
-    });
-  }
+  await Trip.findByIdAndDelete(tripId);
 
   return res.json({
     message: "Xóa chuyến xe thành công",
@@ -652,6 +684,14 @@ export const createSchedule = asyncHandler(async (req, res) => {
   if (!fare) {
     return res.status(404).json({
       message: "Không tìm thấy bảng giá",
+    });
+  }
+
+  // Chặn trường hợp bảng giá không khớp số chỗ với xe đang chọn (VD bảng giá
+  // của xe 16 chỗ nhưng lại áp cho xe 34 chỗ) - tránh tính sai giá vé
+  if (fare.capacity !== busInfo.capacity) {
+    return res.status(400).json({
+      message: `Bảng giá này áp dụng cho xe ${fare.capacity} chỗ, không khớp với xe đang chọn (${busInfo.capacity} chỗ)`,
     });
   }
 

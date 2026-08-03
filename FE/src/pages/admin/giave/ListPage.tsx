@@ -1,4 +1,4 @@
-import { Popconfirm, Space, Table, Button, Tag, Input, Select, Card } from "antd";
+import { Popconfirm, Space, Table, Button, Tag, Input, Select, Card, message } from "antd";
 import { useCRUD } from "../../../hooks/useCRUD";
 import { useNavigate } from "react-router-dom";
 import type { ColumnsType } from "antd/es/table";
@@ -27,6 +27,20 @@ function FareRuleListPage() {
   // State quản lý từ khóa tìm kiếm và bộ lọc sức chứa
   const [searchText, setSearchText] = useState("");
   const [selectedCapacity, setSelectedCapacity] = useState<string>("All");
+
+  // Hàm xử lý xóa có bắt lỗi từ Backend trả về
+  const handleDelete = async (id: string) => {
+    try {
+      await Delete(id);
+    } catch (error: any) {
+      // Đọc chính xác câu message trả về từ Backend API (res.status(400))
+      const errorMsg =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Xóa giá vé thất bại!";
+      message.error(errorMsg);
+    }
+  };
 
   // Danh sách các tùy chọn sức chứa động từ dữ liệu thực tế
   const capacityOptions = Array.from(
@@ -125,7 +139,7 @@ function FareRuleListPage() {
           <Popconfirm
             title="Xóa giá vé này?"
             description="Bạn có chắc muốn xóa quy tắc giá này không?"
-            onConfirm={() => Delete(record._id)}
+            onConfirm={() => handleDelete(record._id)} // Gọi hàm handleDelete đã bọc try...catch
             okText="Có"
             cancelText="Không"
             okButtonProps={{ danger: true }}
