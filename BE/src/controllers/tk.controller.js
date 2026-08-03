@@ -19,14 +19,25 @@ export const getOne = asyncHandler(async (req, res) => {
 
 export const createOne = asyncHandler(async (req, res) => {
     try {
-        // 1. Tạo tài khoản User trước
+        // 1. Kiểm tra xem email đã tồn tại hay chưa
+        if (req.body.email) {
+            const existingUser = await User.findOne({ email: req.body.email });
+            if (existingUser) {
+                return res.status(201).json({
+                    message: "Tài khoản đã tồn tại trên hệ thống!",
+                    data: existingUser
+                });
+            }
+        }
+
+        // 2. Tạo tài khoản User mới
         const user = await User.create(req.body);
 
         if (!user) {
             return res.status(400).json({ message: "Không thể tạo tài khoản" });
         }
 
-        // 2. Đồng bộ chức vụ viết hoa chữ cái đầu cho đúng Enum trong model Staff
+        // 3. Đồng bộ chức vụ viết hoa chữ cái đầu cho đúng Enum trong model Staff
         let validRole = 'Staff';
         if (req.body.role) {
             const roleLower = req.body.role.toLowerCase();
@@ -34,17 +45,19 @@ export const createOne = asyncHandler(async (req, res) => {
             else if (roleLower === 'driver') validRole = 'Driver';
         }
 
-        // 3. Tự tạo Staff tương ứng (Lấy username đắp vào trường 'ten' để không bị lỗi required)
-        await Staff.create({
-            userId: user._id,
-            ten: req.body.username ? req.body.username.split('@')[0] : "Nhân viên mới", // Cứu cánh trường 'ten' bị thiếu
-            email: user.email,
-            chucVu: validRole
-            // Các trường tuoi, gioiTinh, cccd, sdt,... đã có default ở model nên không cần truyền vào đây nữa!
-        });
+        // 4. Chỉ tự tạo Staff tương ứng nếu là Admin, Driver, hoặc Staff
+        const roleStr = req.body.role ? String(req.body.role).toLowerCase() : "";
+        if (["admin", "driver", "staff"].includes(roleStr)) {
+            await Staff.create({
+                userId: user._id,
+                ten: req.body.username ? req.body.username.split('@')[0] : "Nhân viên mới",
+                email: user.email,
+                chucVu: validRole
+            });
+        }
 
         return res.status(201).json({
-            message: "Tạo tài khoản và hồ sơ nhân viên thành công!",
+            message: "Tạo tài khoản thành công!",
             data: user
         });
 
