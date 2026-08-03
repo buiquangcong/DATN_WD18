@@ -38,6 +38,7 @@ const bookingSchema = new mongoose.Schema(
     "Chờ xác nhận",
     "Đã xác nhận",
     "Đã huỷ",
+    "Đã check-in",
   ],
   default: "Chờ xác nhận",
 },

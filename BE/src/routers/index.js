@@ -14,8 +14,10 @@ import paymentRouter from "./payment.router.js";
 import statisticsRouter from "./statistics.router.js";
 import newsRouter from "./new.router.js";
 import holidayRouter from "./holiday.router.js";
+import attendanceRouter from "./attendance.router.js";
 const router = Router();
 
+router.use("/attendance", attendanceRouter);
 router.use("/bus", busRouter);
 router.use("/danhmucxe", danhmucxeRouter);
 router.use("/journey", journeyRouter);

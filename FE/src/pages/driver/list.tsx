@@ -2,6 +2,7 @@ import { Typography, Card, Row, Col, Button, Table, Tag, Statistic, Space, Spin,
 import { EnvironmentOutlined, CarOutlined, DownloadOutlined, FilterOutlined, RightOutlined, CalendarOutlined, HistoryOutlined, UnorderedListOutlined, } from "@ant-design/icons";
 import { ClientLayout } from "./layout";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
 const { Title, Text, Paragraph } = Typography;
@@ -23,6 +24,7 @@ interface Trip {
 }
 
 export default function ListTaixePage() {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [trips, setTrips] = useState<Trip[]>([]);
   const [filter, setFilter] = useState<"all" | "past" | "today" | "upcoming">("today");
@@ -118,8 +120,8 @@ export default function ListTaixePage() {
     },
     {
       title: "Hành động",
-      render: () => (
-        <Button type="link">
+      render: (_: any, record: Trip) => (
+        <Button type="link" onClick={() => navigate(`/taixe/trip/${record._id}`)}>
           Chi tiết
         </Button>
       ),
