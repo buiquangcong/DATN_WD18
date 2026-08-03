@@ -159,9 +159,17 @@ function TripListPage() {
       }
     }
 
+    let bookingId = decodedText.trim();
+    if (decodedText.includes("Mã vé:")) {
+      const match = decodedText.match(/Mã vé:\s*([^\s\r\n]+)/);
+      if (match && match[1]) {
+        bookingId = match[1].trim();
+      }
+    }
+
     try {
       // Gọi API lấy chi tiết đặt vé
-      const res = await axios.get(`http://localhost:3000/api/booking/${decodedText}`);
+      const res = await axios.get(`http://localhost:3000/api/booking/${bookingId}`);
       const bookingData = res.data;
 
       if (!bookingData) {
