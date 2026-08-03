@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button, Result, Typography, Row, Col, Space, Flex, Tag } from "antd";
+import { Button, Result, Typography, Row, Col, Space, Flex, Tag, QRCode } from "antd";
 import { HomeOutlined, QrcodeOutlined, PrinterOutlined, ClockCircleOutlined, UserOutlined, EnvironmentOutlined } from "@ant-design/icons";
 import { ClientLayout } from "./layout";
 
 const { Title, Text } = Typography;
 
 interface TicketData {
+  id?: string;
   ticketCode: string;
   customerName: string;
   busName: string;
@@ -34,6 +35,7 @@ export default function TicketSuccessPage(): React.ReactElement {
 
   // Nếu trong bộ nhớ tạm chưa có dữ liệu (hoặc khách cố tình vào link trực tiếp)
   const finalData = ticket || {
+    id: "BK-NEW",
     ticketCode: "NB-585674",
     customerName: "Hành khách NETBUS",
     busName: "Xe NETBUS Luxury",
@@ -163,8 +165,8 @@ export default function TicketSuccessPage(): React.ReactElement {
                   </Title>
                 </Space>
 
-                <div style={{ padding: "8px", border: "1px solid #e2e8f0", borderRadius: "14px", background: "#f8fafc" }}>
-                  <QrcodeOutlined style={{ fontSize: "44px", color: "#0f172a" }} />
+                <div style={{ padding: "4px", border: "1px solid #e2e8f0", borderRadius: "14px", background: "#ffffff" }}>
+                  <QRCode value={finalData.id || finalData.ticketCode} size={90} bordered={false} />
                 </div>
               </Flex>
             </div>
