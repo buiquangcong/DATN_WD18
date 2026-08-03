@@ -151,14 +151,22 @@ function TripEditPage() {
           }
         );
 
-        setAvailableBuses(res.data);
+        // Chỉ giữ lại các xe có cùng số chỗ (capacity) với xe ban đầu của chuyến -
+        // tránh đổi sang loại xe khác số chỗ làm lệch sơ đồ ghế đã bán cho khách
+        const originalCapacity = trip?.bus?.capacity;
+
+        const filteredBuses = originalCapacity
+          ? res.data.filter((b: Bus) => b.capacity === originalCapacity)
+          : res.data;
+
+        setAvailableBuses(filteredBuses);
 
         // Nếu xe đang chọn (trip.bus) không còn nằm trong danh sách rảnh,
         // thêm tạm vào đầu danh sách để không mất lựa chọn hiện tại khi mở trang Edit
         const currentBusId = trip?.bus?._id;
         if (
           currentBusId &&
-          !res.data.some((b: Bus) => b._id === currentBusId) &&
+          !filteredBuses.some((b: Bus) => b._id === currentBusId) &&
           trip?.bus
         ) {
           setAvailableBuses((prev) => [trip.bus, ...prev]);
@@ -461,6 +469,8 @@ function TripEditPage() {
           extra={
             !departureTime || !arrivalTime || !selectedJourney
               ? "Chọn tuyến đường và thời gian khởi hành/đến để xem xe đang rảnh"
+              : trip?.bus?.capacity
+              ? `Chỉ hiện xe cùng ${trip.bus.capacity} chỗ với xe ban đầu, để không làm lệch sơ đồ ghế đã bán`
               : undefined
           }
         >
