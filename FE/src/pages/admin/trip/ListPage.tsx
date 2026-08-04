@@ -2,12 +2,12 @@ import { Popconfirm, Space, Table, Button, Tag, Modal, Divider, Input, Select, C
 import { useCRUD, useDetail } from "../../../hooks/useCRUD";
 import { useNavigate } from "react-router-dom";
 import type { ColumnsType } from "antd/es/table";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import dayjs from "dayjs";
 import { Html5Qrcode } from "html5-qrcode";
 import toast from "react-hot-toast";
 import axios from "axios";
-import { QrcodeOutlined, TeamOutlined } from "@ant-design/icons";
+import { QrcodeOutlined, TeamOutlined, EnvironmentOutlined, SearchOutlined } from "@ant-design/icons";
 
 interface BookingType {
   _id: string;
@@ -107,7 +107,14 @@ function TripListPage() {
   const [selectedBookingTripId, setSelectedBookingTripId] = useState<string>();
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
 
-  // State quản lý tìm kiếm và bộ lọc trạng thái
+  // State chọn Điểm đi và Điểm đến từ danh sách Select
+  const [diemDiSelect, setDiemDiSelect] = useState<string | undefined>(undefined);
+  const [diemDenSelect, setDiemDenSelect] = useState<string | undefined>(undefined);
+
+  // State lưu tham số thực sự dùng để LỌC khi bấm nút Tìm kiếm
+  const [searchParams, setSearchParams] = useState<{ diemDi?: string; diemDen?: string }>({});
+
+  // State quản lý tìm kiếm text và bộ lọc trạng thái
   const [searchText, setSearchText] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<string>("All");
 
@@ -121,6 +128,39 @@ function TripListPage() {
   const [isScanning, setIsScanning] = useState(false);
   const [html5QrCodeInstance, setHtml5QrCodeInstance] = useState<Html5Qrcode | null>(null);
   const [isCheckingIn, setIsCheckingIn] = useState(false);
+
+  // Trích xuất danh sách các Điểm Đi duy nhất từ dữ liệu
+  const departuresList = useMemo(() => {
+    if (!Array.isArray(list)) return [];
+    const uniqueDi = new Set(list.map((item: TripType) => item?.journey?.diemDi).filter(Boolean));
+    return Array.from(uniqueDi).map((diem) => ({ value: diem, label: diem }));
+  }, [list]);
+
+  // Trích xuất danh sách các Điểm Đến duy nhất từ dữ liệu
+  const destinationsList = useMemo(() => {
+    if (!Array.isArray(list)) return [];
+    const uniqueDen = new Set(list.map((item: TripType) => item?.journey?.diemDen).filter(Boolean));
+    return Array.from(uniqueDen).map((diem) => ({ value: diem, label: diem }));
+  }, [list]);
+
+  // LOẠI BỎ ĐIỂM ĐÃ CHỌN:
+  // Nếu đã chọn Điểm đi -> Loại khỏi danh sách Điểm đến
+  const filteredDestinations = useMemo(() => {
+    return destinationsList.filter((item) => item.value !== diemDiSelect);
+  }, [destinationsList, diemDiSelect]);
+
+  // Nếu đã chọn Điểm đến -> Loại khỏi danh sách Điểm đi
+  const filteredDepartures = useMemo(() => {
+    return departuresList.filter((item) => item.value !== diemDenSelect);
+  }, [departuresList, diemDenSelect]);
+
+  // Hàm xử lý khi bấm nút Tìm kiếm
+  const handleSearch = () => {
+    setSearchParams({
+      diemDi: diemDiSelect,
+      diemDen: diemDenSelect,
+    });
+  };
 
   const playBeep = (isError = false) => {
     try {
@@ -528,18 +568,28 @@ function TripListPage() {
   const filteredList = list?.filter((item: TripType) => {
     const searchLower = searchText.toLowerCase().trim();
 
+    // Lọc theo text tìm kiếm (tên xe, biển số, nhân viên)
     const matchesSearch =
       !searchLower ||
-      item.journey?.diemDi?.toLowerCase().includes(searchLower) ||
-      item.journey?.diemDen?.toLowerCase().includes(searchLower) ||
       item.bus?.name?.toLowerCase().includes(searchLower) ||
       item.bus?.licensePlates?.toLowerCase().includes(searchLower) ||
       item.staff?.ten?.toLowerCase().includes(searchLower);
 
+    // Lọc theo Điểm đi / Điểm đến đã chọn
+    const searchDi = searchParams.diemDi?.toLowerCase();
+    const searchDen = searchParams.diemDen?.toLowerCase();
+
+    const matchesDiemDi =
+      !searchDi || String(item?.journey?.diemDi || "").toLowerCase().includes(searchDi);
+
+    const matchesDiemDen =
+      !searchDen || String(item?.journey?.diemDen || "").toLowerCase().includes(searchDen);
+
+    // Lọc theo trạng thái
     const matchesStatus =
       selectedStatus === "All" || item.status === selectedStatus;
 
-    return matchesSearch && matchesStatus;
+    return matchesSearch && matchesDiemDi && matchesDiemDen && matchesStatus;
   });
 
   const selectedBookingTrip = (list || []).find(
@@ -712,23 +762,41 @@ function TripListPage() {
 
       {/* CARD BỘ LỌC VÀ BẢNG */}
       <Card className="shadow-xs border border-gray-100 rounded-xl bg-white">
-        <div className="flex flex-col md:flex-row gap-4 mb-6">
-          <div className="flex-1">
-            <Input.Search
-              placeholder="Tìm theo tuyến đường, tên xe, biển số hoặc nhân viên..."
-              allowClear
+        {/* Khối Select chọn Điểm đi / Điểm đến + Lọc trạng thái */}
+        
+        <div className="flex flex-col lg:flex-row items-center gap-3 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 flex-1 w-full">
+            <Select
+              showSearch
+              placeholder="Chọn điểm đi"
               size="large"
-              onChange={(e) => setSearchText(e.target.value)}
-              value={searchText}
+              allowClear
+              value={diemDiSelect}
+              onChange={(val) => setDiemDiSelect(val)}
+              options={filteredDepartures}
+              suffixIcon={<EnvironmentOutlined className="text-gray-400" />}
+              className="w-full"
+            />
+            <Select
+              showSearch
+              placeholder="Chọn điểm đến"
+              size="large"
+              allowClear
+              value={diemDenSelect}
+              onChange={(val) => setDiemDenSelect(val)}
+              options={filteredDestinations}
+              suffixIcon={<EnvironmentOutlined className="text-gray-400" />}
               className="w-full"
             />
           </div>
-          <div className="w-full md:w-64">
+
+          <div className="flex gap-3 w-full lg:w-auto">
             <Select
               placeholder="Lọc theo trạng thái"
               size="large"
-              className="w-full"
+              className="w-full lg:w-48"
               defaultValue="All"
+              value={selectedStatus}
               onChange={(value) => setSelectedStatus(value)}
               options={[
                 { value: "All", label: "Tất cả trạng thái" },
@@ -738,9 +806,46 @@ function TripListPage() {
                 { value: "huỷ", label: "Huỷ" },
               ]}
             />
+            <Button
+              type="primary"
+              size="large"
+              icon={<SearchOutlined />}
+              onClick={handleSearch}
+              className="bg-emerald-800 hover:!bg-emerald-700 text-white border-none rounded-xl font-medium px-6 h-[40px] flex items-center justify-center gap-2"
+            >
+              Tìm kiếm
+            </Button>
           </div>
         </div>
 
+        {/* Input tìm kiếm text nếu cần thêm */}
+        <div className="mb-4">
+          <Input.Search
+            placeholder="Tìm theo tên xe, biển số hoặc nhân viên..."
+            allowClear
+            size="large"
+            onChange={(e) => setSearchText(e.target.value)}
+            value={searchText}
+            className="w-full md:w-1/2"
+          />
+        </div>
+{/* Dòng thông báo số lượng theo trạng thái đang lọc */}
+{selectedStatus !== "All" && (
+  <div className="mb-4">
+    <span className="text-sm font-medium">
+      Có {" "}
+      <span className={`font-bold ${
+        selectedStatus === "sắp chạy" ? "text-orange-600" :
+        selectedStatus === "đang chạy" ? "text-green-600" :
+        selectedStatus === "hoàn thành" ? "text-gray-600" :
+        "text-red-600"
+      }`}>
+        {filteredList?.length || 0}
+      </span>
+      {" "} chuyến {selectedStatus}
+    </span>
+  </div>
+)}
         <div className="overflow-x-auto">
           <Table
             columns={columns}
