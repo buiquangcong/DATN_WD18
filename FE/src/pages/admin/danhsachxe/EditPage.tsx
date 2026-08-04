@@ -3,7 +3,7 @@ import { useCRUD } from "../../../hooks/useCRUD";
 import { useParams } from "react-router-dom";
 import { useEffect } from "react";
 
-// Khai báo tập trung danh sách số chỗ theo loại xe
+// Khai báo tập trung danh sách số chỗ theo loại xe (Cấu hình cũ)
 const CAPACITY_OPTIONS_MAP: Record<string, number[]> = {
     Sleeper: [34],
     Seater: [16, 29, 45],
@@ -20,7 +20,22 @@ function EditPage() {
     useEffect(() => {
         const bus = list?.find((item: any) => item._id === id);
         if (bus) {
-            form.setFieldsValue(bus);
+            // Chuẩn hóa dữ liệu status cũ (nếu DB còn lưu dạng tiếng Anh hoặc viết thường)
+            let normalizedStatus = bus.status;
+            const statusLower = bus.status?.toLowerCase();
+
+            if (statusLower === "active" || statusLower === "hoạt động") {
+                normalizedStatus = "Hoạt động";
+            } else if (statusLower === "maintenance" || statusLower === "bảo trì") {
+                normalizedStatus = "Bảo trì";
+            } else if (statusLower === "inactive" || statusLower === "ngừng hoạt động") {
+                normalizedStatus = "Ngừng hoạt động";
+            }
+
+            form.setFieldsValue({
+                ...bus,
+                status: normalizedStatus,
+            });
         }
     }, [id, list, form]);
 
@@ -54,6 +69,7 @@ function EditPage() {
                 onValuesChange={handleValuesChange}
                 className="space-y-6"
             >
+                {/* Tên xe / Nhà xe */}
                 <Form.Item
                     label="Tên xe / Nhà xe"
                     name="name"
@@ -66,6 +82,12 @@ function EditPage() {
                     <Input placeholder="Nhập tên xe hoặc nhà xe" />
                 </Form.Item>
 
+                {/* THÊM MỚI: Hãng xe */}
+                <Form.Item label="Hãng xe" name="hangxe">
+                    <Input placeholder="Nhập hãng sản xuất (VD: Thaco, Hyundai, Samco, Ford...)" />
+                </Form.Item>
+
+                {/* Biển số xe */}
                 <Form.Item
                     label="Biển số xe"
                     name="licensePlates"
@@ -98,7 +120,7 @@ function EditPage() {
                     <Input placeholder="Nhập biển số xe" />
                 </Form.Item>
 
-                {/* Chuyển Loại xe lên trước Sức chứa để luồng chọn hợp lý hơn */}
+                {/* Loại xe */}
                 <Form.Item
                     label="Loại xe"
                     name="type"
@@ -113,7 +135,7 @@ function EditPage() {
                     />
                 </Form.Item>
 
-                {/* Sức chứa: Chuyển sang Select và vô hiệu hóa nếu chọn Sleeper (vì chỉ có duy nhất 34 chỗ) */}
+                {/* Sức chứa */}
                 <Form.Item
                     label="Sức chứa"
                     name="capacity"
@@ -129,6 +151,7 @@ function EditPage() {
                     />
                 </Form.Item>
 
+                {/* ĐÃ SỬA: Trạng thái Tiếng Việt (Khớp Enum Schema) */}
                 <Form.Item
                     label="Trạng thái"
                     name="status"
@@ -136,10 +159,11 @@ function EditPage() {
                 >
                     <Select
                         placeholder="Chọn trạng thái"
-                        options={["Active", "Maintenance", "Inactive"].map((value) => ({
-                            value,
-                            label: value,
-                        }))}
+                        options={[
+                            { value: "Hoạt động", label: "Hoạt động" },
+                            { value: "Bảo trì", label: "Bảo trì" },
+                            { value: "Ngừng hoạt động", label: "Ngừng hoạt động" },
+                        ]}
                     />
                 </Form.Item>
 

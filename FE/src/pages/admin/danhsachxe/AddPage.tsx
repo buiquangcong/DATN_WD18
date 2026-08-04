@@ -1,4 +1,4 @@
-import { Button, Form, Input, Select } from "antd";
+import { Button, Form, Input, Select, message } from "antd";
 import { useCRUD } from "../../../hooks/useCRUD";
 
 // Khai báo tập trung danh sách số chỗ tương ứng với từng loại xe
@@ -28,7 +28,24 @@ function AddPage() {
   // Lấy danh sách tùy chọn chỗ ngồi dựa theo loại xe được chọn
   const capacityOptions = selectedType
     ? CAPACITY_OPTIONS_MAP[selectedType] || []
-    : [16, 29, 34, 45]; // Mặc định hiển thị tất cả nếu chưa chọn type
+    : [16, 29, 34, 45];
+
+  // Xử lý submit đảm bảo dữ liệu sạch trước khi gửi API
+  const handleSubmit = async (values: any) => {
+    try {
+      const payload = {
+        ...values,
+        name: values.name?.trim(),
+        licensePlates: values.licensePlates?.trim().toUpperCase(),
+        hangxe: values.hangxe?.trim() || "", // Đảm bảo không bị undefined
+        capacity: Number(values.capacity), // Bắt buộc ép kiểu Number cho Backend
+      };
+
+      await Add(payload);
+    } catch (error: any) {
+      message.error(error?.response?.data?.message || "Thêm xe thất bại, vui lòng kiểm tra lại!");
+    }
+  };
 
   return (
     <div className="p-6">
@@ -36,7 +53,13 @@ function AddPage() {
       <Form
         form={form}
         layout="vertical"
-        onFinish={(values) => Add(values)}
+        initialValues={{
+          // type: "Seater",
+          // capacity: 16,
+          // status: "hoạt động",
+          // hangxe: "",
+        }}
+        onFinish={handleSubmit}
         onValuesChange={handleValuesChange}
         className="space-y-6"
       >
@@ -50,6 +73,11 @@ function AddPage() {
           ]}
         >
           <Input placeholder="Nhập tên xe hoặc nhà xe" />
+        </Form.Item>
+
+        {/* Trường Hãng xe */}
+        <Form.Item label="Hãng xe" name="hangxe">
+          <Input placeholder="Nhập hãng sản xuất (VD: Thaco, Hyundai, Samco, Ford...)" />
         </Form.Item>
 
         <Form.Item
@@ -82,7 +110,7 @@ function AddPage() {
           <Input placeholder="Nhập biển số xe" />
         </Form.Item>
 
-        {/* Đặt Loại xe lên trước Sức chứa */}
+        {/* Loại xe */}
         <Form.Item
           label="Loại xe"
           name="type"
@@ -97,7 +125,7 @@ function AddPage() {
           />
         </Form.Item>
 
-        {/* Sức chứa: Chuyển sang Select & disabled khi là Sleeper */}
+        {/* Sức chứa */}
         <Form.Item
           label="Sức chứa"
           name="capacity"
@@ -113,6 +141,7 @@ function AddPage() {
           />
         </Form.Item>
 
+        {/* Trạng thái tiếng Việt */}
         <Form.Item
           label="Trạng thái"
           name="status"
@@ -120,10 +149,11 @@ function AddPage() {
         >
           <Select
             placeholder="Chọn trạng thái"
-            options={["Active", "Maintenance", "Inactive"].map((value) => ({
-              value,
-              label: value,
-            }))}
+            options={[
+              { value: "hoạt động", label: "Hoạt động" },
+              { value: "bảo trì", label: "Bảo trì" },
+              { value: "ngừng hoạt động", label: "Ngừng hoạt động" },
+            ]}
           />
         </Form.Item>
 
