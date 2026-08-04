@@ -1,5 +1,5 @@
 import { Router } from "express";
-import {createOne,getAll,getOne,updateOne,deleteOne} from "../controllers/tk.controller.js";
+import {createOne,getAll,getOne,updateOne,deleteOne,changePassword} from "../controllers/tk.controller.js";
 
 const TkRouter = Router();
 
@@ -9,6 +9,7 @@ TkRouter.get("/:id", getOne);
 TkRouter.post("/add", createOne);
 
 TkRouter.put("/update/:id", updateOne);
+TkRouter.put("/change-password/:id", changePassword);
 
 TkRouter.delete("/delete/:id", deleteOne);
 

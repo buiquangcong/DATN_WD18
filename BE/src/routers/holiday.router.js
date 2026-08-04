@@ -1,12 +1,6 @@
 import express from "express";
 
-import {
-  getAll,
-  getOne,
-  createOne,
-  updateOne,
-  deleteOne,
-} from "../controllers/holiday.controller.js";
+import {getAll,getOne,createOne,updateOne,deleteOne,} from "../controllers/holiday.controller.js";
 
 const router = express.Router();
 

@@ -59,6 +59,8 @@ export default function ClientDashboard() {
          data = response.data;
        }
 
+       data = data.filter((t: any) => t.status === "sắp chạy");
+
 
        const uniqueDepartures = Array.from(new Set(data.map((t: any) => t.journey?.diemDi).filter(Boolean))) as string[];
        const uniqueDestinations = Array.from(new Set(data.map((t: any) => t.journey?.diemDen).filter(Boolean))) as string[];
@@ -146,7 +148,7 @@ export default function ClientDashboard() {
    if (values.origin) params.append("diemDi", values.origin);
    if (values.destination) params.append("diemDen", values.destination);
    if (values.departureDate) params.append("ngayDi", values.departureDate.format("YYYY-MM-DD"));
-   navigate(`/khachhang/searchresults?${params.toString()}`);
+   navigate(`/khachhang/trip?${params.toString()}`);
  };
 
 
@@ -210,16 +212,16 @@ export default function ClientDashboard() {
                className={`font-bold pb-2 transition-all cursor-pointer ${tripType === "one-way" ? "text-primary border-b-2 border-primary" : "text-secondary hover:text-primary"
                  }`}
              >
-               One Way
+               Một chiều
              </button>
-             <button
+             {/* <button
                type="button"
                onClick={() => setTripType("round-trip")}
                className={`font-bold pb-2 transition-all cursor-pointer ${tripType === "round-trip" ? "text-primary border-b-2 border-primary" : "text-secondary hover:text-primary"
                  }`}
              >
-               Round Trip
-             </button>
+               Khứ hồi
+             </button> */}
            </div>
 
 
@@ -236,7 +238,7 @@ export default function ClientDashboard() {
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                <Form.Item
                  name="origin"
-                 label={<span className="text-label-sm uppercase tracking-wider text-secondary">Origin</span>}
+                 label={<span className="text-label-sm uppercase tracking-wider text-secondary">Điểm đi</span>}
                  rules={[{ required: true, message: "Vui lòng nhập điểm đi!" }]}
                >
                  <Select
@@ -255,7 +257,7 @@ export default function ClientDashboard() {
 
                <Form.Item
                  name="destination"
-                 label={<span className="text-label-sm uppercase tracking-wider text-secondary">Destination</span>}
+                 label={<span className="text-label-sm uppercase tracking-wider text-secondary">Điểm đến</span>}
                  rules={[{ required: true, message: "Vui lòng chọn điểm đến!" }]}
                >
                  <Select
@@ -276,7 +278,7 @@ export default function ClientDashboard() {
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                <Form.Item
                  name="departureDate"
-                 label={<span className="text-label-sm uppercase tracking-wider text-secondary">Departure Date</span>}
+                 label={<span className="text-label-sm uppercase tracking-wider text-secondary">Ngày đi</span>}
                  rules={[{ required: true, message: "Vui lòng chọn ngày đi!" }]}
                >
                  <DatePicker
@@ -288,10 +290,10 @@ export default function ClientDashboard() {
                </Form.Item>
 
 
-               {tripType === "round-trip" ? (
+               {/* {tripType === "round-trip" ? (
                  <Form.Item
                    name="returnDate"
-                   label={<span className="text-label-sm uppercase tracking-wider text-secondary">Return Date</span>}
+                   label={<span className="text-label-sm uppercase tracking-wider text-secondary">Ngày về</span>}
                    rules={[{ required: true, message: "Vui lòng chọn ngày về!" }]}
                  >
                    <DatePicker
@@ -303,7 +305,7 @@ export default function ClientDashboard() {
                  </Form.Item>
                ) : (
                  <div className="hidden md:block"></div>
-               )}
+               )} */}
              </div>
 
 
@@ -334,7 +336,7 @@ export default function ClientDashboard() {
        <div className="max-w-container-max mx-auto">
          <div className="flex justify-between items-end mb-12">
            <div>
-             <span className="text-primary font-bold tracking-widest uppercase text-label-sm">Top Connections</span>
+             <span className="text-primary font-bold tracking-widest uppercase text-label-sm">Chuyến đi phổ biến</span>
              <h2 className="text-headline-lg font-headline-lg mt-2 dark:text-black">Tuyến phổ biến</h2>
            </div>
            <a className="text-primary font-bold flex items-center gap-2 hover:underline" href="/khachhang/trip">
@@ -382,7 +384,7 @@ export default function ClientDashboard() {
                          ghost
                          size="large"
                          block
-                         onClick={() => navigate(`/khachhang/searchresults?diemDi=${route.diemDi}&diemDen=${route.diemDen}`)}
+                         onClick={() => navigate(`/khachhang/trip?diemDi=${route.diemDi}&diemDen=${route.diemDen}`)}
                          className="font-bold border-2"
                        >
                          Đặt vé ngay

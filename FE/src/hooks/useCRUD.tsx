@@ -2,10 +2,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import axios from "axios"
 import toast from "react-hot-toast"
 import { useNavigate } from "react-router-dom"
+import { useEffect } from "react"
+import { error } from "src/theme/core/palette"
 
 const BASE_URL = "http://localhost:3000/api"
 
-type ResourceType = "staff" | "bus" | "route" | "journey"|"trip"|"tk"|"booking"|"giave"|"news"|"holiday"
+type ResourceType = "staff" | "bus" | "route" | "journey"|"trip"|"tk"|"booking"|"giave"|"news"|"holiday"|"refund"
 
 export const useDetail = (resource: ResourceType, id: string | undefined) => {
     const API = `${BASE_URL}/${resource}`
@@ -27,6 +29,24 @@ export const useCRUD = (resource: ResourceType) => {
     const refresh = () => {
         queryClient.invalidateQueries({ queryKey: [resource] })
     }
+
+    // Auto-refresh queries on other tabs or during internal updates
+    useEffect(() => {
+        const handleStorageChange = (e: StorageEvent | Event) => {
+            // Invalidate if it is our custom Event, or if it is a native StorageEvent affecting user data
+            if (!("key" in e) || e.key === "user" || e.key === "users_list") {
+                refresh();
+            }
+        };
+
+        window.addEventListener("storage", handleStorageChange);
+        window.addEventListener("user-updated" as any, handleStorageChange);
+
+        return () => {
+            window.removeEventListener("storage", handleStorageChange);
+            window.removeEventListener("user-updated" as any, handleStorageChange);
+        };
+    }, [queryClient, resource]);
 
     const { data: list = [], isLoading, isError } = useQuery<any[], Error>({
         queryKey: [resource],
@@ -79,8 +99,9 @@ export const useCRUD = (resource: ResourceType) => {
             refresh()
             toast.success("Xóa thành công")
         },
-        onError: () => {
-            toast.error("Xóa thất bại")
+        onError: (error: any) => {
+           const errorMsg = error?.response?.data?.message || "Xóa thất bại"
+            toast.error(errorMsg)
         }
     })
 

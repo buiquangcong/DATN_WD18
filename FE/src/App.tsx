@@ -46,12 +46,17 @@ import TaiXePage from "./pages/driver/dashboard";
 import Feedback from "./pages/driver/feedback";
 import ListTaixePage from "./pages/driver/list";
 import Login from "./pages/driver/login";
+import ProfileDriverPage from "./pages/driver/profile";
+import TripDetailPage from "./pages/driver/trip-detail";
 import TinTucPage from "./pages/client/tintuc"
 import ChiTietTinTucPage from "./pages/client/chitiettintuc"
 
 import BookingListPage from "./pages/admin/booking/ListPage";
 import BookingEditPage from "./pages/admin/booking/EditPage";
 import BookingAddPage from "./pages/admin/booking/AddPage";
+import OfflineBookingPage from "./pages/admin/offline-booking/OfflineBookingPage";
+import OfflineBookingHistoryPage from "./pages/admin/offline-booking/OfflineBookingHistoryPage";
+import RefundListPage from "./pages/admin/refund/ListPage";
 
 
 import DashboardPage from "./pages/admin/dashboard";
@@ -63,6 +68,8 @@ import LoginClientPage from "./pages/client/login";
 import TicketSuccessPage from "./pages/client/TicketSuccessPage";
 import RegisterClientPage from "./pages/client/Register";
 import Schedule from "./pages/client/schedule";
+import ProfileClientPage from "./pages/client/profile";
+import ResetPasswordPage from "./pages/client/ResetPassword";
 import HolidayListPage from "./pages/admin/holiday/ListPage";
 import HolidayAddPage from "./pages/admin/holiday/AddPage";
 import HolidayEditPage from "./pages/admin/holiday/EditPage";
@@ -207,6 +214,8 @@ function App() {
             <Route path="/khachhang/tintuc/:id" element={<ChiTietTinTucPage />} />
             <Route path="/khachhang/register" element={<RegisterClientPage />} />
             <Route path="/khachhang/schedule" element={<Schedule />} />
+            <Route path="/khachhang/profile" element={<ProfileClientPage />} />
+            <Route path="/khachhang/reset-password" element={<ResetPasswordPage />} />
             {/* Driver Route with ProtectedRoute */}
             <Route
               path="/taixe"
@@ -219,7 +228,10 @@ function App() {
               <Route index element={<TaiXePage />} />
               <Route path="feedback" element={<Feedback />} />
               <Route path="list" element={<ListTaixePage />} />
+              <Route path="profile" element={<ProfileDriverPage />} />
+              <Route path="trip/:tripId" element={<TripDetailPage />} />
             </Route>
+            <Route path="/taixe/profile" element={<ProfileDriverPage />} />
             <Route path="/taixe/login" element={<Login />} />
 
             {/* Admin Routes with Dashboard Layout */}
@@ -265,6 +277,9 @@ function App() {
               <Route path="booking/list" element={<BookingListPage />} />
               <Route path="booking/add" element={<BookingAddPage />} />
               <Route path="booking/edit/:id" element={<BookingEditPage />} />
+              <Route path="offline-booking" element={<OfflineBookingPage />} />
+              <Route path="offline-booking/history" element={<OfflineBookingHistoryPage />} />
+              <Route path="refund/list" element={<RefundListPage />} />
                {/* tintuc*/}
                <Route path="news/list" element={<NewsListPage/>}></Route>
                <Route path="news/add" element={<NewsAddPage/>}></Route>

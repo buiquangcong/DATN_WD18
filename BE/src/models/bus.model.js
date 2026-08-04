@@ -20,8 +20,12 @@ const busSchema = new mongoose.Schema({
     },
     type: {
         type: String,
-        enum: ['Sleeper', 'Seater', 'Limousine'],
+        enum: ['Sleeper', 'Seater'],
         default: 'Seater'
+    },
+    hangxe:
+    {
+        type: String,
     },
     driver: {
         type: mongoose.Schema.Types.ObjectId,
@@ -30,8 +34,8 @@ const busSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['Active', 'Maintenance', 'Inactive'],
-        default: 'Active'
+        enum: ['hoạt động', 'bảo trì', 'ngừng hoạt động'],
+        default: 'hoạt động'
     }
 }, {
     timestamps: true,

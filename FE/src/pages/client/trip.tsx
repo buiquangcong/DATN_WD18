@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   Card,
   Row,
@@ -36,6 +36,7 @@ import dayjs from "dayjs";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
+
 interface FareRule {
   weekdayPrice: number;
   weekendPrice: number;
@@ -44,7 +45,7 @@ interface FareRule {
 interface DiemType {
   _id?: string;
   diaDiem: string;
-  thoiGian: string;
+  offsetMinutes: number;
 }
 
 interface Journey {
@@ -75,11 +76,14 @@ interface TripData {
   status: string;
   seats: Seat[];
 }
+
 export default function Trip(): React.ReactElement {
   const [trips, setTrips] = useState<TripData[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
-  const [showPolicy, setShowPolicy] = useState<boolean>(true); // Trạng thái đóng mở chính sách hủy vé
+  const [showPolicy, setShowPolicy] = useState<boolean>(true);
   const navigate = useNavigate();
+  const location = useLocation();
+
   const [expandedTrips, setExpandedTrips] = useState<Record<string, boolean>>({});
 
   const toggleTripExpand = (tripId: string) => {
@@ -93,7 +97,6 @@ export default function Trip(): React.ReactElement {
   const [diemDen, setDiemDen] = useState<string | undefined>(undefined);
   const [ngayDi, setNgayDi] = useState<dayjs.Dayjs | null>(null);
 
-  // Active filters applied after clicking "Tìm kiếm"
   const [appliedSearch, setAppliedSearch] = useState<{
     diemDi?: string;
     diemDen?: string;
@@ -104,21 +107,43 @@ export default function Trip(): React.ReactElement {
     ngayDi: null,
   });
 
-  // Sidebar filters
   const [selectedBusTypes, setSelectedBusTypes] = useState<string[]>([]);
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 1500000]);
   const [selectedTimeSlots, setSelectedTimeSlots] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<string>("time_asc");
 
+  // 🌟 Đọc URL query parameters từ Dashboard truyền sang
+  useEffect(() => {
+    const queryParams = new URLSearchParams(location.search);
+    const paramDiemDi = queryParams.get("diemDi") || undefined;
+    const paramDiemDen = queryParams.get("diemDen") || undefined;
+    const paramNgayDi = queryParams.get("ngayDi");
+
+    const parsedNgayDi = paramNgayDi ? dayjs(paramNgayDi) : null;
+
+    setDiemDi(paramDiemDi);
+    setDiemDen(paramDiemDen);
+    setNgayDi(parsedNgayDi && parsedNgayDi.isValid() ? parsedNgayDi : null);
+
+    setAppliedSearch({
+      diemDi: paramDiemDi,
+      diemDen: paramDiemDen,
+      ngayDi: paramNgayDi && parsedNgayDi?.isValid() ? paramNgayDi : null,
+    });
+  }, [location.search]);
+
   const fetchTrips = async (): Promise<void> => {
     setLoading(true);
     try {
       const response = await axios.get<{ data?: TripData[] } & TripData[]>("http://localhost:3000/api/trip");
+      let allTrips: TripData[] = [];
       if (response.data && "data" in response.data && Array.isArray(response.data.data)) {
-        setTrips(response.data.data);
+        allTrips = response.data.data;
       } else if (Array.isArray(response.data)) {
-        setTrips(response.data as unknown as TripData[]);
+        allTrips = response.data as unknown as TripData[];
       }
+      const upcomingTrips = allTrips.filter(t => t.status === "sắp chạy");
+      setTrips(upcomingTrips);
     } catch (error) {
       console.error("Lỗi lấy danh sách chuyến:", error);
       message.error("Không thể kết nối đến máy chủ!");
@@ -135,6 +160,16 @@ export default function Trip(): React.ReactElement {
     if (!dateString) return "--:--";
     const date = new Date(dateString);
     return date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+  };
+
+  const getPickupTime = (departureTimeStr: string, offsetMinutes: number): string => {
+    if (!departureTimeStr) return "--:--";
+    return dayjs(departureTimeStr).add(offsetMinutes, "minute").format("HH:mm");
+  };
+
+  const getDropoffTime = (arrivalTimeStr: string, offsetMinutes: number): string => {
+    if (!arrivalTimeStr) return "--:--";
+    return dayjs(arrivalTimeStr).subtract(offsetMinutes, "minute").format("HH:mm");
   };
 
   const getAvailableSeatsCount = (seatsArray: Seat[]): number => {
@@ -159,11 +194,19 @@ export default function Trip(): React.ReactElement {
   const destinations = Array.from(new Set(trips.map(t => t.journey?.diemDen).filter(Boolean)));
 
   const handleSearch = () => {
+    const formattedDate = ngayDi ? ngayDi.format("YYYY-MM-DD") : null;
     setAppliedSearch({
       diemDi,
       diemDen,
-      ngayDi: ngayDi ? ngayDi.format("YYYY-MM-DD") : null,
+      ngayDi: formattedDate,
     });
+
+    // Cập nhật lại URL khi tìm kiếm trực tiếp trên trang Trip
+    const params = new URLSearchParams();
+    if (diemDi) params.append("diemDi", diemDi);
+    if (diemDen) params.append("diemDen", diemDen);
+    if (formattedDate) params.append("ngayDi", formattedDate);
+    navigate(`/khachhang/trip?${params.toString()}`, { replace: true });
   };
 
   const handleClearFilters = () => {
@@ -179,6 +222,7 @@ export default function Trip(): React.ReactElement {
     setPriceRange([0, 1500000]);
     setSelectedTimeSlots([]);
     setSortBy("time_asc");
+    navigate("/khachhang/trip", { replace: true });
   };
 
   const filteredTrips = trips.filter((trip) => {
@@ -189,7 +233,7 @@ export default function Trip(): React.ReactElement {
       return false;
     }
     if (appliedSearch.ngayDi) {
-      const tripDateStr = trip.departureTime ? trip.departureTime.split("T")[0] : "";
+      const tripDateStr = trip.departureTime ? dayjs(trip.departureTime).format("YYYY-MM-DD") : "";
       if (tripDateStr !== appliedSearch.ngayDi) {
         return false;
       }
@@ -443,7 +487,7 @@ export default function Trip(): React.ReactElement {
                 </Space>
               </div>
 
-              {/* 🌟 THÀNH PHẦN CHÍNH SÁCH HỦY VÉ THEO ẢNH MẪU CỦA BẠN 🌟 */}
+              {/* CHÍNH SÁCH HỦY VÉ */}
               <div style={{ marginBottom: 20 }}>
                 <div
                   onClick={() => setShowPolicy(!showPolicy)}
@@ -463,11 +507,11 @@ export default function Trip(): React.ReactElement {
                 {showPolicy && (
                   <div style={{ paddingLeft: 24, marginTop: 12, display: "flex", flexDirection: "column", gap: 6 }}>
                     <div>
-                      <span style={{ color: "#44403c" }}>Ngoài 2 tiếng trước giờ xe chạy: </span>
+                      <span style={{ color: "#44403c" }}>Ngoài 6 tiếng trước giờ xe chạy: </span>
                       <span style={{ color: "#dc2626", fontWeight: 600 }}>Miễn phí hủy vé</span>
                     </div>
                     <div>
-                      <span style={{ color: "#44403c" }}>Từ 1 - 2 tiếng trước giờ xe chạy: </span>
+                      <span style={{ color: "#44403c" }}>Từ 2 - 5 tiếng trước giờ xe chạy: </span>
                       <span style={{ color: "#dc2626", fontWeight: 600 }}>Phí hủy 50%</span>
                     </div>
                     <div>
@@ -567,7 +611,7 @@ export default function Trip(): React.ReactElement {
                               <EnvironmentOutlined />
                               {expandedTrips[item._id] ? "Ẩn điểm đón/trả" : "Xem điểm đón/trả"}
                               <span style={{ color: "#64748b", fontWeight: 400, fontSize: 12, marginLeft: 2 }}>
-                                ({ (item.journey?.diemDon?.length || 0) + (item.journey?.diemTra?.length || 0) })
+                                ({(item.journey?.diemDon?.length || 0) + (item.journey?.diemTra?.length || 0)})
                               </span>
                             </Button>
                           </div>
@@ -628,7 +672,7 @@ export default function Trip(): React.ReactElement {
                                   {item.journey.diemDon.map((diem, idx) => (
                                     <div key={diem._id || idx} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
                                       <Tag color="blue" style={{ margin: 0, fontWeight: 600, borderRadius: 4, fontSize: 11 }}>
-                                        {diem.thoiGian}
+                                        {getPickupTime(item.departureTime, diem.offsetMinutes)}
                                       </Tag>
                                       <Text style={{ color: "#475569", fontSize: 13 }}>{diem.diaDiem}</Text>
                                     </div>
@@ -652,7 +696,7 @@ export default function Trip(): React.ReactElement {
                                   {item.journey.diemTra.map((diem, idx) => (
                                     <div key={diem._id || idx} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
                                       <Tag color="orange" style={{ margin: 0, fontWeight: 600, borderRadius: 4, fontSize: 11 }}>
-                                        {diem.thoiGian}
+                                        {getDropoffTime(item.arrivalTime, diem.offsetMinutes)}
                                       </Tag>
                                       <Text style={{ color: "#475569", fontSize: 13 }}>{diem.diaDiem}</Text>
                                     </div>

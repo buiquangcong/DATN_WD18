@@ -99,7 +99,7 @@ export default function Contact() {
                 </Space>
 
                 <Button type="primary" block href={office.map} target="_blank">
-                  View on Map
+                  Xem trên bản đồ
                 </Button>
               </Space>
             </Card>

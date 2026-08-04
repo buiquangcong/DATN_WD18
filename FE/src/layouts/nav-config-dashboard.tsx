@@ -51,6 +51,16 @@ export const navData = [
     icon: renderIcon('solar:ticket-sale-bold-duotone'),
   },
   {
+    title: 'Đặt vé tại quầy',
+    path: '/admin/offline-booking',
+    icon: renderIcon('solar:ticket-bold-duotone'),
+  },
+  {
+    title: 'Danh sách hoàn trả',
+    path: '/admin/refund/list',
+    icon: renderIcon('solar:hand-money-bold-duotone'),
+  },
+  {
     title: 'Danh sách giá vé',
     path: '/admin/giave/list',
     icon: renderIcon('solar:wad-of-money-bold-duotone'),

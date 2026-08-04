@@ -184,6 +184,42 @@ export const createOne = asyncHandler(async (req, res) => {
     });
 });
 export const updateOne = asyncHandler(async (req, res) => {
+    // Nếu chuyển trạng thái sang Đã huỷ hoặc Yêu cầu hoàn tiền, tiến hành giải phóng ghế trong Trip
+    if (req.body.status === "Đã huỷ" || req.body.status === "Yêu cầu hoàn tiền") {
+        const bookingObj = await Booking.findById(req.params.id);
+        if (bookingObj && bookingObj.status !== "Đã huỷ" && bookingObj.status !== "Yêu cầu hoàn tiền" && bookingObj.status !== "Đã hoàn tiền") {
+            const trip = await Trip.findById(bookingObj.trip);
+            if (trip) {
+                trip.seats.forEach((seat) => {
+                    if (bookingObj.seats.includes(seat.seatCode)) {
+                        seat.status = "AVAILABLE";
+                        seat.heldBy = null;
+                        seat.expiresAt = null;
+                    }
+                });
+                await trip.save();
+            }
+        }
+    }
+
+    // Nếu chuyển trạng thái sang Đã xác nhận, Đã checkin hoặc Hoàn thành, tiến hành đặt ghế chính thức (BOOKED) trong Trip
+    if (req.body.status === "Đã xác nhận" || req.body.status === "Đã checkin" || req.body.status === "Hoàn thành") {
+        const bookingObj = await Booking.findById(req.params.id);
+        if (bookingObj) {
+            const trip = await Trip.findById(bookingObj.trip);
+            if (trip) {
+                trip.seats.forEach((seat) => {
+                    if (bookingObj.seats.includes(seat.seatCode)) {
+                        seat.status = "BOOKED";
+                        seat.heldBy = null;
+                        seat.expiresAt = null;
+                    }
+                });
+                await trip.save();
+            }
+        }
+    }
+
     const booking = await Booking.findByIdAndUpdate(
         req.params.id,
         req.body,
@@ -225,4 +261,78 @@ export const deleteOne = asyncHandler(async (req, res) => {
     await Booking.findByIdAndDelete(req.params.id);
 
     return res.json({ message: "Xóa đơn đặt vé thành công" });
+});
+
+// Check-in vé theo mã vé (orderCode)
+export const checkInTicket = asyncHandler(async (req, res) => {
+    const { orderCode } = req.body;
+
+    if (!orderCode) {
+        return res.status(400).json({
+            success: false,
+            message: "Vui lòng nhập mã vé",
+        });
+    }
+
+    const booking = await Booking.findOne({ orderCode: Number(orderCode) })
+        .populate("user")
+        .populate({
+            path: "trip",
+            populate: [
+                { path: "journey" },
+                { path: "bus" },
+                { path: "staff" },
+            ],
+        });
+
+    if (!booking) {
+        return res.status(404).json({
+            success: false,
+            message: "Không tìm thấy vé với mã này",
+        });
+    }
+
+    if (booking.status === "Đã huỷ") {
+        return res.status(400).json({
+            success: false,
+            message: "Vé này đã bị huỷ",
+        });
+    }
+
+    if (booking.status === "Đã check-in") {
+        return res.status(400).json({
+            success: false,
+            message: "Vé này đã được check-in trước đó",
+        });
+    }
+
+    if (booking.status === "Chờ xác nhận") {
+        return res.status(400).json({
+            success: false,
+            message: "Vé này chưa được xác nhận thanh toán",
+        });
+    }
+
+    booking.status = "Đã check-in";
+    await booking.save();
+
+    return res.json({
+        success: true,
+        message: "Check-in vé thành công!",
+        data: booking,
+    });
+});
+
+// Lấy danh sách bookings theo trip
+export const getByTrip = asyncHandler(async (req, res) => {
+    const { tripId } = req.params;
+
+    const bookings = await Booking.find({ trip: tripId })
+        .populate("user")
+        .sort({ createdAt: -1 });
+
+    return res.json({
+        success: true,
+        data: bookings,
+    });
 });

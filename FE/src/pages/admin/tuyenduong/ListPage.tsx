@@ -1,8 +1,9 @@
-import { Popconfirm, Space, Table, Button, Tag, Modal, Divider } from "antd";
+import { Popconfirm, Space, Table, Button, Tag, Modal, Divider, Select, Card } from "antd";
 import { useCRUD, useDetail } from "../../../hooks/useCRUD";
 import { useNavigate } from "react-router-dom";
 import type { ColumnsType } from "antd/es/table";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { SearchOutlined, EnvironmentOutlined } from "@ant-design/icons";
 
 interface DiemType {
   _id?: string;
@@ -14,7 +15,7 @@ interface JourneyType {
   _id: string;
   diemDi: string;
   diemDen: string;
-  quangDuong: string;
+  quangDuong: string | number;
   thoiGianDiChuyen: string;
   price: number;
   diemDon: DiemType[];
@@ -24,15 +25,75 @@ interface JourneyType {
 
 function JourneyListPage() {
   const navigate = useNavigate();
-  const { list, Delete } = useCRUD("journey");
+  const { list = [], Delete, isLoading } = useCRUD("journey");
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
   const [open, setOpen] = useState(false);
+
+  // State chọn Điểm đi và Điểm đến từ danh sách Select
+  const [diemDiSelect, setDiemDiSelect] = useState<string | undefined>(undefined);
+  const [diemDenSelect, setDiemDenSelect] = useState<string | undefined>(undefined);
+
+  // State lưu tham số thực sự dùng để LỌC khi bấm nút Tìm kiếm
+  const [searchParams, setSearchParams] = useState<{ diemDi?: string; diemDen?: string }>({});
+  const [selectedTrangThai, setSelectedTrangThai] = useState<string>("All");
+
   const { data: journey } = useDetail("journey", selectedId);
+
+  // Trích xuất danh sách các Điểm Đi duy nhất từ dữ liệu
+  const departuresList = useMemo(() => {
+    if (!Array.isArray(list)) return [];
+    const uniqueDi = new Set(list.map((item: JourneyType) => item?.diemDi).filter(Boolean));
+    return Array.from(uniqueDi).map((diem) => ({ value: diem, label: diem }));
+  }, [list]);
+
+  // Trích xuất danh sách các Điểm Đến duy nhất từ dữ liệu
+  const destinationsList = useMemo(() => {
+    if (!Array.isArray(list)) return [];
+    const uniqueDen = new Set(list.map((item: JourneyType) => item?.diemDen).filter(Boolean));
+    return Array.from(uniqueDen).map((diem) => ({ value: diem, label: diem }));
+  }, [list]);
+
+  // LOẠI BỎ ĐIỂM ĐÃ CHỌN:
+  // Nếu đã chọn Điểm đi -> Loại khỏi danh sách Điểm đến
+  const filteredDestinations = useMemo(() => {
+    return destinationsList.filter((item) => item.value !== diemDiSelect);
+  }, [destinationsList, diemDiSelect]);
+
+  // Nếu đã chọn Điểm đến -> Loại khỏi danh sách Điểm đi
+  const filteredDepartures = useMemo(() => {
+    return departuresList.filter((item) => item.value !== diemDenSelect);
+  }, [departuresList, diemDenSelect]);
 
   const handleView = (id: string) => {
     setSelectedId(id);
     setOpen(true);
   };
+
+  // Hàm xử lý khi bấm nút Tìm kiếm
+  const handleSearch = () => {
+    setSearchParams({
+      diemDi: diemDiSelect,
+      diemDen: diemDenSelect,
+    });
+  };
+
+  // Logic lọc danh sách hành trình theo Điểm đi, Điểm đến và Trạng thái
+  const filteredList = (list || []).filter((item: JourneyType) => {
+    const searchDi = searchParams.diemDi?.toLowerCase();
+    const searchDen = searchParams.diemDen?.toLowerCase();
+
+    const matchesDiemDi =
+      !searchDi || String(item?.diemDi || "").toLowerCase().includes(searchDi);
+
+    const matchesDiemDen =
+      !searchDen || String(item?.diemDen || "").toLowerCase().includes(searchDen);
+
+    const matchesTrangThai =
+      selectedTrangThai === "All" ||
+      (selectedTrangThai === "active" ? item?.trangThai === true : item?.trangThai === false);
+
+    return matchesDiemDi && matchesDiemDen && matchesTrangThai;
+  });
 
   const columns: ColumnsType<JourneyType> = [
     {
@@ -48,13 +109,13 @@ function JourneyListPage() {
       render: (text: string) => <span className="text-gray-600">{text}</span>,
     },
     {
-      title: "Quãng Đường",
+      title: "Quãng Đường (dự kiến)",
       dataIndex: "quangDuong",
       key: "quangDuong",
-      render: (quangDuong: string) => <span className="text-gray-600">{quangDuong}</span>,
+      render: (quangDuong: string | number) => <span className="text-gray-600">{quangDuong}</span>,
     },
     {
-      title: "Thời Gian Di Chuyển",
+      title: "Thời Gian Di Chuyển (dự kiến)",
       dataIndex: "thoiGianDiChuyen",
       key: "thoiGianDiChuyen",
       render: (time: string) => <span className="text-gray-600">{time}</span>,
@@ -64,7 +125,7 @@ function JourneyListPage() {
       dataIndex: "diemDon",
       key: "diemDon",
       render: (diemDon: DiemType[]) => (
-        <span className="text-gray-600">{diemDon?.length} điểm đón</span>
+        <span className="text-gray-600">{diemDon?.length || 0} điểm đón</span>
       ),
     },
     {
@@ -72,7 +133,7 @@ function JourneyListPage() {
       dataIndex: "diemTra",
       key: "diemTra",
       render: (diemTra: DiemType[]) => (
-        <span className="text-gray-600">{diemTra?.length} điểm trả</span>
+        <span className="text-gray-600">{diemTra?.length || 0} điểm trả</span>
       ),
     },
     {
@@ -113,22 +174,93 @@ function JourneyListPage() {
   ];
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-semibold text-gray-800">Quản Lý Danh Sách tuyến đường</h1>
-        <Button type="primary" size="large" onClick={() => navigate("/admin/journey/add")}>
+    <div className="p-6 w-full space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">Quản Lý Danh Sách Tuyến Đường</h1>
+          <p className="text-sm text-gray-500">Quản lý các tuyến đường, điểm đón trả và lịch trình di chuyển.</p>
+        </div>
+        <Button
+          type="primary"
+          size="large"
+          className="bg-blue-600 hover:bg-blue-700 transition-colors shadow-sm font-semibold rounded-lg"
+          onClick={() => navigate("/admin/journey/add")}
+        >
           Thêm Hành Trình Mới
         </Button>
       </div>
 
-      <div className="overflow-x-auto bg-white rounded-lg shadow-md border border-gray-100">
-        <Table
-          columns={columns}
-          dataSource={list}
-          rowKey="_id"
-          pagination={{ pageSize: 10, showSizeChanger: true }}
-        />
-      </div>
+      {/* Card chứa Khối Tìm Kiếm, Bộ Lọc và Bảng Dữ Liệu */}
+      <Card className="shadow-xs border border-gray-100 rounded-xl bg-white">
+        {/* Khối Select chọn Điểm đi / Điểm đến + Lọc trạng thái */}
+        <div className="flex flex-col lg:flex-row items-center gap-3 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 flex-1 w-full">
+            <Select
+              showSearch
+              placeholder="Chọn điểm đi"
+              size="large"
+              allowClear
+              value={diemDiSelect}
+              onChange={(val) => setDiemDiSelect(val)}
+              options={filteredDepartures}
+              suffixIcon={<EnvironmentOutlined className="text-gray-400" />}
+              className="w-full"
+            />
+            <Select
+              showSearch
+              placeholder="Chọn điểm đến"
+              size="large"
+              allowClear
+              value={diemDenSelect}
+              onChange={(val) => setDiemDenSelect(val)}
+              options={filteredDestinations}
+              suffixIcon={<EnvironmentOutlined className="text-gray-400" />}
+              className="w-full"
+            />
+          </div>
+
+          <div className="flex gap-3 w-full lg:w-auto">
+            <Select
+              placeholder="Lọc theo trạng thái"
+              size="large"
+              className="w-full lg:w-48"
+              defaultValue="All"
+              value={selectedTrangThai}
+              onChange={(value) => setSelectedTrangThai(value)}
+              options={[
+                { value: "All", label: "Tất cả trạng thái" },
+                { value: "active", label: "Hoạt động" },
+                { value: "inactive", label: "Dừng hoạt động" },
+              ]}
+            />
+            <Button
+              type="primary"
+              size="large"
+              icon={<SearchOutlined />}
+              onClick={handleSearch}
+              className="bg-emerald-800 hover:!bg-emerald-700 text-white border-none rounded-xl font-medium px-6 h-[40px] flex items-center justify-center gap-2"
+            >
+              Tìm kiếm
+            </Button>
+          </div>
+        </div>
+
+        {/* Bảng hiển thị danh sách */}
+        <div className="overflow-x-auto">
+          <Table
+            columns={columns}
+            dataSource={filteredList}
+            rowKey="_id"
+            loading={isLoading}
+            pagination={{
+              pageSize: 10,
+              showSizeChanger: true,
+              showTotal: (total) => `Tổng số ${total} tuyến đường`,
+            }}
+          />
+        </div>
+      </Card>
 
       {/* Modal chi tiết */}
       <Modal
@@ -143,7 +275,7 @@ function JourneyListPage() {
             <div className="grid grid-cols-2 gap-3">
               <div><p className="text-xs text-gray-400">Quãng Đường</p><p>{journey.quangDuong} km</p></div>
               <div><p className="text-xs text-gray-400">Thời Gian Di Chuyển</p><p>{journey.thoiGianDiChuyen}</p></div>
-              
+
               <div>
                 <p className="text-xs text-gray-400">Trạng Thái</p>
                 <Tag color={journey.trangThai ? "green" : "red"}>
@@ -155,7 +287,7 @@ function JourneyListPage() {
             <Divider />
 
             <div>
-              <p className="font-medium mb-2">Điểm Đón ({journey.diemDon?.length} điểm)</p>
+              <p className="font-medium mb-2">Điểm Đón ({journey.diemDon?.length || 0} điểm)</p>
               <p className="text-xs text-gray-400 mb-2">Tính từ lúc xe khởi hành</p>
               <div className="space-y-1">
                 {journey.diemDon?.map((diem: DiemType, index: number) => (
@@ -174,7 +306,7 @@ function JourneyListPage() {
             <Divider />
 
             <div>
-              <p className="font-medium mb-2">Điểm Trả ({journey.diemTra?.length} điểm)</p>
+              <p className="font-medium mb-2">Điểm Trả ({journey.diemTra?.length || 0} điểm)</p>
               <p className="text-xs text-gray-400 mb-2">Tính trước khi xe đến bến cuối</p>
               <div className="space-y-1">
                 {journey.diemTra?.map((diem: DiemType, index: number) => (

@@ -84,7 +84,7 @@ export default function Schedule(): React.ReactElement {
         dataList = response.data as unknown as TripData[];
       }
 
-      const validTrips = dataList.filter(t => t.journey && t.journey.diemDi && t.journey.diemDen);
+      const validTrips = dataList.filter(t => t.journey && t.journey.diemDi && t.journey.diemDen && t.status === "sắp chạy");
 
       const flatList: FlattenedRoute[] = validTrips.map((trip) => {
         let price = 0;
