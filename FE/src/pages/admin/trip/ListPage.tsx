@@ -94,7 +94,6 @@ interface TripType {
   }[];
 }
 
-
 function TripListPage() {
   const navigate = useNavigate();
   const { list, Delete } = useCRUD("trip");
@@ -120,6 +119,33 @@ function TripListPage() {
 
   const { data: trip, isLoading } = useDetail("trip", selectedId);
 
+  // 🟢 BỔ SUNG: State lưu dữ liệu Chấm công thực tế của Tài xế
+  const [attendanceMap, setAttendanceMap] = useState<Record<string, any>>({});
+
+  // 🟢 BỔ SUNG: Fetch danh sách Attendance từ Backend
+  useEffect(() => {
+    const fetchAttendanceData = async () => {
+      try {
+        const res = await axios.get("http://localhost:3000/api/attendance");
+        if (res.data) {
+          const records = res.data.data || res.data;
+          const map: Record<string, any> = {};
+          if (Array.isArray(records)) {
+            records.forEach((att: any) => {
+              const tId = att.trip?._id || att.trip || att.tripId;
+              if (tId) map[String(tId)] = att;
+            });
+          }
+          setAttendanceMap(map);
+        }
+      } catch (err) {
+        console.error("Lỗi lấy danh sách chấm công:", err);
+      }
+    };
+
+    fetchAttendanceData();
+  }, [list]);
+
   // State và Logic quét mã QR Check-in Khách
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [cameras, setCameras] = useState<any[]>([]);
@@ -144,12 +170,10 @@ function TripListPage() {
   }, [list]);
 
   // LOẠI BỎ ĐIỂM ĐÃ CHỌN:
-  // Nếu đã chọn Điểm đi -> Loại khỏi danh sách Điểm đến
   const filteredDestinations = useMemo(() => {
     return destinationsList.filter((item) => item.value !== diemDiSelect);
   }, [destinationsList, diemDiSelect]);
 
-  // Nếu đã chọn Điểm đến -> Loại khỏi danh sách Điểm đi
   const filteredDepartures = useMemo(() => {
     return departuresList.filter((item) => item.value !== diemDenSelect);
   }, [departuresList, diemDenSelect]);
@@ -172,7 +196,7 @@ function TripListPage() {
       gainNode.connect(audioCtx.destination);
 
       oscillator.type = "sine";
-      oscillator.frequency.setValueAtTime(isError ? 220 : 800, audioCtx.currentTime); // low pitch for error, high for success
+      oscillator.frequency.setValueAtTime(isError ? 220 : 800, audioCtx.currentTime);
       gainNode.gain.setValueAtTime(0.08, audioCtx.currentTime);
       gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + (isError ? 0.3 : 0.15));
 
@@ -186,14 +210,12 @@ function TripListPage() {
   const handleScanSuccess = async (decodedText: string, instance: Html5Qrcode) => {
     if (!trip) return;
 
-    // Kiểm tra chuyến xe đã hoàn thành hay chưa
     if (trip.status === "hoàn thành") {
       playBeep(true);
       toast.error("Chuyến xe đã hoàn thành, không thể check-in!");
       return;
     }
 
-    // Kiểm tra thời gian check-in (chỉ được phép trước/sau giờ xe chạy 15 phút)
     if (trip.departureTime) {
       const now = dayjs();
       const departure = dayjs(trip.departureTime);
@@ -206,7 +228,6 @@ function TripListPage() {
       }
     }
 
-    // Trích xuất mã vé ID từ nội dung QR nếu có định dạng text
     let bookingId = decodedText;
     if (decodedText.includes("Mã vé:")) {
       const match = decodedText.match(/Mã vé:\s*([^\n\r]+)/);
@@ -216,7 +237,6 @@ function TripListPage() {
     }
 
     try {
-      // Gọi API lấy chi tiết đặt vé
       const res = await axios.get(`http://localhost:3000/api/booking/${bookingId}`);
       const bookingData = res.data;
 
@@ -226,7 +246,6 @@ function TripListPage() {
         return;
       }
 
-      // Kiểm tra xem vé có thuộc đúng chuyến xe hiện tại đang xem hay không
       const tripIdOfBooking = bookingData.trip?._id || bookingData.trip;
       const currentTripId = trip?._id;
 
@@ -253,7 +272,6 @@ function TripListPage() {
         return;
       }
 
-      // Kiểm tra trạng thái của vé
       if (bookingData.status === "Hoàn thành" || bookingData.status === "Đã checkin" || bookingData.status === "Đã check-in") {
         playBeep(true);
         toast.error(`Vé này đã được check-in trước đó!`);
@@ -266,7 +284,6 @@ function TripListPage() {
         return;
       }
 
-      // TIẾN HÀNH TỰ ĐỘNG CHECK-IN NGAY LẬP TỨC
       await stopScanner(instance);
       
       await axios.put(`http://localhost:3000/api/booking/update/${bookingData._id}`, {
@@ -274,18 +291,14 @@ function TripListPage() {
       });
 
       playBeep();
-      setTimeout(playBeep, 150); // Bíp đôi
+      setTimeout(playBeep, 150);
 
       toast.success(`Tự động Check-in thành công cho khách hàng ${bookingData.user?.username || "NETBUS"}!`);
-
-      // Làm mới dữ liệu chuyến xe hiện tại và bảng danh sách
       window.dispatchEvent(new Event("storage"));
-      
       setIsScannerOpen(false);
     } catch (err: any) {
       console.error("Lỗi khi quét hoặc check-in vé:", err);
       
-      // Fallback: Tìm theo orderCode nếu là số
       const searchCode = bookingId.trim();
       if (/^\d+$/.test(searchCode)) {
         try {
@@ -372,9 +385,7 @@ function TripListPage() {
             (decodedText) => {
               handleScanSuccess(decodedText, instance);
             },
-            () => {
-              // Bỏ qua lỗi đọc camera định kỳ
-            }
+            () => {}
           );
         } catch (err: any) {
           console.error("Lỗi khi start camera:", err);
@@ -426,7 +437,6 @@ function TripListPage() {
 
       toast.success(`Check-in thành công cho khách hàng ${scannedBooking.user?.username || "NETBUS"}!`);
 
-      // Làm mới dữ liệu chuyến xe hiện tại và bảng danh sách
       window.dispatchEvent(new Event("storage"));
       
       setScannedBooking(null);
@@ -505,14 +515,12 @@ function TripListPage() {
   const handleDirectCheckin = async (bookingId: string, customerName: string) => {
     if (!trip) return;
 
-    // Kiểm tra chuyến xe đã hoàn thành hay chưa
     if (trip.status === "hoàn thành") {
       playBeep(true);
       toast.error("Chuyến xe đã hoàn thành, không thể check-in!");
       return;
     }
 
-    // Kiểm tra thời gian check-in (chỉ được phép trước/sau giờ xe chạy 15 phút)
     if (trip.departureTime) {
       const now = dayjs();
       const departure = dayjs(trip.departureTime);
@@ -535,10 +543,8 @@ function TripListPage() {
 
       toast.success(`Check-in thành công cho khách hàng ${customerName}!`);
       
-      // Đồng bộ làm mới bảng ở trang chính
       window.dispatchEvent(new Event("storage"));
 
-      // Làm mới danh sách trong modal hiện tại
       if (trip?._id) {
         await fetchTripBookings(trip._id);
       }
@@ -568,14 +574,12 @@ function TripListPage() {
   const filteredList = list?.filter((item: TripType) => {
     const searchLower = searchText.toLowerCase().trim();
 
-    // Lọc theo text tìm kiếm (tên xe, biển số, nhân viên)
     const matchesSearch =
       !searchLower ||
       item.bus?.name?.toLowerCase().includes(searchLower) ||
       item.bus?.licensePlates?.toLowerCase().includes(searchLower) ||
       item.staff?.ten?.toLowerCase().includes(searchLower);
 
-    // Lọc theo Điểm đi / Điểm đến đã chọn
     const searchDi = searchParams.diemDi?.toLowerCase();
     const searchDen = searchParams.diemDen?.toLowerCase();
 
@@ -585,7 +589,6 @@ function TripListPage() {
     const matchesDiemDen =
       !searchDen || String(item?.journey?.diemDen || "").toLowerCase().includes(searchDen);
 
-    // Lọc theo trạng thái
     const matchesStatus =
       selectedStatus === "All" || item.status === selectedStatus;
 
@@ -697,11 +700,32 @@ function TripListPage() {
         );
       },
     },
+    // 🟢 SỬA ĐOẠN NÀY: Cột Nhân viên kiểm tra trạng thái thực tế từ attendanceMap
     {
       title: "Nhân viên",
-      render: (_, record) => (
-        <span>{record.staff?.ten || "Chưa phân công"}</span>
-      ),
+      render: (_, record) => {
+        const att = attendanceMap[record._id];
+        const isCheckedIn = att?.status === "checked_in" || att?.status === "checked_out" || Boolean(att?.checkInTime);
+
+        let driverStatus = { text: "Chưa check-in", color: "orange" };
+
+        if (record.status === "huỷ") {
+          driverStatus = { text: "Đã hủy", color: "red" };
+        } else if (isCheckedIn) {
+          driverStatus = { text: "Đã check-in", color: "green" };
+        }
+
+        return (
+          <div className="flex flex-col gap-1">
+            <span>{record.staff?.ten || "Chưa phân công"}</span>
+            {record.staff?.ten && (
+              <Tag color={driverStatus.color} className="w-fit text-xs">
+                {driverStatus.text}
+              </Tag>
+            )}
+          </div>
+        );
+      },
     },
     {
       title: "Trạng thái",
@@ -762,8 +786,6 @@ function TripListPage() {
 
       {/* CARD BỘ LỌC VÀ BẢNG */}
       <Card className="shadow-xs border border-gray-100 rounded-xl bg-white">
-        {/* Khối Select chọn Điểm đi / Điểm đến + Lọc trạng thái */}
-        
         <div className="flex flex-col lg:flex-row items-center gap-3 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 flex-1 w-full">
             <Select
@@ -818,7 +840,6 @@ function TripListPage() {
           </div>
         </div>
 
-        {/* Input tìm kiếm text nếu cần thêm */}
         <div className="mb-4">
           <Input.Search
             placeholder="Tìm theo tên xe, biển số hoặc nhân viên..."
@@ -829,23 +850,24 @@ function TripListPage() {
             className="w-full md:w-1/2"
           />
         </div>
-{/* Dòng thông báo số lượng theo trạng thái đang lọc */}
-{selectedStatus !== "All" && (
-  <div className="mb-4">
-    <span className="text-sm font-medium">
-      Có {" "}
-      <span className={`font-bold ${
-        selectedStatus === "sắp chạy" ? "text-orange-600" :
-        selectedStatus === "đang chạy" ? "text-green-600" :
-        selectedStatus === "hoàn thành" ? "text-gray-600" :
-        "text-red-600"
-      }`}>
-        {filteredList?.length || 0}
-      </span>
-      {" "} chuyến {selectedStatus}
-    </span>
-  </div>
-)}
+
+        {selectedStatus !== "All" && (
+          <div className="mb-4">
+            <span className="text-sm font-medium">
+              Có{" "}
+              <span className={`font-bold ${
+                selectedStatus === "sắp chạy" ? "text-orange-600" :
+                selectedStatus === "đang chạy" ? "text-green-600" :
+                selectedStatus === "hoàn thành" ? "text-gray-600" :
+                "text-red-600"
+              }`}>
+                {filteredList?.length || 0}
+              </span>
+              {" "} chuyến {selectedStatus}
+            </span>
+          </div>
+        )}
+
         <div className="overflow-x-auto">
           <Table
             columns={columns}
@@ -965,7 +987,6 @@ function TripListPage() {
 
             <Divider />
 
-            {/* BUS INFO */}
             <div>
               <h3 className="font-semibold mb-2">Thông tin xe</h3>
               <div className="grid grid-cols-2 gap-3">
@@ -994,7 +1015,6 @@ function TripListPage() {
 
             <Divider />
 
-            {/* PICKUP POINTS */}
             <div>
               <h3 className="font-semibold mb-2">Điểm đón</h3>
               <div className="space-y-1">
@@ -1058,7 +1078,7 @@ function TripListPage() {
         )}
       </Modal>
 
-      {/* MODAL DANH SÁCH KHÁCH ĐẶT VÉ - mở khi bấm vào ô Số ghế */}
+      {/* MODAL DANH SÁCH KHÁCH ĐẶT VÉ */}
       <Modal
         title={
           selectedBookingTrip
@@ -1099,7 +1119,8 @@ function TripListPage() {
           locale={{ emptyText: "Chưa có khách nào đặt vé chuyến này" }}
         />
       </Modal>
-      {/* Style CSS cho hiệu ứng quét camera */}
+
+      {/* Style CSS cho scanner */}
       <style>{`
         #trip-qr-reader {
           width: 100% !important;
@@ -1159,7 +1180,7 @@ function TripListPage() {
         }
       `}</style>
 
-      {/* Modal Quét QR Code để checkin vé */}
+      {/* Modal Quét QR Code */}
       <Modal
         open={isScannerOpen}
         title={
@@ -1218,7 +1239,6 @@ function TripListPage() {
               </div>
             </>
           ) : (
-            /* HIỂN THỊ THÔNG TIN VÉ ĐÃ QUÉT */
             <div className="w-full space-y-4">
               <Card className="border border-gray-100 rounded-xl bg-slate-50/50 shadow-xs" styles={{ body: { padding: 16 } }}>
                 <div className="text-center pb-2.5 border-b mb-3">
@@ -1268,7 +1288,6 @@ function TripListPage() {
                 </div>
               </Card>
 
-              {/* THÔNG BÁO VÀ NÚT XÁC NHẬN */}
               <div className="space-y-3">
                 {scannedBooking.status === "Hoàn thành" && (
                   <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-xl flex items-center gap-2 font-medium">
@@ -1326,7 +1345,7 @@ function TripListPage() {
         </div>
       </Modal>
 
-      {/* Modal hiển thị Danh sách khách hàng đặt vé của chuyến */}
+      {/* Modal Danh sách khách đặt vé */}
       <Modal
         open={isCustomerListOpen}
         title={
