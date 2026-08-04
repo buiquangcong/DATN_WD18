@@ -4,11 +4,11 @@ import {
   checkOut,
   getByStaff,
   getByTrip,
-  getByStaffTrips,
+  getByStaffTrips,getAll
 } from "../controllers/attendance.controller";
 
 const attendanceRouter = Router();
-
+attendanceRouter.get("/", getAll);
 attendanceRouter.post("/checkin", checkIn);
 attendanceRouter.post("/checkout", checkOut);
 attendanceRouter.get("/staff/:staffId", getByStaff);

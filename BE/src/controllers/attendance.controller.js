@@ -1,7 +1,14 @@
 import asyncHandler from "../utils/asyncHandler.js";
 import Attendance from "../models/attendance.model.js";
 import Trip from "../models/trip.model.js";
-
+// Lấy toàn bộ danh sách chấm công
+export const getAll = asyncHandler(async (req, res) => {
+  const records = await Attendance.find();
+  return res.json({
+    success: true,
+    data: records,
+  });
+});
 // Check-in: Tài xế bắt đầu ca làm việc cho 1 chuyến
 export const checkIn = asyncHandler(async (req, res) => {
   const { staffId, tripId } = req.body;
