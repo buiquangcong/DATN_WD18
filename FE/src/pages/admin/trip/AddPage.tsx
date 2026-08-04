@@ -14,6 +14,7 @@ type Journey = {
   _id: string;
   diemDi: string;
   diemDen: string;
+  thoiGianDiChuyen?: string;
   diemDon?: DiemType[];
   diemTra?: DiemType[];
 };
@@ -62,12 +63,39 @@ const addMinutesToTime = (time: string, minutesToAdd: number) => {
   return dayOffset !== 0 ? `${hh}:${mm} (${dayOffset > 0 ? "+1 ngày" : "-1 ngày"})` : `${hh}:${mm}`;
 };
 
+// Bản không kèm hậu tố "(+1 ngày)", dùng để điền thẳng vào ô input giờ (yêu cầu đúng định dạng HH:mm)
+const addMinutesPlain = (time: string, minutesToAdd: number) => {
+  const [h, m] = time.split(":").map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return "";
+
+  const total = h * 60 + m + minutesToAdd;
+  const normalized = ((total % 1440) + 1440) % 1440;
+
+  const hh = String(Math.floor(normalized / 60)).padStart(2, "0");
+  const mm = String(normalized % 60).padStart(2, "0");
+
+  return `${hh}:${mm}`;
+};
+
+// Đọc chuỗi "Thời gian di chuyển" (VD: "2 giờ 40 phút", "2h20p", "2h20", "1 giờ 30 phút")
+// và trả về tổng số phút. Trả về 0 nếu không đọc được.
+const parseDurationToMinutes = (text?: string): number => {
+  if (!text) return 0;
+
+  const hourMatch = text.match(/(\d+)\s*(?:giờ|gio|h)/i);
+  const minuteMatch = text.match(/(\d+)\s*(?:phút|phut|p)/i);
+
+  const hours = hourMatch ? parseInt(hourMatch[1], 10) : 0;
+  const minutes = minuteMatch ? parseInt(minuteMatch[1], 10) : 0;
+
+  return hours * 60 + minutes;
+};
+
 function TripAddPage() {
   const [form] = Form.useForm();
   const navigate = useNavigate();
 
   const [journeys, setJourneys] = useState<Journey[]>([]);
-  const [buses, setBuses] = useState<Bus[]>([]);
   const [fareRules, setFareRules] = useState<FareRule[]>([]);
 
   const [selectedFareRule, setSelectedFareRule] =
@@ -80,20 +108,21 @@ function TripAddPage() {
   const [startDate, setStartDate] = useState<dayjs.Dayjs | null>(null);
   const [endDate, setEndDate] = useState<dayjs.Dayjs | null>(null);
 
+  const [availableBuses, setAvailableBuses] = useState<Bus[]>([]);
+  const [loadingBuses, setLoadingBuses] = useState(false);
+
   const [availableStaffs, setAvailableStaffs] = useState<Staff[]>([]);
   const [loadingDrivers, setLoadingDrivers] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [j, b, f] = await Promise.all([
+        const [j, f] = await Promise.all([
           axios.get("http://localhost:3000/api/journey"),
-          axios.get("http://localhost:3000/api/bus"),
           axios.get("http://localhost:3000/api/giave"),
         ]);
 
         setJourneys(j.data);
-        setBuses(b.data);
         setFareRules(f.data);
       } catch (error) {
         message.error("Không thể tải dữ liệu");
@@ -103,17 +132,87 @@ function TripAddPage() {
     fetchData();
   }, []);
 
-  // Khi đủ điều kiện (ngày chạy, khoảng ngày, giờ khởi hành/đến, tuyến đường), gọi API lấy tài xế đang rảnh
+  // Tự động tính "Giờ đến" = "Giờ khởi hành" + "Thời gian di chuyển" của tuyến đường đã chọn.
+  // Vẫn cho phép người dùng tự sửa lại tay sau đó nếu muốn - chỉ tự điền lại khi
+  // đổi Tuyến đường hoặc Giờ khởi hành.
   useEffect(() => {
-    const readyToCheck =
-      weekdays.length > 0 &&
-      startDate &&
-      endDate &&
-      /^([01]\d|2[0-3]):([0-5]\d)$/.test(departureHour) &&
-      /^([01]\d|2[0-3]):([0-5]\d)$/.test(arrivalHour) &&
-      selectedJourney;
+    if (!selectedJourney?.thoiGianDiChuyen) return;
+    if (!/^([01]\d|2[0-3]):([0-5]\d)$/.test(departureHour)) return;
 
-    if (!readyToCheck) {
+    const durationMinutes = parseDurationToMinutes(
+      selectedJourney.thoiGianDiChuyen
+    );
+
+    if (durationMinutes <= 0) return;
+
+    const computedArrival = addMinutesPlain(departureHour, durationMinutes);
+
+    if (!computedArrival) return;
+
+    form.setFieldValue("arrivalHour", computedArrival);
+    setArrivalHour(computedArrival);
+  }, [selectedJourney, departureHour]);
+
+  // Điều kiện chung: đã chọn đủ tuyến đường, ngày chạy, khoảng ngày, giờ khởi hành/đến
+  const readyToCheckSchedule =
+    weekdays.length > 0 &&
+    startDate &&
+    endDate &&
+    /^([01]\d|2[0-3]):([0-5]\d)$/.test(departureHour) &&
+    /^([01]\d|2[0-3]):([0-5]\d)$/.test(arrivalHour) &&
+    selectedJourney;
+
+  // Khi đủ điều kiện, gọi API lấy xe đang rảnh
+  useEffect(() => {
+    if (!readyToCheckSchedule) {
+      setAvailableBuses([]);
+      return;
+    }
+
+    const fetchAvailableBuses = async () => {
+      setLoadingBuses(true);
+
+      // Reset xe đã chọn trước đó vì điều kiện lịch đã thay đổi
+      form.setFieldValue("bus", undefined);
+      form.setFieldValue("fareRule", undefined);
+      setSelectedFareRule(null);
+
+      try {
+        const res = await axios.get(
+          "http://localhost:3000/api/trip/available-buses",
+          {
+            params: {
+              weekdays: weekdays.join(","),
+              startDate: startDate!.format("YYYY-MM-DD"),
+              endDate: endDate!.format("YYYY-MM-DD"),
+              departureHour,
+              arrivalHour,
+              journey: selectedJourney!._id,
+            },
+          }
+        );
+
+        setAvailableBuses(res.data);
+
+        if (res.data.length === 0) {
+          message.warning(
+            "Không có xe nào rảnh trong khoảng lịch này"
+          );
+        }
+      } catch (error) {
+        message.error("Không thể kiểm tra xe rảnh");
+        setAvailableBuses([]);
+      } finally {
+        setLoadingBuses(false);
+      }
+    };
+
+    fetchAvailableBuses();
+  }, [weekdays, startDate, endDate, departureHour, arrivalHour, selectedJourney]);
+
+  // Khi đủ điều kiện, gọi API lấy tài xế đang rảnh
+  useEffect(() => {
+    if (!readyToCheckSchedule) {
       setAvailableStaffs([]);
       return;
     }
@@ -166,7 +265,7 @@ function TripAddPage() {
 
     if (!journeyId || !busId) return;
 
-    const bus = buses.find(
+    const bus = availableBuses.find(
       (x) => x._id === busId
     );
 
@@ -202,7 +301,6 @@ function TripAddPage() {
   const handleJourneyChange = (journeyId: string) => {
     const journey = journeys.find((j) => j._id === journeyId) || null;
     setSelectedJourney(journey);
-    handleFindFareRule();
   };
 
   const onFinish = async (values: any) => {
@@ -291,56 +389,6 @@ function TripAddPage() {
                 </Select.Option>
               ))}
             </Select>
-          </Form.Item>
-
-          <Form.Item
-            label="Xe"
-            name="bus"
-            rules={[
-              {
-                required: true,
-                message: "Chọn xe",
-              },
-            ]}
-          >
-            <Select
-              placeholder="Chọn xe"
-              onChange={
-                handleFindFareRule
-              }
-            >
-              {buses.map((item) => (
-                <Select.Option
-                  key={item._id}
-                  value={item._id}
-                >
-                  {item.name} -{" "}
-                  {
-                    item.licensePlates
-                  }
-                </Select.Option>
-              ))}
-            </Select>
-          </Form.Item>
-
-          <Form.Item
-            name="fareRule"
-            hidden
-          >
-            <Input />
-          </Form.Item>
-
-          <Form.Item label="Giá vé áp dụng">
-            <Input
-              disabled
-              value={
-                selectedFareRule
-                  ? `${selectedFareRule.weekdayPrice.toLocaleString(
-                    "vi-VN"
-                  )} đ`
-                  : ""
-              }
-            />
           </Form.Item>
 
           <Form.Item
@@ -546,6 +594,66 @@ function TripAddPage() {
             />
           </Form.Item>
 
+          {/* Xe: chỉ hiện khi đã đủ thông tin lịch, và chỉ liệt kê xe đang rảnh */}
+          <Form.Item
+            label="Xe"
+            name="bus"
+            rules={[
+              {
+                required: true,
+                message: "Chọn xe",
+              },
+            ]}
+            extra={
+              !readyToCheckSchedule
+                ? "Chọn đủ tuyến đường, ngày chạy, khoảng ngày và giờ khởi hành/đến để xem xe đang rảnh"
+                : undefined
+            }
+          >
+            {loadingBuses ? (
+              <div className="flex items-center gap-2">
+                <Spin size="small" />
+                <span className="text-gray-500 text-sm">Đang kiểm tra xe rảnh...</span>
+              </div>
+            ) : (
+              <Select
+                placeholder="Chọn xe đang rảnh"
+                disabled={availableBuses.length === 0}
+                notFoundContent="Không có xe nào rảnh trong khoảng lịch này"
+                onChange={handleFindFareRule}
+              >
+                {availableBuses.map((item) => (
+                  <Select.Option
+                    key={item._id}
+                    value={item._id}
+                  >
+                    {item.name} - {item.licensePlates}
+                  </Select.Option>
+                ))}
+              </Select>
+            )}
+          </Form.Item>
+
+          <Form.Item
+            name="fareRule"
+            hidden
+          >
+            <Input />
+          </Form.Item>
+
+          <Form.Item label="Giá vé áp dụng">
+            <Input
+              disabled
+              value={
+                selectedFareRule
+                  ? `${selectedFareRule.weekdayPrice.toLocaleString(
+                    "vi-VN"
+                  )} đ`
+                  : ""
+              }
+            />
+          </Form.Item>
+
           {/* Tài xế: chỉ hiện khi đã đủ thông tin lịch, và chỉ liệt kê tài xế đang rảnh */}
           <Form.Item
             label="Tài xế"
@@ -557,8 +665,8 @@ function TripAddPage() {
               },
             ]}
             extra={
-              weekdays.length === 0 || !startDate || !endDate || !departureHour || !arrivalHour
-                ? "Chọn đủ ngày chạy, khoảng ngày và giờ khởi hành/đến để xem tài xế đang rảnh"
+              !readyToCheckSchedule
+                ? "Chọn đủ tuyến đường, ngày chạy, khoảng ngày và giờ khởi hành/đến để xem tài xế đang rảnh"
                 : undefined
             }
           >

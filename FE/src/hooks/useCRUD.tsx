@@ -3,10 +3,11 @@ import axios from "axios"
 import toast from "react-hot-toast"
 import { useNavigate } from "react-router-dom"
 import { useEffect } from "react"
+import { error } from "src/theme/core/palette"
 
 const BASE_URL = "http://localhost:3000/api"
 
-type ResourceType = "staff" | "bus" | "route" | "journey"|"trip"|"tk"|"booking"|"giave"|"news"|"holiday"
+type ResourceType = "staff" | "bus" | "route" | "journey"|"trip"|"tk"|"booking"|"giave"|"news"|"holiday"|"refund"
 
 export const useDetail = (resource: ResourceType, id: string | undefined) => {
     const API = `${BASE_URL}/${resource}`
@@ -98,8 +99,9 @@ export const useCRUD = (resource: ResourceType) => {
             refresh()
             toast.success("Xóa thành công")
         },
-        onError: () => {
-            toast.error("Xóa thất bại")
+        onError: (error: any) => {
+           const errorMsg = error?.response?.data?.message || "Xóa thất bại"
+            toast.error(errorMsg)
         }
     })
 

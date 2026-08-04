@@ -20,6 +20,7 @@ import {
   Tooltip,
   Radio,
   Flex,
+  QRCode,
 } from "antd";
 import {
   UserOutlined,
@@ -50,6 +51,23 @@ import { _myAccount, _users } from "src/_mock";
 
 const { Title, Text, Paragraph } = Typography;
 
+const VIETNAMESE_BANKS = [
+  { value: "VCB", label: "Vietcombank (Ngoại thương)" },
+  { value: "TCB", label: "Techcombank (Kỹ thương)" },
+  { value: "MB", label: "MBBank (Quân đội)" },
+  { value: "BIDV", label: "BIDV (Đầu tư và Phát triển)" },
+  { value: "CTG", label: "VietinBank (Công thương)" },
+  { value: "ACB", label: "ACB (Á Châu)" },
+  { value: "VPB", label: "VPBank (Thịnh Vượng)" },
+  { value: "TPB", label: "TPBank (Tiên Phong)" },
+  { value: "STB", label: "Sacombank (Sài Gòn Thương Tín)" },
+  { value: "VIB", label: "VIB (Quốc tế)" },
+  { value: "SHB", label: "SHB (Sài Gòn - Hà Nội)" },
+  { value: "HDB", label: "HDBank (Phát triển TP.HCM)" },
+  { value: "MSB", label: "MSB (Hàng Hải)" },
+  { value: "OCB", label: "OCB (Phương Đông)" }
+];
+
 interface BookingRecord {
   id: string;
   ticketCode: string;
@@ -60,36 +78,10 @@ interface BookingRecord {
   totalPrice: number;
   departureTime: string;
   bookingDate: string;
-  status: "confirmed" | "completed" | "cancelled";
+  status: string;
+  tripStatus?: string;
 }
 
-// Sample fallback bookings if localStorage is empty
-const defaultBookings: BookingRecord[] = [
-  {
-    id: "BK-001",
-    ticketCode: "NB-88921",
-    customerName: "Nguyễn Văn A",
-    busName: "NetBus Luxury 38 chỗ",
-    journey: "Hà Nội → Vinh (Nghệ An)",
-    seats: ["A12", "A13"],
-    totalPrice: 460000,
-    departureTime: "20:00 - 20/07/2026",
-    bookingDate: "18/07/2026",
-    status: "confirmed",
-  },
-  {
-    id: "BK-002",
-    ticketCode: "NB-77412",
-    customerName: "Nguyễn Văn A",
-    busName: "NetBus VIP Limousine",
-    journey: "Hà Nội → Quảng Ninh",
-    seats: ["B05"],
-    totalPrice: 280000,
-    departureTime: "08:30 - 10/06/2026",
-    bookingDate: "08/06/2026",
-    status: "completed",
-  },
-];
 
 export default function ProfileClientPage() {
   const navigate = useNavigate();
@@ -98,10 +90,85 @@ export default function ProfileClientPage() {
 
   const [userData, setUserData] = useState<any>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [bookings, setBookings] = useState<BookingRecord[]>([]);
-  const [selectedTicket, setSelectedTicket] = useState<BookingRecord | null>(null);
+  const [bookings, setBookings] = useState<any[]>([]);
+  const [selectedTicket, setSelectedTicket] = useState<any | null>(null);
   const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string>("");
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [cancellingBooking, setCancellingBooking] = useState<any>(null);
+  const [cancelForm] = Form.useForm();
+
+  const loadBookings = async (userId: string, usernameFallback: string) => {
+    if (!userId) return;
+    try {
+      const response = await axios.get("http://localhost:3000/api/booking");
+      const allBookings = response.data || [];
+      const userBookings = allBookings.filter((b: any) => b.user && (b.user._id === userId || b.user === userId));
+      
+      const mapped: BookingRecord[] = userBookings.map((b: any) => {
+        let mappedStatus: any = "pending";
+        if (b.status === "Đã huỷ" || b.trip?.status === "huỷ") mappedStatus = "cancelled";
+        else if (b.status === "Hoàn thành" || b.status === "Đã checkin" || b.status === "Đã check-in" || b.trip?.status === "hoàn thành") mappedStatus = "completed";
+        else if (b.status === "Đã xác nhận" || b.status === "Đã thanh toán") mappedStatus = "confirmed";
+        else if (b.status === "Yêu cầu hoàn tiền") mappedStatus = "refund_pending";
+        else if (b.status === "Đã hoàn tiền") mappedStatus = "refunded";
+        else if (b.status === "Chờ xác nhận") mappedStatus = "pending";
+
+        const busInfo = b.trip?.bus 
+          ? `${b.trip.bus.name}${b.trip.bus.licensePlates ? ` (${b.trip.bus.licensePlates})` : ""}`
+          : "GoPro VIP";
+
+        return {
+          id: b._id,
+          ticketCode: b.orderCode ? `NB-${b.orderCode}` : "NB-XXXXXX",
+          customerName: b.user?.username || b.user?.ten || usernameFallback,
+          busName: busInfo,
+          journey: b.trip?.journey ? `${b.trip.journey.diemDi} → ${b.trip.journey.diemDen}` : "Chưa xác định",
+          seats: b.seats || [],
+          totalPrice: b.totalPrice || 0,
+          departureTime: b.trip?.departureTime 
+            ? dayjs(b.trip.departureTime).format("HH:mm - DD/MM/YYYY") 
+            : "Chưa xác định",
+          bookingDate: dayjs(b.createdAt).format("DD/MM/YYYY"),
+          status: mappedStatus,
+          tripStatus: b.trip?.status || "sắp chạy",
+          originalBooking: b
+        };
+      });
+
+      // Lấy thêm vé vừa đặt thành công từ localStorage nếu có
+      const latestSuccess = localStorage.getItem("latest_ticket_success");
+      let latestList: BookingRecord[] = [];
+      if (latestSuccess) {
+        try {
+          const parsed = JSON.parse(latestSuccess);
+          // Tránh bị trùng lặp nếu đơn hàng đã được đồng bộ lên DB
+          const exists = mapped.some((b: any) => b.ticketCode === parsed.ticketCode);
+          if (!exists) {
+            latestList.push({
+              id: "BK-NEW",
+              ticketCode: parsed.ticketCode || "NB-998877",
+              customerName: parsed.customerName || usernameFallback,
+              busName: parsed.busName || "NetBus Express",
+              journey: parsed.journey || "Hà Nội → Hà Tĩnh",
+              seats: parsed.seats || ["A01"],
+              totalPrice: parsed.totalPrice || 250000,
+              departureTime: parsed.departureTime || "07:00 - Hôm nay",
+              bookingDate: dayjs().format("DD/MM/YYYY"),
+              status: "confirmed",
+            });
+          }
+        } catch (e) {}
+      }
+
+      // Hợp nhất: Vé từ DB + Vé lưu tạm Local
+      const realBookings = [...latestList, ...mapped];
+      setBookings(realBookings);
+    } catch (err) {
+      console.error("Lỗi khi tải lịch sử vé:", err);
+      setBookings([]);
+    }
+  };
 
   // Load user info and booking history from localStorage
   useEffect(() => {
@@ -146,29 +213,10 @@ export default function ProfileClientPage() {
       address: initialUser.address,
     });
 
-    // Load latest booking from localStorage if existing
-    const latestSuccess = localStorage.getItem("latest_ticket_success");
-    if (latestSuccess) {
-      try {
-        const parsed = JSON.parse(latestSuccess);
-        const latestBookingRecord: BookingRecord = {
-          id: "BK-NEW",
-          ticketCode: parsed.ticketCode || "NB-998877",
-          customerName: parsed.customerName || initialUser.username,
-          busName: parsed.busName || "NetBus Express",
-          journey: parsed.journey || "Hà Nội → Hà Tĩnh",
-          seats: parsed.seats || ["A01"],
-          totalPrice: parsed.totalPrice || 250000,
-          departureTime: parsed.departureTime || "07:00 - Hôm nay",
-          bookingDate: dayjs().format("DD/MM/YYYY"),
-          status: "confirmed",
-        };
-        setBookings([latestBookingRecord, ...defaultBookings]);
-      } catch (e) {
-        setBookings(defaultBookings);
-      }
+    if (initialUser._id) {
+      loadBookings(initialUser._id, initialUser.username);
     } else {
-      setBookings(defaultBookings);
+      setBookings([]);
     }
   }, [profileForm]);
 
@@ -266,13 +314,77 @@ export default function ProfileClientPage() {
   };
 
   // Change password handler
-  const handleChangePassword = (values: any) => {
+  const handleChangePassword = async (values: any) => {
     if (values.newPassword !== values.confirmPassword) {
       toast.error("Mật khẩu xác nhận không trùng khớp!");
       return;
     }
-    toast.success("Đổi mật khẩu thành công! Vui lòng bảo mật mật khẩu mới.");
-    passwordForm.resetFields();
+
+    if (!userData?._id) {
+      toast.error("Không tìm thấy thông tin tài khoản!");
+      return;
+    }
+
+    try {
+      const response = await axios.post("http://localhost:3000/api/auth/change-password", {
+        userId: userData._id,
+        currentPassword: values.currentPassword,
+        newPassword: values.newPassword,
+      });
+
+      if (response.data?.success) {
+        toast.success("Đổi mật khẩu thành công! Vui lòng bảo mật mật khẩu mới.");
+        passwordForm.resetFields();
+      } else {
+        toast.error(response.data?.message || "Đổi mật khẩu thất bại!");
+      }
+    } catch (err: any) {
+      console.error("Lỗi đổi mật khẩu:", err);
+      const errMsg = err.response?.data?.message || "Đổi mật khẩu thất bại! Vui lòng thử lại.";
+      toast.error(errMsg);
+    }
+  };
+
+  const [isSendingMail, setIsSendingMail] = useState(false);
+
+  const handleForgotPassword = () => {
+    const email = userData?.email;
+    if (!email) {
+      toast.error("Không tìm thấy email của tài khoản!");
+      return;
+    }
+
+    Modal.confirm({
+      title: "Xác nhận gửi link khôi phục",
+      content: (
+        <div>
+          <p>Hệ thống sẽ gửi liên kết khôi phục mật khẩu tới email của bạn:</p>
+          <p className="font-bold text-emerald-700 text-center text-lg my-3">{email}</p>
+          <p className="text-xs text-slate-500">
+            * Liên kết sẽ có hiệu lực trong vòng 15 phút. Vui lòng kiểm tra kỹ hộp thư của bạn sau khi gửi (bao gồm cả thư mục Spam).
+          </p>
+        </div>
+      ),
+      okText: "Gửi Email",
+      cancelText: "Hủy",
+      okButtonProps: { className: "bg-emerald-600 border-none hover:bg-emerald-500 font-bold" },
+      onOk: async () => {
+        setIsSendingMail(true);
+        try {
+          const res = await axios.post("http://localhost:3000/api/auth/forgot-password", { email });
+          if (res.data?.success) {
+            toast.success("Đã gửi link khôi phục mật khẩu! Vui lòng kiểm tra hộp thư.");
+          } else {
+            toast.error(res.data?.message || "Có lỗi xảy ra khi gửi email!");
+          }
+        } catch (error: any) {
+          const errMsg = error.response?.data?.message || "Gửi email khôi phục thất bại!";
+          toast.error(errMsg);
+        } finally {
+          setIsSendingMail(false);
+        }
+      }
+    });
   };
 
   // Avatar presets option
@@ -416,6 +528,30 @@ export default function ProfileClientPage() {
       } finally {
         e.target.value = ""; // Reset to allow re-upload of same file
       }
+    }
+  };
+
+  const handleCancelBooking = async (values: any) => {
+    if (!cancellingBooking) return;
+    try {
+      await axios.post("http://localhost:3000/api/refund/add", {
+        booking: cancellingBooking.id,
+        user: userData?._id,
+        bankName: values.bankName,
+        accountNumber: values.accountNumber,
+        accountName: values.accountName,
+        amount: cancellingBooking.totalPrice,
+        reason: values.reason || ""
+      });
+      toast.success("Gửi yêu cầu hủy vé và hoàn tiền thành công!");
+      setIsCancelModalOpen(false);
+      setCancellingBooking(null);
+      if (userData?._id) {
+        loadBookings(userData._id, userData.username);
+      }
+    } catch (err: any) {
+      console.error("Lỗi khi hủy vé:", err);
+      toast.error("Không thể gửi yêu cầu hủy vé!");
     }
   };
 
@@ -747,6 +883,26 @@ export default function ProfileClientPage() {
                                       Sắp đi
                                     </Tag>
                                   )}
+                                  {item.status === "pending" && (
+                                    <Tag color="warning" className="font-semibold">
+                                      Chờ xác nhận
+                                    </Tag>
+                                  )}
+                                  {item.status === "refund_pending" && (
+                                    <Tag color="warning" className="font-semibold">
+                                      Chờ hoàn tiền
+                                    </Tag>
+                                  )}
+                                  {item.status === "refunded" && (
+                                    <Tag color="success" className="font-semibold">
+                                      Đã hoàn tiền
+                                    </Tag>
+                                  )}
+                                  {item.status === "cancelled" && (
+                                    <Tag color="error" className="font-semibold">
+                                      Đã hủy
+                                    </Tag>
+                                  )}
                                   {item.status === "completed" && (
                                     <Tag color="default" className="font-semibold">
                                       Hoàn thành
@@ -789,6 +945,24 @@ export default function ProfileClientPage() {
                                 >
                                   Xem vé
                                 </Button>
+
+                                {(item.status === "confirmed" || item.status === "pending") && 
+                                  item.status !== "completed" && 
+                                  item.tripStatus !== "hoàn thành" && 
+                                  item.tripStatus !== "đang chạy" && 
+                                  item.tripStatus !== "huỷ" && (
+                                  <Button
+                                    danger
+                                    onClick={() => {
+                                      setCancellingBooking(item);
+                                      setIsCancelModalOpen(true);
+                                      cancelForm.resetFields();
+                                    }}
+                                    className="rounded-xl font-medium"
+                                  >
+                                    Hủy vé hoàn tiền
+                                  </Button>
+                                )}
                               </div>
                             </div>
                           ))}
@@ -857,15 +1031,26 @@ export default function ProfileClientPage() {
                           <Input.Password size="large" prefix={<LockOutlined />} placeholder="••••••••" />
                         </Form.Item>
 
-                        <Button
-                          type="primary"
-                          htmlType="submit"
-                          size="large"
-                          icon={<CheckCircleOutlined />}
-                          className="bg-emerald-600 hover:bg-emerald-500 font-bold rounded-xl border-none"
-                        >
-                          Cập nhật mật khẩu
-                        </Button>
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2">
+                          <Button
+                            type="primary"
+                            htmlType="submit"
+                            size="large"
+                            icon={<CheckCircleOutlined />}
+                            className="bg-emerald-600 hover:bg-emerald-500 font-bold rounded-xl border-none"
+                          >
+                            Cập nhật mật khẩu
+                          </Button>
+                          
+                          <Button
+                            type="link"
+                            onClick={handleForgotPassword}
+                            loading={isSendingMail}
+                            className="text-emerald-600 hover:text-emerald-500 font-semibold p-0 text-left"
+                          >
+                            Quên mật khẩu?
+                          </Button>
+                        </div>
                       </Form>
 
                       <Divider />
@@ -1011,13 +1196,106 @@ export default function ProfileClientPage() {
               </div>
             </div>
 
-            <div className="text-center pt-3 bg-slate-50 p-4 rounded-xl border">
-              <QrcodeOutlined className="text-6xl text-slate-800" />
+            <div className="text-center pt-3 bg-slate-50 p-4 rounded-xl border flex flex-col items-center justify-center">
+              <QRCode value={selectedTicket.id} size={150} bordered={false} className="bg-white p-1 rounded-lg" />
               <Text type="secondary" className="block text-xs mt-2">
                 Quét mã QR khi lên xe để làm thủ tục check-in
               </Text>
             </div>
           </div>
+        )}
+      </Modal>
+
+      {/* CANCEL & REFUND REQUEST MODAL */}
+      <Modal
+        title={
+          <span className="text-red-600 font-bold text-lg">
+            Yêu cầu hủy vé & hoàn tiền
+          </span>
+        }
+        open={isCancelModalOpen}
+        onCancel={() => {
+          setIsCancelModalOpen(false);
+          setCancellingBooking(null);
+        }}
+        footer={null}
+        width={500}
+        centered
+        destroyOnClose
+      >
+        {cancellingBooking && (
+          <Form
+            form={cancelForm}
+            layout="vertical"
+            onFinish={handleCancelBooking}
+            className="space-y-4 pt-3"
+          >
+            <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border mb-4 space-y-1.5 text-xs text-slate-600 dark:text-slate-300">
+              <div>
+                Mã vé: <strong className="text-slate-800 dark:text-slate-100">{cancellingBooking.ticketCode}</strong>
+              </div>
+              <div>
+                Tuyến đường: <strong className="text-slate-800 dark:text-slate-100">{cancellingBooking.journey}</strong>
+              </div>
+              <div>
+                Số tiền hoàn lại: <strong className="text-red-500 text-sm">{cancellingBooking.totalPrice.toLocaleString("vi-VN")}đ</strong>
+              </div>
+            </div>
+
+            <Form.Item
+              name="bankName"
+              label="Chọn ngân hàng thụ hưởng"
+              rules={[{ required: true, message: "Vui lòng chọn ngân hàng" }]}
+            >
+              <Select
+                placeholder="Chọn ngân hàng"
+                size="large"
+                options={VIETNAMESE_BANKS}
+                showSearch
+                optionFilterProp="label"
+              />
+            </Form.Item>
+
+            <Form.Item
+              name="accountNumber"
+              label="Số tài khoản ngân hàng"
+              rules={[{ required: true, message: "Vui lòng nhập số tài khoản" }]}
+            >
+              <Input placeholder="Nhập số tài khoản ngân hàng nhận tiền" size="large" />
+            </Form.Item>
+
+            <Form.Item
+              name="accountName"
+              label="Tên chủ tài khoản"
+              rules={[{ required: true, message: "Vui lòng nhập tên chủ tài khoản" }]}
+            >
+              <Input placeholder="VD: NGUYEN VAN A (Chữ hoa không dấu)" size="large" />
+            </Form.Item>
+
+            <Form.Item
+              name="reason"
+              label="Lý do hủy vé (Không bắt buộc)"
+            >
+              <Input.TextArea placeholder="Nhập lý do hủy vé nếu có..." rows={3} />
+            </Form.Item>
+
+            <div className="flex justify-end gap-3 pt-4 border-t">
+              <Button onClick={() => {
+                setIsCancelModalOpen(false);
+                setCancellingBooking(null);
+              }}>
+                Hủy bỏ
+              </Button>
+              <Button
+                type="primary"
+                danger
+                htmlType="submit"
+                className="font-bold border-none"
+              >
+                Gửi yêu cầu hoàn tiền
+              </Button>
+            </div>
+          </Form>
         )}
       </Modal>
     </ClientLayout>

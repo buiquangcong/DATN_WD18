@@ -1,5 +1,5 @@
-import React from "react";
-import { Row, Col, Card, Form, Input, Button, Checkbox, Typography } from "antd";
+import React, { useState } from "react";
+import { Row, Col, Card, Form, Input, Button, Checkbox, Typography, Modal } from "antd";
 import {
   UserOutlined,
   LockOutlined,
@@ -12,10 +12,35 @@ import axios from "axios";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 
-const { Title, Text, Link } = Typography;
+const { Title, Text, Link, Paragraph } = Typography;
 
 export default function LoginClientPage() {
   const navigate = useNavigate();
+  
+  const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
+  const [forgotForm] = Form.useForm();
+  const [isSendingForgot, setIsSendingForgot] = useState(false);
+
+  const handleForgotSubmit = async (values: any) => {
+    setIsSendingForgot(true);
+    try {
+      const response = await axios.post("http://localhost:3000/api/auth/forgot-password", {
+        email: values.forgotEmail,
+      });
+      if (response.data?.success) {
+        toast.success("Đã gửi link khôi phục mật khẩu! Vui lòng kiểm tra email.");
+        setIsForgotModalOpen(false);
+        forgotForm.resetFields();
+      } else {
+        toast.error(response.data?.message || "Có lỗi xảy ra!");
+      }
+    } catch (error: any) {
+      const errMsg = error.response?.data?.message || "Gửi email khôi phục thất bại!";
+      toast.error(errMsg);
+    } finally {
+      setIsSendingForgot(false);
+    }
+  };
 
   // Cấu hình React Query Mutation xử lý gọi API login thực tế
   const { mutate, isPending } = useMutation({
@@ -168,7 +193,7 @@ export default function LoginClientPage() {
                     <Checkbox>Ghi nhớ đăng nhập</Checkbox>
                   </Form.Item>
 
-                  <Link href="#">
+                  <Link onClick={() => setIsForgotModalOpen(true)} className="cursor-pointer text-emerald-600 hover:text-emerald-500 font-medium">
                     Quên mật khẩu?
                   </Link>
                 </div>
@@ -212,6 +237,54 @@ export default function LoginClientPage() {
           </div>
         </Col>
       </Row>
+
+      <Modal
+        title="Quên mật khẩu"
+        open={isForgotModalOpen}
+        onCancel={() => {
+          if (!isSendingForgot) {
+            setIsForgotModalOpen(false);
+            forgotForm.resetFields();
+          }
+        }}
+        footer={null}
+        destroyOnClose
+        centered
+      >
+        <Form
+          form={forgotForm}
+          layout="vertical"
+          onFinish={handleForgotSubmit}
+          className="mt-4"
+        >
+          <Paragraph className="text-gray-600 mb-4">
+            Nhập email tài khoản của bạn để nhận liên kết đặt lại mật khẩu mới qua Nodemailer:
+          </Paragraph>
+          <Form.Item
+            name="forgotEmail"
+            label="Địa chỉ Email"
+            rules={[
+              { required: true, message: "Vui lòng nhập email" },
+              { type: "email", message: "Email không đúng định dạng" },
+            ]}
+          >
+            <Input size="large" placeholder="example@gmail.com" />
+          </Form.Item>
+          <div className="flex justify-end gap-3 mt-6">
+            <Button disabled={isSendingForgot} onClick={() => setIsForgotModalOpen(false)}>
+              Hủy
+            </Button>
+            <Button
+              type="primary"
+              htmlType="submit"
+              loading={isSendingForgot}
+              className="bg-emerald-600 border-none hover:bg-emerald-500 font-bold"
+            >
+              Gửi yêu cầu
+            </Button>
+          </div>
+        </Form>
+      </Modal>
     </div>
   );
 }

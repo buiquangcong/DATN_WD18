@@ -184,6 +184,42 @@ export const createOne = asyncHandler(async (req, res) => {
     });
 });
 export const updateOne = asyncHandler(async (req, res) => {
+    // Nếu chuyển trạng thái sang Đã huỷ hoặc Yêu cầu hoàn tiền, tiến hành giải phóng ghế trong Trip
+    if (req.body.status === "Đã huỷ" || req.body.status === "Yêu cầu hoàn tiền") {
+        const bookingObj = await Booking.findById(req.params.id);
+        if (bookingObj && bookingObj.status !== "Đã huỷ" && bookingObj.status !== "Yêu cầu hoàn tiền" && bookingObj.status !== "Đã hoàn tiền") {
+            const trip = await Trip.findById(bookingObj.trip);
+            if (trip) {
+                trip.seats.forEach((seat) => {
+                    if (bookingObj.seats.includes(seat.seatCode)) {
+                        seat.status = "AVAILABLE";
+                        seat.heldBy = null;
+                        seat.expiresAt = null;
+                    }
+                });
+                await trip.save();
+            }
+        }
+    }
+
+    // Nếu chuyển trạng thái sang Đã xác nhận, Đã checkin hoặc Hoàn thành, tiến hành đặt ghế chính thức (BOOKED) trong Trip
+    if (req.body.status === "Đã xác nhận" || req.body.status === "Đã checkin" || req.body.status === "Hoàn thành") {
+        const bookingObj = await Booking.findById(req.params.id);
+        if (bookingObj) {
+            const trip = await Trip.findById(bookingObj.trip);
+            if (trip) {
+                trip.seats.forEach((seat) => {
+                    if (bookingObj.seats.includes(seat.seatCode)) {
+                        seat.status = "BOOKED";
+                        seat.heldBy = null;
+                        seat.expiresAt = null;
+                    }
+                });
+                await trip.save();
+            }
+        }
+    }
+
     const booking = await Booking.findByIdAndUpdate(
         req.params.id,
         req.body,
