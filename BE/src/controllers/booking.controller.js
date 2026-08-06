@@ -262,3 +262,77 @@ export const deleteOne = asyncHandler(async (req, res) => {
 
     return res.json({ message: "Xóa đơn đặt vé thành công" });
 });
+
+// Check-in vé theo mã vé (orderCode)
+export const checkInTicket = asyncHandler(async (req, res) => {
+    const { orderCode } = req.body;
+
+    if (!orderCode) {
+        return res.status(400).json({
+            success: false,
+            message: "Vui lòng nhập mã vé",
+        });
+    }
+
+    const booking = await Booking.findOne({ orderCode: Number(orderCode) })
+        .populate("user")
+        .populate({
+            path: "trip",
+            populate: [
+                { path: "journey" },
+                { path: "bus" },
+                { path: "staff" },
+            ],
+        });
+
+    if (!booking) {
+        return res.status(404).json({
+            success: false,
+            message: "Không tìm thấy vé với mã này",
+        });
+    }
+
+    if (booking.status === "Đã huỷ") {
+        return res.status(400).json({
+            success: false,
+            message: "Vé này đã bị huỷ",
+        });
+    }
+
+    if (booking.status === "Đã check-in") {
+        return res.status(400).json({
+            success: false,
+            message: "Vé này đã được check-in trước đó",
+        });
+    }
+
+    if (booking.status === "Chờ xác nhận") {
+        return res.status(400).json({
+            success: false,
+            message: "Vé này chưa được xác nhận thanh toán",
+        });
+    }
+
+    booking.status = "Đã check-in";
+    await booking.save();
+
+    return res.json({
+        success: true,
+        message: "Check-in vé thành công!",
+        data: booking,
+    });
+});
+
+// Lấy danh sách bookings theo trip
+export const getByTrip = asyncHandler(async (req, res) => {
+    const { tripId } = req.params;
+
+    const bookings = await Booking.find({ trip: tripId })
+        .populate("user")
+        .sort({ createdAt: -1 });
+
+    return res.json({
+        success: true,
+        data: bookings,
+    });
+});

@@ -1,5 +1,5 @@
-import {Button,Form,Select,DatePicker,message,Spin,Tag,Divider,Input,} from "antd";
-import { useEffect, useState } from "react";
+import { Button, Form, Select, DatePicker, message, Spin, Tag, Divider, Input } from "antd";
+import { useEffect, useState, useMemo } from "react";
 import { useCRUD, useDetail } from "../../../hooks/useCRUD";
 import axios from "axios";
 import { useParams } from "react-router-dom";
@@ -67,6 +67,32 @@ function TripEditPage() {
   const [availableDrivers, setAvailableDrivers] = useState<Driver[]>([]);
   const [loadingDrivers, setLoadingDrivers] = useState(false);
 
+  // Điều chỉnh option trạng thái theo status hiện tại
+  const statusOptions = useMemo(() => {
+    if (!trip) return [];
+    if (trip.status === "đang chạy") {
+      return [
+        { value: "đang chạy", label: "Đang chạy" },
+        { value: "hoàn thành", label: "Hoàn thành" },
+      ];
+    }
+    if (trip.status === "hoàn thành") {
+      return [{ value: "hoàn thành", label: "Hoàn thành" }];
+    }
+    if (trip.status === "huỷ") {
+      return [{ value: "huỷ", label: "Huỷ" }];
+    }
+    return [
+      { value: "sắp chạy", label: "Sắp chạy" },
+      { value: "đang chạy", label: "Đang chạy" },
+      { value: "hoàn thành", label: "Hoàn thành" },
+      { value: "huỷ", label: "Huỷ" },
+    ];
+  }, [trip]);
+
+  // Xe / tài xế chỉ cho sửa khi chuyến chưa chạy
+  const isEditable = trip?.status === "sắp chạy" || trip?.status === "đang chạy";
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -107,22 +133,17 @@ function TripEditPage() {
     if (trip.departureTime) setDepartureTime(dayjs(trip.departureTime));
     if (trip.arrivalTime) setArrivalTime(dayjs(trip.arrivalTime));
 
-    // Hiển thị tạm giá vé hiện tại của chuyến khi mới mở trang, sẽ được tính
-    // lại chính xác ngay khi availableBuses/fareRules load xong (useEffect bên dưới)
     if (trip.fareRule) {
       setSelectedFareRule(trip.fareRule);
     }
   }, [trip, form]);
 
-  // Khi đã load xong danh sách journeys và biết trip.journey, đồng bộ selectedJourney
   useEffect(() => {
     if (!trip?.journey?._id || journeys.length === 0) return;
     const journey = journeys.find((j) => j._id === trip.journey._id) || null;
     setSelectedJourney(journey);
   }, [trip, journeys]);
 
-  // Khi đã đủ giờ khởi hành + giờ đến + tuyến đường, gọi API lấy xe đang rảnh
-  // (loại trừ chính chuyến đang sửa, vì nó đang "bận" với chính chuyến này)
   useEffect(() => {
     if (!departureTime || !arrivalTime || !id || !selectedJourney) {
       setAvailableBuses([]);
@@ -134,7 +155,7 @@ function TripEditPage() {
 
       try {
         const dateStr = departureTime.format("YYYY-MM-DD");
-        const weekday = departureTime.day(); // 0-6, khớp với getDay() bên BE
+        const weekday = departureTime.day();
 
         const res = await axios.get(
           "http://localhost:3000/api/trip/available-buses",
@@ -151,8 +172,6 @@ function TripEditPage() {
           }
         );
 
-        // Chỉ giữ lại các xe có cùng số chỗ (capacity) với xe ban đầu của chuyến -
-        // tránh đổi sang loại xe khác số chỗ làm lệch sơ đồ ghế đã bán cho khách
         const originalCapacity = trip?.bus?.capacity;
 
         const filteredBuses = originalCapacity
@@ -161,8 +180,6 @@ function TripEditPage() {
 
         setAvailableBuses(filteredBuses);
 
-        // Nếu xe đang chọn (trip.bus) không còn nằm trong danh sách rảnh,
-        // thêm tạm vào đầu danh sách để không mất lựa chọn hiện tại khi mở trang Edit
         const currentBusId = trip?.bus?._id;
         if (
           currentBusId &&
@@ -182,9 +199,6 @@ function TripEditPage() {
     fetchAvailableBuses();
   }, [departureTime, arrivalTime, id, trip, selectedJourney]);
 
-  // Tự soát lại bảng giá ngay khi danh sách xe rảnh vừa load xong (kể cả khi
-  // người dùng chưa đổi gì) - để phát hiện và tự sửa trường hợp dữ liệu cũ của
-  // chuyến đã bị lưu sai (VD bảng giá xe 16 chỗ nhưng xe thực tế là 34 chỗ)
   useEffect(() => {
     const currentBusId = form.getFieldValue("bus");
     if (!currentBusId || availableBuses.length === 0 || !selectedJourney) return;
@@ -192,8 +206,6 @@ function TripEditPage() {
     handleFindFareRule(currentBusId);
   }, [availableBuses, selectedJourney, fareRules]);
 
-  // Khi đã đủ giờ khởi hành + giờ đến + tuyến đường, gọi API lấy tài xế đang rảnh
-  // (loại trừ chính chuyến đang sửa, vì nó đang "bận" với chính chuyến này)
   useEffect(() => {
     if (!departureTime || !arrivalTime || !id || !selectedJourney) {
       setAvailableDrivers([]);
@@ -205,7 +217,7 @@ function TripEditPage() {
 
       try {
         const dateStr = departureTime.format("YYYY-MM-DD");
-        const weekday = departureTime.day(); // 0-6, khớp với getDay() bên BE
+        const weekday = departureTime.day();
 
         const res = await axios.get(
           "http://localhost:3000/api/trip/available-drivers",
@@ -224,8 +236,6 @@ function TripEditPage() {
 
         setAvailableDrivers(res.data);
 
-        // Nếu tài xế đang chọn (trip.staff) không còn nằm trong danh sách rảnh,
-        // thêm tạm vào đầu danh sách để không mất lựa chọn hiện tại khi mở trang Edit
         const currentStaffId = trip?.staff?._id;
         if (
           currentStaffId &&
@@ -245,9 +255,6 @@ function TripEditPage() {
     fetchAvailableDrivers();
   }, [departureTime, arrivalTime, id, trip, selectedJourney]);
 
-  // Tự động tìm đúng bảng giá khớp cả Tuyến đường lẫn số chỗ (capacity) của xe
-  // đang chọn - không cho người dùng tự chọn tay để tránh chọn nhầm bảng giá
-  // của xe khác (VD xe 34 chỗ nhưng lại áp giá của xe 16 chỗ)
   const handleFindFareRule = (busId: string) => {
     const bus = availableBuses.find((x) => x._id === busId);
 
@@ -273,8 +280,6 @@ function TripEditPage() {
     const journey = journeys.find((j) => j._id === journeyId) || null;
     setSelectedJourney(journey);
 
-    // Đổi tuyến thì bảng giá cũ chắc chắn không còn khớp - reset lại và
-    // tính lại theo xe đang chọn (nếu có)
     const currentBusId = form.getFieldValue("bus");
     if (currentBusId) {
       handleFindFareRule(currentBusId);
@@ -326,13 +331,12 @@ function TripEditPage() {
         layout="vertical"
         onFinish={onFinish}
       >
-                {/* Tuyến đường */}
+        {/* Tuyến đường — CHỈ XEM */}
         <Form.Item
           name="journey"
           label="Tuyến đường"
-          rules={[{ required: true, message: "Chọn tuyến đường" }]}
         >
-          <Select onChange={handleJourneyChange}>
+          <Select disabled>
             {journeys.map((j) => (
               <Select.Option key={j._id} value={j._id}>
                 {j.diemDi} → {j.diemDen}
@@ -341,79 +345,31 @@ function TripEditPage() {
           </Select>
         </Form.Item>
 
-        {/* Khởi hành */}
+        {/* Khởi hành — CHỈ XEM */}
         <Form.Item
           name="departureTime"
           label="Thời gian khởi hành"
-          rules={[
-            {
-              required: true,
-              message: "Chọn thời gian khởi hành",
-            },
-          ]}
         >
           <DatePicker
             showTime
             className="w-full"
             format="YYYY-MM-DD HH:mm"
             disabledDate={disabledPastDate}
-            onChange={(value) => setDepartureTime(value)}
+            disabled
           />
         </Form.Item>
 
-        {/* Đến */}
+        {/* Đến — CHỈ XEM */}
         <Form.Item
           name="arrivalTime"
           label="Thời gian đến"
-          dependencies={["departureTime"]}
-          rules={[
-            {
-              required: true,
-              message: "Chọn thời gian đến",
-            },
-            ({ getFieldValue }) => ({
-              validator(_, value) {
-                const departure =
-                  getFieldValue("departureTime");
-
-                if (!departure || !value) {
-                  return Promise.resolve();
-                }
-
-                if (value.isAfter(departure)) {
-                  return Promise.resolve();
-                }
-
-                return Promise.reject(
-                  new Error(
-                    "Thời gian đến phải sau thời gian khởi hành"
-                  )
-                );
-              },
-            }),
-          ]}
         >
           <DatePicker
             showTime
             className="w-full"
             format="YYYY-MM-DD HH:mm"
-            disabledDate={(current) => {
-              const departure =
-                form.getFieldValue("departureTime");
-
-              if (!departure) {
-                return (
-                  current &&
-                  current < dayjs().startOf("day")
-                );
-              }
-
-              return (
-                current &&
-                current < departure.startOf("day")
-              );
-            }}
-            onChange={(value) => setArrivalTime(value)}
+            disabledDate={disabledPastDate}
+            disabled
           />
         </Form.Item>
 
@@ -461,16 +417,16 @@ function TripEditPage() {
           </div>
         )}
 
-        {/* Xe: chỉ hiện khi đã đủ giờ khởi hành/đến/tuyến, chỉ liệt kê xe đang rảnh */}
+        {/* Xe — chỉ cho sửa khi chuyến chưa chạy */}
         <Form.Item
           name="bus"
           label="Xe"
           rules={[{ required: true, message: "Chọn xe" }]}
           extra={
-            !departureTime || !arrivalTime || !selectedJourney
-              ? "Chọn tuyến đường và thời gian khởi hành/đến để xem xe đang rảnh"
+            !isEditable
+              ? "Chuyến đang chạy hoặc đã hoàn thành, không thể đổi xe"
               : trip?.bus?.capacity
-              ? `Chỉ hiện xe cùng ${trip.bus.capacity} chỗ với xe ban đầu, để không làm lệch sơ đồ ghế đã bán`
+              ? `Chỉ hiện xe cùng ${trip.bus.capacity} chỗ với xe ban đầu`
               : undefined
           }
         >
@@ -482,7 +438,7 @@ function TripEditPage() {
           ) : (
             <Select
               placeholder="Chọn xe đang rảnh"
-              disabled={availableBuses.length === 0}
+              disabled={!isEditable || availableBuses.length === 0}
               notFoundContent="Không có xe nào rảnh vào khung giờ này"
               onChange={handleFindFareRule}
             >
@@ -497,7 +453,7 @@ function TripEditPage() {
           )}
         </Form.Item>
 
-        {/* Bảng giá: tự động xác định theo Tuyến đường + số chỗ của xe, không cho chọn tay */}
+        {/* Bảng giá: tự động xác định, không cho chọn tay */}
         <Form.Item
           name="fareRule"
           hidden
@@ -516,14 +472,14 @@ function TripEditPage() {
           />
         </Form.Item>
 
-        {/* Tài xế: chỉ hiện khi đã đủ giờ khởi hành/đến/tuyến, chỉ liệt kê tài xế đang rảnh */}
+        {/* Tài xế — chỉ cho sửa khi chuyến chưa chạy */}
         <Form.Item
           name="staff"
           label="Tài xế"
           rules={[{ required: true, message: "Chọn tài xế" }]}
           extra={
-            !departureTime || !arrivalTime || !selectedJourney
-              ? "Chọn tuyến đường và thời gian khởi hành/đến để xem tài xế đang rảnh"
+            !isEditable
+              ? "Chuyến đang chạy hoặc đã hoàn thành, không thể đổi tài xế"
               : undefined
           }
         >
@@ -535,7 +491,7 @@ function TripEditPage() {
           ) : (
             <Select
               placeholder="Chọn tài xế đang rảnh"
-              disabled={availableDrivers.length === 0}
+              disabled={!isEditable || availableDrivers.length === 0}
               notFoundContent="Không có tài xế nào rảnh vào khung giờ này"
             >
               {availableDrivers.map((d) => (
@@ -547,39 +503,22 @@ function TripEditPage() {
           )}
         </Form.Item>
 
-        {/* Trạng thái */}
+        {/* Trạng thái — giới hạn option theo luồng */}
         <Form.Item
           name="status"
           label="Trạng thái"
         >
           <Select
-            options={[
-              {
-                value: "sắp chạy",
-                label: "Sắp chạy",
-              },
-              {
-                value: "đang chạy",
-                label: "Đang chạy",
-              },
-              {
-                value: "hoàn thành",
-                label: "Hoàn thành",
-              },
-              {
-                value: "huỷ",
-                label: "Huỷ",
-              },
-            ]}
+            disabled={trip?.status === "hoàn thành"}
+            options={statusOptions}
           />
         </Form.Item>
 
-        <Button
-          type="primary"
-          htmlType="submit"
-        >
-          Cập nhật chuyến xe
-        </Button>
+        {trip?.status !== "hoàn thành" && (
+          <Button type="primary" htmlType="submit">
+            Cập nhật chuyến xe
+          </Button>
+        )}
       </Form>
     </div>
   );
