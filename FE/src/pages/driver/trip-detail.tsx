@@ -453,109 +453,530 @@ export default function TripDetailPage() {
     },
   ];
 
-  // Seat map rendering
-  const renderSeatMap = () => {
-    if (!trip?.seats?.length) return <Text type="secondary">Không có dữ liệu ghế</Text>;
+  // ===== Seat Map matching customer Booking.tsx =====
+  const [activeFloor, setActiveFloor] = useState(1);
 
-    const maxFloor = Math.max(...trip.seats.map((s: any) => s.floor || 1));
-    const floors = [];
+  const isSleeper = trip?.bus?.type === "Sleeper";
 
-    for (let floor = 1; floor <= maxFloor; floor++) {
-      const floorSeats = trip.seats.filter((s: any) => (s.floor || 1) === floor);
-      const maxRow = Math.max(...floorSeats.map((s: any) => s.rowIndex));
-      const maxCol = Math.max(...floorSeats.map((s: any) => s.colIndex));
+  const getGridColsCount = (): number => {
+    if (!trip?.bus) return 4;
+    const { capacity, type } = trip.bus;
+    if (capacity === 16) return 4;
+    if (capacity === 29) return 5;
+    if (capacity === 45) return 5;
+    if (type === "Sleeper" || capacity === 38 || capacity === 34) return 5;
+    return 4;
+  };
 
-      const grid = [];
-      for (let r = 0; r <= maxRow; r++) {
-        const row = [];
-        for (let c = 0; c <= maxCol; c++) {
-          const seat = floorSeats.find((s: any) => s.rowIndex === r && s.colIndex === c);
-          row.push(seat);
-        }
-        grid.push(row);
+  const getMappedColIndex = (seat: any): number => {
+    if (!trip?.bus) return seat.colIndex;
+    const { capacity } = trip.bus;
+    if (capacity === 45) {
+      if (seat.rowIndex <= 10) {
+        if (seat.colIndex === 1) return 1;
+        if (seat.colIndex === 2) return 2;
+        if (seat.colIndex === 3) return 4;
+        if (seat.colIndex === 4) return 5;
       }
+    }
+    return seat.colIndex;
+  };
 
-      floors.push(
-        <div key={floor} style={{ marginBottom: 16 }}>
-          {maxFloor > 1 && (
-            <Text strong style={{ display: "block", marginBottom: 8 }}>
-              Tầng {floor}
-            </Text>
-          )}
-          <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "center" }}>
-            {grid.map((row, ri) => (
-              <div key={ri} style={{ display: "flex", gap: 6 }}>
-                {row.map((seat: any, ci: number) => {
-                  if (!seat) {
-                    return <div key={ci} style={{ width: 44, height: 44 }} />;
-                  }
+  const totalCols = getGridColsCount();
 
-                  let bgColor = "#f0f0f0";
-                  let textColor = "#333";
-                  let borderColor = "#d9d9d9";
+  const LegendItem = ({ label, status, isSleeperType }: { label: string; status: string; isSleeperType: boolean }) => {
+    let seatColor = "#ffffff";
+    let borderColor = "#cbd5e1";
+    let pillowColor = "#f1f5f9";
+    let armColor = "#cbd5e1";
 
-                  if (seat.status === "BOOKED") {
-                    bgColor = "#ff4d4f";
-                    textColor = "#fff";
-                    borderColor = "#ff4d4f";
-                  } else if (seat.status === "HOLDING") {
-                    bgColor = "#faad14";
-                    textColor = "#fff";
-                    borderColor = "#faad14";
-                  } else {
-                    bgColor = "#52c41a";
-                    textColor = "#fff";
-                    borderColor = "#52c41a";
-                  }
-
-                  return (
-                    <Tooltip key={ci} title={`${seat.seatCode} - ${seat.status}`}>
-                      <div
-                        style={{
-                          width: 44,
-                          height: 44,
-                          borderRadius: 8,
-                          background: bgColor,
-                          color: textColor,
-                          border: `2px solid ${borderColor}`,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: 11,
-                          fontWeight: 700,
-                          cursor: "default",
-                        }}
-                      >
-                        {seat.seatCode}
-                      </div>
-                    </Tooltip>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        </div>
-      );
+    if (status === "HOLDING") {
+      seatColor = "#fff1f2";
+      borderColor = "#f43f5e";
+      pillowColor = "#ffe4e6";
+      armColor = "#fda4af";
+    } else if (status === "BOOKED") {
+      seatColor = "#f1f5f9";
+      borderColor = "#cbd5e1";
+      pillowColor = "#e2e8f0";
+      armColor = "#e2e8f0";
     }
 
     return (
+      <Space size="small" style={{ margin: "4px 12px" }}>
+        <div style={{ position: "relative", width: 22, height: isSleeperType ? 26 : 22 }}>
+          {isSleeperType ? (
+            <>
+              <div style={{ position: "absolute", inset: 0, backgroundColor: seatColor, border: `1.5px solid ${borderColor}`, borderRadius: 4 }} />
+              <div style={{ position: "absolute", top: 2, left: 3, right: 3, height: 5, backgroundColor: pillowColor, border: `1px solid ${borderColor}`, borderRadius: 1.5 }} />
+              <div style={{ position: "absolute", bottom: 2, left: 3, right: 3, height: 8, backgroundColor: status === "HOLDING" ? "#fecdd3" : status === "BOOKED" ? "#cbd5e1" : "#fafafa", borderTop: `1px dashed ${borderColor}`, borderRadius: "0 0 2px 2px" }} />
+            </>
+          ) : (
+            <>
+              <div style={{ position: "absolute", top: 3, bottom: 0, left: 2, right: 2, backgroundColor: seatColor, border: `1.5px solid ${borderColor}`, borderRadius: "3px 3px 4px 4px" }} />
+              <div style={{ position: "absolute", top: 0, left: "25%", right: "25%", height: 3, backgroundColor: seatColor, border: `1.5px solid ${borderColor}`, borderBottom: "none", borderRadius: "2px 2px 0 0" }} />
+              <div style={{ position: "absolute", top: 5, bottom: 2, left: 0, width: 2, backgroundColor: armColor, borderRadius: 0.5 }} />
+              <div style={{ position: "absolute", top: 5, bottom: 2, right: 0, width: 2, backgroundColor: armColor, borderRadius: 0.5 }} />
+            </>
+          )}
+        </div>
+        <Text style={{ fontSize: "13px", fontWeight: 500, color: "#475569" }}>{label}</Text>
+      </Space>
+    );
+  };
+
+  const renderBusFloor = (floorNum: number) => {
+    const isSleeperBus = trip?.bus?.type === "Sleeper";
+    const seatsInFloor = trip?.seats?.filter((s: any) => (s.floor || 1) === floorNum) || [];
+    const showCockpit = floorNum === 1;
+
+    // Build booked seats from bookings
+    const checkedInSeats = new Set<string>();
+    bookings.forEach((b) => {
+      if (b.status === "Đã check-in") {
+        b.seats.forEach((s) => checkedInSeats.add(s));
+      }
+    });
+
+    return (
+      <div style={{
+        position: "relative",
+        background: "#f8fafc",
+        border: "4px solid #cbd5e1",
+        borderRadius: "32px 32px 16px 16px",
+        padding: "24px 16px",
+        boxShadow: "0 10px 30px rgba(0, 0, 0, 0.05)",
+        marginTop: 10,
+      }}>
+        <style>{`
+          .driver-seat-btn .seat-base,
+          .driver-sleeper-btn .sleeper-base {
+            transition: all 0.2s;
+          }
+        `}</style>
+
+        {/* Windshield */}
+        <div style={{
+          height: 16,
+          background: "linear-gradient(to bottom, #475569, #1e293b)",
+          borderRadius: "12px 12px 2px 2px",
+          marginBottom: 16,
+          position: "relative",
+        }}>
+          <div style={{
+            position: "absolute",
+            top: 4,
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: 40,
+            height: 2,
+            backgroundColor: "#94a3b8",
+            borderRadius: 1,
+          }} />
+        </div>
+
+        {/* Side Mirrors */}
+        <div style={{ position: "absolute", top: 24, left: -6, width: 6, height: 18, background: "#334155", borderRadius: "3px 0 0 3px" }} />
+        <div style={{ position: "absolute", top: 24, right: -6, width: 6, height: 18, background: "#334155", borderRadius: "0 3px 3px 0" }} />
+
+        {/* Grid container */}
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: `repeat(${totalCols}, 1fr)`,
+          gap: "12px 10px",
+        }}>
+          {/* Row 1: Cockpit Area (only for Floor 1) */}
+          {showCockpit && (
+            <>
+              {/* Driver steering wheel */}
+              <div style={{
+                gridColumnStart: 1,
+                gridRowStart: 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                height: 44,
+              }}>
+                <div style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  color: "#64748b",
+                }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform: "rotate(-45deg)" }}>
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="2" x2="12" y2="22" />
+                    <line x1="2" y1="12" x2="22" y2="12" />
+                    <circle cx="12" cy="12" r="3" fill="currentColor" />
+                  </svg>
+                  <span style={{ fontSize: "8px", marginTop: 2, fontWeight: 700, letterSpacing: 0.5 }}>LÁI XE</span>
+                </div>
+              </div>
+
+              {/* Cockpit Empty space */}
+              {Array.from({ length: totalCols - 2 }).map((_, idx) => (
+                <div key={`empty-cockpit-${idx}`} style={{ gridColumnStart: idx + 2, gridRowStart: 1 }} />
+              ))}
+
+              {/* Entrance Door */}
+              <div style={{
+                gridColumnStart: totalCols,
+                gridRowStart: 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                height: 44,
+              }}>
+                <div style={{
+                  border: "1.5px dashed #cbd5e1",
+                  borderRadius: 6,
+                  padding: "4px 8px",
+                  fontSize: "8px",
+                  color: "#64748b",
+                  fontWeight: 700,
+                  textAlign: "center",
+                  lineHeight: "1.2",
+                  backgroundColor: "#f1f5f9",
+                }}>
+                  CỬA<br />LÊN
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Seats */}
+          {seatsInFloor.map((seat: any) => {
+            const isAvailable = seat.status === "AVAILABLE";
+            const isHolding = seat.status === "HOLDING";
+            const isBooked = seat.status === "BOOKED";
+            const isCheckedIn = checkedInSeats.has(seat.seatCode);
+            const gridRow = showCockpit ? seat.rowIndex + 1 : seat.rowIndex;
+            const gridCol = getMappedColIndex(seat);
+
+            if (isSleeperBus) {
+              let baseBg = "#ffffff";
+              let borderCol = "#cbd5e1";
+              let txtCol = "#334155";
+              let pillowBg = "#f1f5f9";
+              let blanketBg = "#f8fafc";
+              let shd = "0 2px 4px rgba(0, 0, 0, 0.04)";
+
+              if (isCheckedIn) {
+                baseBg = "#f0f5ff";
+                borderCol = "#597ef7";
+                txtCol = "#1d39c4";
+                pillowBg = "#d6e4ff";
+                blanketBg = "#adc6ff";
+                shd = "0 4px 12px rgba(89, 126, 247, 0.15)";
+              } else if (isHolding) {
+                baseBg = "#fff1f2";
+                borderCol = "#f43f5e";
+                txtCol = "#be123c";
+                pillowBg = "#ffe4e6";
+                blanketBg = "#fecdd3";
+              } else if (isBooked) {
+                baseBg = "#f1f5f9";
+                borderCol = "#e2e8f0";
+                txtCol = "#94a3b8";
+                pillowBg = "#cbd5e1";
+                blanketBg = "#e2e8f0";
+                shd = "none";
+              }
+
+              return (
+                <Tooltip key={seat.seatCode} title={`${seat.seatCode} - ${isCheckedIn ? "Đã check-in" : seat.status === "BOOKED" ? "Đã đặt" : seat.status === "HOLDING" ? "Đang giữ" : "Trống"}`}>
+                  <div
+                    className="driver-sleeper-btn"
+                    style={{
+                      gridColumnStart: gridCol,
+                      gridRowStart: gridRow,
+                      position: "relative",
+                      height: 62,
+                      width: "100%",
+                      cursor: "default",
+                    }}
+                  >
+                    <div style={{
+                      position: "relative",
+                      width: "100%",
+                      height: "100%",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      color: txtCol,
+                    }}>
+                      {/* Bed Body */}
+                      <div className="sleeper-base" style={{
+                        position: "absolute",
+                        top: 2,
+                        bottom: 2,
+                        left: 2,
+                        right: 2,
+                        backgroundColor: baseBg,
+                        border: `2px solid ${borderCol}`,
+                        borderRadius: 8,
+                        boxShadow: shd,
+                      }} />
+                      {/* Pillow */}
+                      <div style={{
+                        position: "absolute",
+                        top: 6,
+                        left: 6,
+                        right: 6,
+                        height: 10,
+                        backgroundColor: pillowBg,
+                        border: `1px solid ${borderCol}`,
+                        borderRadius: 3,
+                        zIndex: 1,
+                      }} />
+                      {/* Blanket */}
+                      <div style={{
+                        position: "absolute",
+                        bottom: 6,
+                        left: 6,
+                        right: 6,
+                        height: 16,
+                        backgroundColor: blanketBg,
+                        borderTop: `1px dashed ${borderCol}`,
+                        borderRadius: "0 0 4px 4px",
+                        opacity: 0.8,
+                      }} />
+                      {/* Seat Code Text */}
+                      <span style={{
+                        position: "relative",
+                        zIndex: 2,
+                        fontSize: "11px",
+                        fontWeight: 500,
+                        marginTop: "22px",
+                      }}>
+                        {seat.seatCode}
+                      </span>
+                    </div>
+                  </div>
+                </Tooltip>
+              );
+            } else {
+              let baseBg = "#ffffff";
+              let borderCol = "#cbd5e1";
+              let txtCol = "#334155";
+              let armBg = "#cbd5e1";
+              let shd = "0 2px 4px rgba(0, 0, 0, 0.04)";
+
+              if (isCheckedIn) {
+                baseBg = "#f0f5ff";
+                borderCol = "#597ef7";
+                txtCol = "#1d39c4";
+                armBg = "#597ef7";
+                shd = "0 4px 12px rgba(89, 126, 247, 0.15)";
+              } else if (isHolding) {
+                baseBg = "#fff1f2";
+                borderCol = "#f43f5e";
+                txtCol = "#be123c";
+                armBg = "#fda4af";
+              } else if (isBooked) {
+                baseBg = "#f1f5f9";
+                borderCol = "#e2e8f0";
+                txtCol = "#94a3b8";
+                armBg = "#cbd5e1";
+                shd = "none";
+              }
+
+              return (
+                <Tooltip key={seat.seatCode} title={`${seat.seatCode} - ${isCheckedIn ? "Đã check-in" : seat.status === "BOOKED" ? "Đã đặt" : seat.status === "HOLDING" ? "Đang giữ" : "Trống"}`}>
+                  <div
+                    className="driver-seat-btn"
+                    style={{
+                      gridColumnStart: gridCol,
+                      gridRowStart: gridRow,
+                      position: "relative",
+                      height: 50,
+                      width: "100%",
+                      cursor: "default",
+                    }}
+                  >
+                    <div style={{
+                      position: "relative",
+                      width: "100%",
+                      height: "100%",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      color: txtCol,
+                    }}>
+                      {/* Cushion Base */}
+                      <div className="seat-base" style={{
+                        position: "absolute",
+                        top: 8,
+                        bottom: 2,
+                        left: 4,
+                        right: 4,
+                        backgroundColor: baseBg,
+                        border: `2px solid ${borderCol}`,
+                        borderRadius: "6px 6px 8px 8px",
+                        boxShadow: shd,
+                      }} />
+                      {/* Headrest */}
+                      <div style={{
+                        position: "absolute",
+                        top: 2,
+                        width: "50%",
+                        height: 8,
+                        backgroundColor: baseBg,
+                        border: `2px solid ${borderCol}`,
+                        borderBottom: "none",
+                        borderRadius: "3px 3px 0 0",
+                        zIndex: 1,
+                      }} />
+                      {/* Armrests */}
+                      <div style={{
+                        position: "absolute",
+                        top: 14,
+                        bottom: 6,
+                        left: 1,
+                        width: 4,
+                        backgroundColor: armBg,
+                        borderRadius: "2px",
+                        opacity: 0.8,
+                      }} />
+                      <div style={{
+                        position: "absolute",
+                        top: 14,
+                        bottom: 6,
+                        right: 1,
+                        width: 4,
+                        backgroundColor: armBg,
+                        borderRadius: "2px",
+                        opacity: 0.8,
+                      }} />
+                      {/* Seat Code Text */}
+                      <span style={{
+                        position: "relative",
+                        zIndex: 2,
+                        fontSize: "11px",
+                        fontWeight: 500,
+                        marginTop: "6px",
+                      }}>
+                        {seat.seatCode}
+                      </span>
+                    </div>
+                  </div>
+                </Tooltip>
+              );
+            }
+          })}
+
+          {/* WC Box (only for 34 capacity) */}
+          {trip?.bus?.capacity === 34 && (
+            <div style={{
+              gridColumnStart: 5,
+              gridRowStart: showCockpit ? 7 : 6,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "#cbd5e1",
+              border: "2px solid #94a3b8",
+              borderRadius: 8,
+              color: "#475569",
+              fontSize: "12px",
+              fontWeight: 700,
+              height: 62,
+            }}>
+              WC
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderSeatMap = () => {
+    if (!trip?.seats?.length) return <Text type="secondary">Không có dữ liệu ghế</Text>;
+
+    const isSleeperBus = trip?.bus?.type === "Sleeper";
+
+    return (
       <div>
-        {floors}
-        <Divider />
-        <Space size="large">
-          <Space>
-            <div style={{ width: 20, height: 20, borderRadius: 4, background: "#52c41a" }} />
-            <Text type="secondary">Trống</Text>
-          </Space>
-          <Space>
-            <div style={{ width: 20, height: 20, borderRadius: 4, background: "#ff4d4f" }} />
-            <Text type="secondary">Đã đặt</Text>
-          </Space>
-          <Space>
-            <div style={{ width: 20, height: 20, borderRadius: 4, background: "#faad14" }} />
-            <Text type="secondary">Đang giữ</Text>
-          </Space>
-        </Space>
+        {/* Legend */}
+        <div style={{ display: "flex", gap: 8, justifyContent: "center", marginBottom: 24, flexWrap: "wrap", borderBottom: "1px solid #f0f0f0", paddingBottom: 16 }}>
+          <LegendItem label="Trống" status="AVAILABLE" isSleeperType={!!isSleeperBus} />
+          <LegendItem label="Đang giữ chỗ" status="HOLDING" isSleeperType={!!isSleeperBus} />
+          <LegendItem label="Đã đặt" status="BOOKED" isSleeperType={!!isSleeperBus} />
+        </div>
+
+        {/* Floor switcher for Sleeper */}
+        {isSleeperBus && (
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
+            <div style={{
+              display: "inline-flex",
+              padding: 4,
+              background: "#f1f5f9",
+              borderRadius: 10,
+              border: "1px solid #e2e8f0"
+            }}>
+              <button
+                onClick={() => setActiveFloor(1)}
+                style={{
+                  padding: "6px 16px",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  borderRadius: 8,
+                  border: "none",
+                  cursor: "pointer",
+                  background: activeFloor === 1 ? "#ffffff" : "transparent",
+                  color: activeFloor === 1 ? "#2563eb" : "#64748b",
+                  boxShadow: activeFloor === 1 ? "0 2px 4px rgba(0,0,0,0.05)" : "none",
+                  transition: "all 0.2s"
+                }}
+              >
+                Tầng dưới (Tầng 1)
+              </button>
+              <button
+                onClick={() => setActiveFloor(2)}
+                style={{
+                  padding: "6px 16px",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  borderRadius: 8,
+                  border: "none",
+                  cursor: "pointer",
+                  background: activeFloor === 2 ? "#ffffff" : "transparent",
+                  color: activeFloor === 2 ? "#2563eb" : "#64748b",
+                  boxShadow: activeFloor === 2 ? "0 2px 4px rgba(0,0,0,0.05)" : "none",
+                  transition: "all 0.2s"
+                }}
+              >
+                Tầng trên (Tầng 2)
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Bus rendering */}
+        <Row gutter={[24, 24]} justify="center">
+          {isSleeperBus ? (
+            <>
+              <Col span={24} md={12} style={{ display: activeFloor === 1 ? "block" : "none" }}>
+                <div style={{ textAlign: "center", marginBottom: 12, fontWeight: 700, color: "#1e3a8a", fontSize: "14px" }}>
+                  TẦNG DƯỚI (TẦNG 1)
+                </div>
+                {renderBusFloor(1)}
+              </Col>
+              <Col span={24} md={12} style={{ display: activeFloor === 2 ? "block" : "none" }}>
+                <div style={{ textAlign: "center", marginBottom: 12, fontWeight: 700, color: "#1e3a8a", fontSize: "14px" }}>
+                  TẦNG TRÊN (TẦNG 2)
+                </div>
+                {renderBusFloor(2)}
+              </Col>
+            </>
+          ) : (
+            <Col span={24} sm={16} md={14}>
+              <div style={{ textAlign: "center", marginBottom: 12, fontWeight: 700, color: "#1e3a8a", fontSize: "14px" }}>
+                SƠ ĐỒ VỊ TRÍ GHẾ
+              </div>
+              {renderBusFloor(1)}
+            </Col>
+          )}
+        </Row>
       </div>
     );
   };
