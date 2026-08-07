@@ -571,29 +571,37 @@ function TripListPage() {
   };
 
   // Logic lọc dữ liệu
-  const filteredList = list?.filter((item: TripType) => {
-    const searchLower = searchText.toLowerCase().trim();
+ // Logic lọc dữ liệu
+  const filteredList = list
+    ?.filter((item: TripType) => {
+      const searchLower = searchText.toLowerCase().trim();
 
-    const matchesSearch =
-      !searchLower ||
-      item.bus?.name?.toLowerCase().includes(searchLower) ||
-      item.bus?.licensePlates?.toLowerCase().includes(searchLower) ||
-      item.staff?.ten?.toLowerCase().includes(searchLower);
+      const matchesSearch =
+        !searchLower ||
+        item.bus?.name?.toLowerCase().includes(searchLower) ||
+        item.bus?.licensePlates?.toLowerCase().includes(searchLower) ||
+        item.staff?.ten?.toLowerCase().includes(searchLower);
 
-    const searchDi = searchParams.diemDi?.toLowerCase();
-    const searchDen = searchParams.diemDen?.toLowerCase();
+      const searchDi = searchParams.diemDi?.toLowerCase();
+      const searchDen = searchParams.diemDen?.toLowerCase();
 
-    const matchesDiemDi =
-      !searchDi || String(item?.journey?.diemDi || "").toLowerCase().includes(searchDi);
+      const matchesDiemDi =
+        !searchDi || String(item?.journey?.diemDi || "").toLowerCase().includes(searchDi);
 
-    const matchesDiemDen =
-      !searchDen || String(item?.journey?.diemDen || "").toLowerCase().includes(searchDen);
+      const matchesDiemDen =
+        !searchDen || String(item?.journey?.diemDen || "").toLowerCase().includes(searchDen);
 
-    const matchesStatus =
-      selectedStatus === "All" || item.status === selectedStatus;
+      const matchesStatus =
+        selectedStatus === "All" || item.status === selectedStatus;
 
-    return matchesSearch && matchesDiemDi && matchesDiemDen && matchesStatus;
-  });
+      return matchesSearch && matchesDiemDi && matchesDiemDen && matchesStatus;
+    })
+    // Sắp xếp theo ngày còn lại: chuyến nào khởi hành gần nhất (còn ít thời
+    // gian nhất) hiện lên trên cùng, chuyến xa nhất nằm cuối
+    .sort(
+      (a: TripType, b: TripType) =>
+        new Date(a.departureTime).getTime() - new Date(b.departureTime).getTime()
+    );
 
   const selectedBookingTrip = (list || []).find(
     (t: TripType) => t._id === selectedBookingTripId
