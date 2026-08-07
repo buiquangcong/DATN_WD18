@@ -172,9 +172,9 @@ function ListPage() {
             cancelText="Không"
             okButtonProps={{ danger: true }}
           >
-            <Button type="primary" danger>
+            {/* <Button type="primary" danger>
               Xóa
-            </Button>
+            </Button> */}
           </Popconfirm>
         </Space>
       ),
