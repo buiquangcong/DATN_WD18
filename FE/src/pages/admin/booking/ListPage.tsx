@@ -175,7 +175,7 @@ function BookingListPage() {
             Sửa
           </Button>
 
-          <Popconfirm
+          {/* <Popconfirm
             title="Xóa bản ghi này?"
             description="Bạn có chắc chắn muốn xóa không?"
             okText="Có"
@@ -186,7 +186,7 @@ function BookingListPage() {
             <Button danger className="rounded-lg shadow-xs">
               Xoá
             </Button>
-          </Popconfirm>
+          </Popconfirm> */}
         </Space>
       ),
     },
