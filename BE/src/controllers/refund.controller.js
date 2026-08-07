@@ -45,7 +45,35 @@ export const getOne = asyncHandler(async (req, res) => {
 export const createOne = asyncHandler(async (req, res) => {
     const { booking, user, bankName, accountNumber, accountName, amount, reason } = req.body;
 
-    // 1. Tạo bản ghi Refund
+    // 1. Kiểm tra đơn đặt vé tồn tại
+    const bookingObj = await Booking.findById(booking);
+    if (!bookingObj) {
+        return res.status(400).json({ message: "Không tìm thấy thông tin đơn đặt vé!" });
+    }
+
+    // 2. Kiểm tra trạng thái đơn đặt vé
+    if (bookingObj.status === "Yêu cầu hoàn tiền" || bookingObj.status === "Đã hoàn tiền") {
+        return res.status(400).json({ message: "Đơn đặt vé này đã được yêu cầu hủy/hoàn tiền trước đó!" });
+    }
+    if (bookingObj.status === "Đã huỷ") {
+        return res.status(400).json({ message: "Đơn đặt vé này đã bị hủy trước đó!" });
+    }
+
+    // 3. Kiểm tra thời gian khởi hành (chính sách hủy vé trước tối thiểu 2 tiếng)
+    const tripObj = await Trip.findById(bookingObj.trip);
+    if (tripObj) {
+        const now = new Date();
+        const depTime = new Date(tripObj.departureTime);
+        const diffHours = (depTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+        if (diffHours < 2) {
+            return res.status(400).json({ 
+                message: "Không thể hủy vé! Bạn chỉ được phép hủy vé trước giờ khởi hành tối thiểu 2 tiếng." 
+            });
+        }
+    }
+
+    // 4. Tạo bản ghi Refund
     const refund = await Refund.create({
         booking,
         user,
@@ -58,23 +86,19 @@ export const createOne = asyncHandler(async (req, res) => {
         requestedAt: new Date()
     });
 
-    // 2. Cập nhật trạng thái của Booking và giải phóng ghế của chuyến đi
-    const bookingObj = await Booking.findById(booking);
-    if (bookingObj) {
-        bookingObj.status = "Yêu cầu hoàn tiền";
-        await bookingObj.save();
+    // 5. Cập nhật trạng thái của Booking và giải phóng ghế của chuyến đi
+    bookingObj.status = "Yêu cầu hoàn tiền";
+    await bookingObj.save();
 
-        const tripObj = await Trip.findById(bookingObj.trip);
-        if (tripObj) {
-            tripObj.seats.forEach((seat) => {
-                if (bookingObj.seats.includes(seat.seatCode)) {
-                    seat.status = "AVAILABLE";
-                    seat.heldBy = null;
-                    seat.expiresAt = null;
-                }
-            });
-            await tripObj.save();
-        }
+    if (tripObj) {
+        tripObj.seats.forEach((seat) => {
+            if (bookingObj.seats.includes(seat.seatCode)) {
+                seat.status = "AVAILABLE";
+                seat.heldBy = null;
+                seat.expiresAt = null;
+            }
+        });
+        await tripObj.save();
     }
 
     return res.status(201).json({
