@@ -13,6 +13,7 @@ app.use(cors({
 }));
 
 app.use(express.json());
+app.use("/uploads", express.static("uploads"));
 
 mongoose.connect(
     'mongodb+srv://hungtran:admin1@datn-wd18.9bxbump.mongodb.net/DATN_WD18?retryWrites=true&w=majority',
