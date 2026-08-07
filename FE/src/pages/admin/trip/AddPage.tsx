@@ -304,6 +304,16 @@ function TripAddPage() {
   };
 
   const onFinish = async (values: any) => {
+       const start = values.startDate;
+    const today = dayjs().startOf("day");
+    if (start && dayjs(start).startOf("day").isSame(today)) {
+      const [h, m] = values.departureHour.split(":").map(Number);
+      const depTime = dayjs().hour(h).minute(m).second(0);
+      if (depTime.isBefore(dayjs())) {
+        message.error("Giờ khởi hành không được ở quá khứ");
+        return;
+      }
+    }
     try {
       const payload = {
         journey: values.journey,
@@ -391,19 +401,47 @@ function TripAddPage() {
             </Select>
           </Form.Item>
 
-          <Form.Item
+                    <Form.Item
             label="Giờ khởi hành"
             name="departureHour"
+            dependencies={["startDate"]}
             rules={[
               {
                 required: true,
-                message:
-                  "Nhập giờ khởi hành",
+                message: "Nhập giờ khởi hành",
               },
               {
                 pattern: /^([01]\d|2[0-3]):([0-5]\d)$/,
                 message: "Định dạng HH:mm",
               },
+              ({ getFieldValue }) => ({
+                validator(_, value) {
+                  const start = getFieldValue("startDate");
+                  if (!start || !value || !/^([01]\d|2[0-3]):([0-5]\d)$/.test(value)) {
+                    return Promise.resolve();
+                  }
+
+                  const startDateObj = dayjs(start).startOf("day");
+                  const today = dayjs().startOf("day");
+
+                  // Ngày mai trở đi -> thoải mái
+                  if (startDateObj.isAfter(today)) {
+                    return Promise.resolve();
+                  }
+
+                  // Hôm nay -> giờ phải >= hiện tại
+                  const [h, m] = value.split(":").map(Number);
+                  const depTime = dayjs().hour(h).minute(m).second(0);
+
+                  if (depTime.isBefore(dayjs())) {
+                    return Promise.reject(
+                      new Error("Giờ khởi hành không được ở quá khứ")
+                    );
+                  }
+
+                  return Promise.resolve();
+                },
+              }),
             ]}
           >
             <Input

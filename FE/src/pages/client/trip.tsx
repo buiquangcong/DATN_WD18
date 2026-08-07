@@ -29,10 +29,14 @@ import {
   ClearOutlined,
   InfoCircleOutlined,
   CaretUpOutlined,
-  CaretDownOutlined
+  CaretDownOutlined,
+  CalendarOutlined
 } from "@ant-design/icons";
 import { ClientLayout } from "./layout";
 import dayjs from "dayjs";
+import "dayjs/locale/vi"; // Import tiếng Việt cho dayjs
+
+dayjs.locale("vi");
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -156,20 +160,26 @@ export default function Trip(): React.ReactElement {
     fetchTrips();
   }, []);
 
+  // Format Giờ hiển thị (14:30)
   const formatTime = (dateString: string): string => {
     if (!dateString) return "--:--";
-    const date = new Date(dateString);
-    return date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+    return dayjs(dateString).format("HH:mm");
+  };
+
+  // Format Ngày tháng hiển thị (T5, 06/08/2026)
+  const formatDate = (dateString: string): string => {
+    if (!dateString) return "";
+    return dayjs(dateString).format("dd, DD/MM/YYYY");
   };
 
   const getPickupTime = (departureTimeStr: string, offsetMinutes: number): string => {
     if (!departureTimeStr) return "--:--";
-    return dayjs(departureTimeStr).add(offsetMinutes, "minute").format("HH:mm");
+    return dayjs(departureTimeStr).add(offsetMinutes, "minute").format("HH:mm - DD/MM");
   };
 
   const getDropoffTime = (arrivalTimeStr: string, offsetMinutes: number): string => {
     if (!arrivalTimeStr) return "--:--";
-    return dayjs(arrivalTimeStr).subtract(offsetMinutes, "minute").format("HH:mm");
+    return dayjs(arrivalTimeStr).subtract(offsetMinutes, "minute").format("HH:mm - DD/MM");
   };
 
   const getAvailableSeatsCount = (seatsArray: Seat[]): number => {
@@ -201,7 +211,6 @@ export default function Trip(): React.ReactElement {
       ngayDi: formattedDate,
     });
 
-    // Cập nhật lại URL khi tìm kiếm trực tiếp trên trang Trip
     const params = new URLSearchParams();
     if (diemDi) params.append("diemDi", diemDi);
     if (diemDen) params.append("diemDen", diemDen);
@@ -560,19 +569,32 @@ export default function Trip(): React.ReactElement {
                         boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.05)"
                       }}
                     >
+                      {/* Thẻ hiển thị ngày khởi hành ở đầu chuyến */}
+                      <div style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
+                        <CalendarOutlined style={{ color: "#2e7d32", fontSize: 14 }} />
+                        <Text strong style={{ color: "#1e293b", fontSize: 13 }}>
+                          Khởi hành: <span style={{ color: "#2e7d32" }}>{formatDate(item.departureTime)}</span>
+                        </Text>
+                      </div>
+
                       <Row align="middle" justify="space-between" gutter={[16, 16]}>
-                        <Col xs={24} sm={10} md={9} lg={8}>
+                        <Col xs={24} sm={12} md={10} lg={9}>
                           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                            {/* Điểm đi & Thời gian đi */}
                             <div>
                               <div style={{ fontSize: 24, fontWeight: 700, color: "#0f172a" }}>
                                 {formatTime(item.departureTime)}
                               </div>
-                              <Text strong style={{ color: "#64748b", fontSize: 13, display: "block" }}>
+                              <Text type="secondary" style={{ fontSize: 12, display: "block" }}>
+                                {formatDate(item.departureTime)}
+                              </Text>
+                              <Text strong style={{ color: "#475569", fontSize: 13, marginTop: 2, display: "block" }}>
                                 {item.journey?.diemDi || "Hà Nội"}
                               </Text>
                             </div>
 
-                            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: 1, minWidth: 60 }}>
+                            {/* Thời gian di chuyển */}
+                            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: 1, minWidth: 70 }}>
                               <Text type="secondary" style={{ fontSize: 11, marginBottom: 2 }}>
                                 {item.journey?.thoiGianDiChuyen || "5 giờ"}
                               </Text>
@@ -583,11 +605,15 @@ export default function Trip(): React.ReactElement {
                               </div>
                             </div>
 
+                            {/* Điểm đến & Thời gian đến */}
                             <div>
                               <div style={{ fontSize: 24, fontWeight: 700, color: "#0f172a" }}>
                                 {formatTime(item.arrivalTime)}
                               </div>
-                              <Text strong style={{ color: "#64748b", fontSize: 13, display: "block" }}>
+                              <Text type="secondary" style={{ fontSize: 12, display: "block" }}>
+                                {formatDate(item.arrivalTime)}
+                              </Text>
+                              <Text strong style={{ color: "#475569", fontSize: 13, marginTop: 2, display: "block" }}>
                                 {item.journey?.diemDen || "Phú Thọ"}
                               </Text>
                             </div>
@@ -617,7 +643,7 @@ export default function Trip(): React.ReactElement {
                           </div>
                         </Col>
 
-                        <Col xs={12} sm={6} md={5} style={{ textAlign: "center" }}>
+                        <Col xs={12} sm={4} md={4} style={{ textAlign: "center" }}>
                           <Text strong style={{ fontSize: 15, display: "block", marginBottom: 6, color: "#334155" }}>
                             {item.bus?.name || "Xe NETBUS Luxury"}
                           </Text>

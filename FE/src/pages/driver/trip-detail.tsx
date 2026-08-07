@@ -1,4 +1,4 @@
-import { Typography, Card, Row, Col, Button, Table, Tag, Space, Spin, Modal, Input, Descriptions, Badge, message, Divider, Tooltip } from "antd";
+import { Typography, Card, Row, Col, Button, Table, Tag, Space, Spin, Modal, Input, Descriptions, Badge, message, Divider, Tooltip, Select } from "antd";
 import {
   ArrowLeftOutlined,
   CheckCircleOutlined,
@@ -10,11 +10,15 @@ import {
   ClockCircleOutlined,
   InfoCircleOutlined,
   CheckOutlined,
+  QrcodeOutlined,
+  ScanOutlined,
 } from "@ant-design/icons";
 import { ClientLayout } from "./layout";
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
+import { Html5Qrcode } from "html5-qrcode";
+import dayjs from "dayjs";
 
 const { Title, Text } = Typography;
 
@@ -41,6 +45,13 @@ export default function TripDetailPage() {
   const [checkInModal, setCheckInModal] = useState(false);
   const [checkInOrderCode, setCheckInOrderCode] = useState("");
   const [checkInLoading, setCheckInLoading] = useState(false);
+
+  // QR Scan states
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [cameras, setCameras] = useState<any[]>([]);
+  const [selectedCameraId, setSelectedCameraId] = useState<string>("");
+  const [isScanning, setIsScanning] = useState(false);
+  const [html5QrCodeInstance, setHtml5QrCodeInstance] = useState<Html5Qrcode | null>(null);
 
   useEffect(() => {
     if (!tripId) return;
@@ -106,6 +117,225 @@ export default function TripDetailPage() {
       message.error(err.response?.data?.message || "Check-in thất bại");
     }
   };
+
+  const playBeep = (isError = false) => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(isError ? 220 : 800, audioCtx.currentTime);
+      gainNode.gain.setValueAtTime(0.08, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + (isError ? 0.3 : 0.15));
+
+      oscillator.start(audioCtx.currentTime);
+      oscillator.stop(audioCtx.currentTime + (isError ? 0.3 : 0.15));
+    } catch (e) {
+      console.error("Audio Context beep failed", e);
+    }
+  };
+
+  const handleScanSuccess = async (decodedText: string, instance: Html5Qrcode) => {
+    if (!trip) return;
+
+    if (trip.status === "hoàn thành" || trip.status === "Hoàn thành") {
+      playBeep(true);
+      message.error("Chuyến xe đã hoàn thành, không thể check-in!");
+      return;
+    }
+
+    if (trip.departureTime) {
+      const now = dayjs();
+      const departure = dayjs(trip.departureTime);
+      const diffMinutes = now.diff(departure, "minute");
+
+      if (diffMinutes < -15 || diffMinutes > 15) {
+        playBeep(true);
+        message.error("Chỉ được phép check-in trong khoảng từ 15 phút trước đến 15 phút sau giờ xe chạy!");
+        return;
+      }
+    }
+
+    let bookingId = decodedText.trim();
+    if (decodedText.includes("Mã vé:")) {
+      const match = decodedText.match(/Mã vé:\s*([^\n\r]+)/);
+      if (match && match[1]) {
+        bookingId = match[1].trim();
+      }
+    }
+
+    try {
+      let bookingData: any = null;
+      const isObjectId = /^[0-9a-fA-F]{24}$/.test(bookingId);
+      
+      if (isObjectId) {
+        const res = await axios.get(`http://localhost:3000/api/booking/${bookingId}`);
+        bookingData = res.data;
+      } else {
+        const bookingsRes = await axios.get("http://localhost:3000/api/booking");
+        const allBookings = bookingsRes.data || [];
+        bookingData = allBookings.find((b: any) => String(b.orderCode) === bookingId);
+      }
+
+      if (!bookingData) {
+        playBeep(true);
+        message.error("Không tìm thấy thông tin vé!");
+        return;
+      }
+
+      const bookingTripId = bookingData.trip?._id || bookingData.trip;
+      const currentTripId = trip?._id;
+
+      if (String(bookingTripId) !== String(currentTripId)) {
+        playBeep(true);
+        const journeyDi = bookingData.trip?.journey?.diemDi || "Chưa rõ";
+        const journeyDen = bookingData.trip?.journey?.diemDen || "Chưa rõ";
+        const departureTime = bookingData.trip?.departureTime 
+          ? new Date(bookingData.trip.departureTime).toLocaleString("vi-VN") 
+          : "Chưa rõ";
+
+        Modal.error({
+          title: "Sai chuyến xe!",
+          content: (
+            <div>
+              <p className="font-semibold text-red-600">Khách hàng đã quét nhầm vé của chuyến xe khác!</p>
+              <p className="mt-2">Hành trình vé này: <strong>{journeyDi} → {journeyDen}</strong></p>
+              <p>Giờ khởi hành: <strong>{departureTime}</strong></p>
+            </div>
+          ),
+          okText: "Đã hiểu"
+        });
+        return;
+      }
+
+      if (bookingData.status === "Đã check-in" || bookingData.status === "Đã checkin" || bookingData.status === "Hoàn thành") {
+        playBeep(true);
+        message.error("Vé này đã được check-in trước đó!");
+        return;
+      }
+
+      if (bookingData.status === "Đã huỷ") {
+        playBeep(true);
+        message.error("Vé này đã bị hủy trên hệ thống!");
+        return;
+      }
+
+      if (bookingData.status === "Chờ xác nhận") {
+        playBeep(true);
+        message.error("Vé này chưa được xác nhận thanh toán!");
+        return;
+      }
+
+      await stopScanner(instance);
+      
+      await axios.put(`http://localhost:3000/api/booking/update/${bookingData._id}`, {
+        status: "Đã check-in"
+      });
+
+      playBeep();
+      setTimeout(playBeep, 150);
+
+      message.success(`Tự động Check-in thành công cho khách hàng ${bookingData.user?.username || "NETBUS"}!`);
+
+      const bookingRes = await axios.get(`http://localhost:3000/api/booking/trip/${tripId}`);
+      setBookings(bookingRes.data.data || []);
+      
+      setIsScannerOpen(false);
+    } catch (err) {
+      console.error("Lỗi quét hoặc check-in vé:", err);
+      playBeep(true);
+      message.error("Quét vé thất bại. Vé không hợp lệ hoặc lỗi kết nối!");
+    }
+  };
+
+  const startScanner = async (cameraId: string) => {
+    if (!cameraId) return;
+    try {
+      setIsScanning(true);
+      setTimeout(async () => {
+        try {
+          const instance = new Html5Qrcode("trip-detail-qr-reader");
+          setHtml5QrCodeInstance(instance);
+          await instance.start(
+            cameraId,
+            {
+              fps: 10,
+              qrbox: { width: 220, height: 220 },
+            },
+            (decodedText) => {
+              handleScanSuccess(decodedText, instance);
+            },
+            () => {}
+          );
+        } catch (err: any) {
+          console.error("Lỗi khi start camera:", err);
+          message.error("Không thể kích hoạt camera: " + err.message);
+          setIsScanning(false);
+        }
+      }, 300);
+    } catch (err: any) {
+      console.error(err);
+      setIsScanning(false);
+    }
+  };
+
+  const stopScanner = async (instance?: Html5Qrcode | null) => {
+    const activeInstance = instance || html5QrCodeInstance;
+    if (activeInstance && activeInstance.isScanning) {
+      try {
+        await activeInstance.stop();
+        setHtml5QrCodeInstance(null);
+      } catch (err) {
+        console.error("Lỗi khi dừng camera:", err);
+      }
+    }
+    setIsScanning(false);
+  };
+
+  const handleCloseScanner = async () => {
+    await stopScanner();
+    setIsScannerOpen(false);
+  };
+
+  const handleCameraChange = async (value: string) => {
+    setSelectedCameraId(value);
+    await stopScanner();
+    startScanner(value);
+  };
+
+  useEffect(() => {
+    if (isScannerOpen) {
+      Html5Qrcode.getCameras()
+        .then((devices) => {
+          if (devices && devices.length > 0) {
+            setCameras(devices);
+            const backCamera = devices.find((device) =>
+              device.label.toLowerCase().includes("back") ||
+              device.label.toLowerCase().includes("environment") ||
+              device.label.toLowerCase().includes("sau")
+            );
+            const defaultId = backCamera ? backCamera.id : devices[0].id;
+            setSelectedCameraId(defaultId);
+            startScanner(defaultId);
+          } else {
+            message.error("Không tìm thấy camera khả dụng!");
+          }
+        })
+        .catch((err) => {
+          console.error("Lỗi lấy danh sách camera:", err);
+          message.error("Vui lòng cấp quyền truy cập camera!");
+        });
+    } else {
+      stopScanner();
+    }
+    return () => {
+      stopScanner();
+    };
+  }, [isScannerOpen]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -562,6 +792,19 @@ export default function TripDetailPage() {
           okButtonProps={{ style: { background: "#722ed1", borderColor: "#722ed1" } }}
         >
           <div style={{ padding: "16px 0" }}>
+            <Button
+              type="primary"
+              icon={<QrcodeOutlined />}
+              onClick={() => {
+                setCheckInModal(false);
+                setIsScannerOpen(true);
+              }}
+              className="w-full bg-emerald-600 hover:bg-emerald-700 border-none rounded-lg font-bold flex items-center justify-center gap-1.5 shadow-xs mb-4"
+              style={{ height: 40 }}
+            >
+              Quét QR Code bằng Camera
+            </Button>
+
             <Text style={{ display: "block", marginBottom: 12 }}>
               Nhập mã vé (Order Code) của hành khách để xác nhận lên xe:
             </Text>
@@ -574,6 +817,124 @@ export default function TripDetailPage() {
               onPressEnter={handleCheckIn}
               style={{ borderRadius: 8 }}
             />
+          </div>
+        </Modal>
+
+        {/* Style CSS cho hiệu ứng quét camera */}
+        <style>{`
+          #trip-detail-qr-reader {
+            width: 100% !important;
+            border: none !important;
+            border-radius: 12px;
+            overflow: hidden;
+          }
+          #trip-detail-qr-reader video {
+            border-radius: 12px;
+            object-fit: cover !important;
+          }
+          .scanner-container {
+            position: relative;
+            width: 100%;
+            max-width: 300px;
+            height: 300px;
+            margin: 10px auto;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+            background: #000;
+          }
+          .scanner-overlay {
+            position: absolute;
+            inset: 0;
+            border: 1px solid rgba(34, 197, 94, 0.15);
+            border-radius: 16px;
+            pointer-events: none;
+            z-index: 10;
+          }
+          .scanner-laser {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(to right, transparent, #22c55e, transparent);
+            box-shadow: 0 0 6px 2px rgba(34, 197, 94, 0.5);
+            animation: scan 2.5s linear infinite;
+            z-index: 11;
+          }
+          .scanner-corner {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            border-color: #22c55e;
+            border-style: solid;
+            z-index: 12;
+          }
+          .scanner-corner-tl { top: 20px; left: 20px; border-width: 3px 0 0 3px; border-top-left-radius: 6px; }
+          .scanner-corner-tr { top: 20px; right: 20px; border-width: 3px 3px 0 0; border-top-right-radius: 6px; }
+          .scanner-corner-bl { bottom: 20px; left: 20px; border-width: 0 0 3px 3px; border-bottom-left-radius: 6px; }
+          .scanner-corner-br { bottom: 20px; right: 20px; border-width: 0 3px 3px 0; border-bottom-right-radius: 6px; }
+          @keyframes scan {
+            0% { top: 20px; }
+            50% { top: 280px; }
+            100% { top: 20px; }
+          }
+        `}</style>
+
+        {/* Modal Quét QR Code để checkin vé */}
+        <Modal
+          open={isScannerOpen}
+          title={
+            <Space className="text-gray-800">
+              <QrcodeOutlined className="text-emerald-600 text-lg" />
+              <span className="font-bold text-lg">Quét QR Check-in Hành Khách</span>
+            </Space>
+          }
+          onCancel={handleCloseScanner}
+          footer={null}
+          width={480}
+          destroyOnClose
+          centered
+          className="rounded-2xl"
+        >
+          <div className="space-y-4 pt-2 flex flex-col items-center">
+            {cameras.length > 0 && (
+              <div className="w-full space-y-1">
+                <label className="text-xs text-gray-500 font-medium">Chọn Thiết Bị Camera:</label>
+                <Select
+                  className="w-full"
+                  size="large"
+                  value={selectedCameraId}
+                  onChange={handleCameraChange}
+                  options={cameras.map((cam) => ({
+                    value: cam.id,
+                    label: cam.label || `Camera ${cameras.indexOf(cam) + 1}`,
+                  }))}
+                />
+              </div>
+            )}
+
+            <div className="scanner-container">
+              <div id="trip-detail-qr-reader" className="w-full h-full"></div>
+              {isScanning && (
+                <>
+                  <div className="scanner-overlay"></div>
+                  <div className="scanner-laser"></div>
+                  <div className="scanner-corner scanner-corner-tl"></div>
+                  <div className="scanner-corner scanner-corner-tr"></div>
+                  <div className="scanner-corner scanner-corner-bl"></div>
+                  <div className="scanner-corner scanner-corner-br"></div>
+                </>
+              )}
+            </div>
+
+            <div className="text-center px-4">
+              <p className="text-xs text-gray-500 font-semibold text-amber-700">
+                Chuyến hiện tại: {trip?.journey?.diemDi} → {trip?.journey?.diemDen} ({trip?.departureTime ? new Date(trip.departureTime).toLocaleTimeString("vi-VN", {hour: '2-digit', minute:'2-digit'}) : ""})
+              </p>
+              <p className="text-[11px] text-gray-400 mt-1">
+                Đưa mã QR trên vé khách hàng trước camera. Hệ thống sẽ tự động đối chiếu chuyến xe.
+              </p>
+            </div>
           </div>
         </Modal>
       </div>
