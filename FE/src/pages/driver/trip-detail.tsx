@@ -103,6 +103,18 @@ export default function TripDetailPage() {
   };
 
   const handleQuickCheckIn = async (orderCode: number) => {
+    if (trip && trip.departureTime) {
+      const now = dayjs();
+      const departure = dayjs(trip.departureTime);
+      const diffMinutes = now.diff(departure, "minute");
+
+      if (diffMinutes < -15 || diffMinutes > 15) {
+        playBeep(true);
+        message.error("Chỉ được phép check-in trong khoảng từ 15 phút trước đến 15 phút sau giờ xe chạy!");
+        return;
+      }
+    }
+
     try {
       const res = await axios.post("http://localhost:3000/api/booking/checkin", {
         orderCode,
@@ -427,14 +439,23 @@ export default function TripDetailPage() {
       key: "action",
       render: (_: any, record: Booking) => {
         if (record.status === "Đã xác nhận") {
+          let isTimeValid = true;
+          if (trip && trip.departureTime) {
+            const now = dayjs();
+            const departure = dayjs(trip.departureTime);
+            const diffMinutes = now.diff(departure, "minute");
+            isTimeValid = diffMinutes >= -15 && diffMinutes <= 15;
+          }
+
           return (
-            <Tooltip title="Check-in vé này">
+            <Tooltip title={isTimeValid ? "Check-in vé này" : "Chỉ được phép check-in trong khoảng từ 15 phút trước đến 15 phút sau giờ xe chạy"}>
               <Button
                 type="primary"
                 size="small"
                 icon={<CheckOutlined />}
                 onClick={() => handleQuickCheckIn(record.orderCode)}
-                style={{ background: "#52c41a", borderColor: "#52c41a" }}
+                disabled={!isTimeValid}
+                style={isTimeValid ? { background: "#52c41a", borderColor: "#52c41a" } : {}}
               >
                 Check-in
               </Button>
@@ -1068,7 +1089,7 @@ export default function TripDetailPage() {
                   </Text>
                 </Descriptions.Item>
                 <Descriptions.Item label="Khoảng cách">
-                  {trip.journey?.khoangCach || "N/A"} km
+                  {trip.journey?.quangDuong || "N/A"} km
                 </Descriptions.Item>
                 <Descriptions.Item label="Khởi hành">
                   <ClockCircleOutlined style={{ marginRight: 4 }} />
