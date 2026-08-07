@@ -4,13 +4,6 @@ import {
   checkOut,
   getByStaff,
   getByTrip,
-  getByStaffTrips,
-  uploadProofImage,
-} from "../controllers/attendance.controller";
-
-const attendanceRouter = Router();
-
-attendanceRouter.post("/checkin", uploadProofImage, checkIn);
   getByStaffTrips,getAll
 } from "../controllers/attendance.controller";
 
