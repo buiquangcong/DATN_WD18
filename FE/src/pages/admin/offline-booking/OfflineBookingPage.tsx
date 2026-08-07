@@ -150,9 +150,9 @@ function OfflineBookingPage() {
         // Load trips
         const tripRes = await axios.get("http://localhost:3000/api/trip");
         const allTrips = tripRes.data || [];
-        // Lọc các chuyến sắp chạy hoặc đang chạy
+        // Lọc các chuyến sắp chạy và chưa quá giờ khởi hành (chưa chạy)
         const activeTrips = allTrips.filter(
-          (t: any) => t.status === "sắp chạy" || t.status === "đang chạy"
+          (t: any) => t.status === "sắp chạy" && new Date(t.departureTime) > new Date()
         );
         setTrips(activeTrips);
 
@@ -339,7 +339,7 @@ function OfflineBookingPage() {
         fetchBookingHistory();
         
         setTimeout(() => {
-          navigate("/khachhang/booking/success");
+          navigate("/admin/offline-booking/success");
         }, 1500);
       } else {
         // Thanh toán CHUYỂN KHOẢN qua PayOS
@@ -348,6 +348,7 @@ function OfflineBookingPage() {
         
         const paymentRes = await axios.post("http://localhost:3000/api/payment/create-link", {
           bookingId: bookingId,
+          isAdmin: true,
         });
 
         if (paymentRes.data?.checkoutUrl) {
@@ -382,7 +383,7 @@ function OfflineBookingPage() {
       localStorage.setItem("latest_ticket_success", JSON.stringify(pendingTicketData));
       toast.success("Thanh toán thành công! Đang chuyển hướng in vé...");
       setTimeout(() => {
-        navigate("/khachhang/booking/success");
+        navigate("/admin/offline-booking/success");
       }, 1000);
     } else {
       setChosenSeatCodes([]);
