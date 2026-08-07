@@ -29,11 +29,6 @@ const attendanceSchema = new mongoose.Schema(
       enum: ["checked_in", "checked_out"],
       default: "checked_in",
     },
-
-    proofImage: {
-      type: String,
-      default: null,
-    },
   },
   {
     timestamps: true,

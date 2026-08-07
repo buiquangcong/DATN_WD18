@@ -1068,7 +1068,7 @@ export default function TripDetailPage() {
                   </Text>
                 </Descriptions.Item>
                 <Descriptions.Item label="Khoảng cách">
-                  {trip.journey?.quangDuong || "N/A"} km
+                  {trip.journey?.khoangCach || "N/A"} km
                 </Descriptions.Item>
                 <Descriptions.Item label="Khởi hành">
                   <ClockCircleOutlined style={{ marginRight: 4 }} />
