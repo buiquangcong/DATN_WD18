@@ -447,7 +447,7 @@ export default function DriverDashboard() {
               if (isTripRunning) {
                 disabledReason = "🚌 Xe đang chạy, không thể chấm công";
               } else if (isTooEarly) {
-                disabledReason = `Còn ${diffMinutes} phút nữa mới đến giờ khởi hành. Chỉ được chấm công trước 15 phút`;
+                disabledReason = `Chỉ được chấm công trước 15 phút`;
               }
 
               return (
