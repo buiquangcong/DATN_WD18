@@ -1,5 +1,5 @@
-import { Row, Col, Card, Typography, Button, Avatar, Badge, Progress, List, Space, Table, Tag, Modal, Input, message, Select } from "antd";
-import { BellOutlined, UserOutlined, TeamOutlined, CheckCircleOutlined, ClockCircleOutlined, LoginOutlined, ScanOutlined, QrcodeOutlined } from "@ant-design/icons";
+import { Row, Col, Card, Typography, Button, Avatar, Badge, Progress, List, Space, Table, Tag, Modal, Input, Upload, message } from "antd";
+import { BellOutlined, UserOutlined, TeamOutlined, CheckCircleOutlined, ClockCircleOutlined, LoginOutlined, ScanOutlined, CameraOutlined, PlusOutlined, DeleteOutlined } from "@ant-design/icons";
 import { ClientLayout } from "./layout";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -37,6 +37,12 @@ export default function DriverDashboard() {
   const [attendanceModal, setAttendanceModal] = useState(false);
   const [attendanceMap, setAttendanceMap] = useState<Record<string, any>>({});
   const [attendanceLoading, setAttendanceLoading] = useState(false);
+
+  // Proof image state
+  const [proofModal, setProofModal] = useState(false);
+  const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [proofPreview, setProofPreview] = useState<string | null>(null);
 
   // Check-in state
   const [checkInModal, setCheckInModal] = useState(false);
@@ -131,19 +137,40 @@ export default function DriverDashboard() {
     return total + bookedSeatsCount;
   }, 0);
 
+  // Mở modal chọn ảnh minh chứng
+  const openProofModal = (tripId: string) => {
+    setSelectedTripId(tripId);
+    setProofFile(null);
+    setProofPreview(null);
+    setProofModal(true);
+  };
+
   // Attendance handlers
-  const handleAttendanceCheckIn = async (tripId: string) => {
+  const handleAttendanceCheckIn = async () => {
+    if (!selectedTripId) return;
+    if (!proofFile) {
+      message.warning("Vui lòng chọn ảnh minh chứng trước khi chấm công!");
+      return;
+    }
     setAttendanceLoading(true);
     try {
-      const res = await axios.post("http://localhost:3000/api/attendance/checkin", {
-        staffId,
-        tripId,
+      const formData = new FormData();
+      formData.append("staffId", staffId);
+      formData.append("tripId", selectedTripId);
+      formData.append("proofImage", proofFile);
+
+      const res = await axios.post("http://localhost:3000/api/attendance/checkin", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
       });
       message.success(res.data.message || "Chấm công thành công!");
       setAttendanceMap(prev => ({
         ...prev,
-        [tripId]: { status: "checked_in", checkInTime: new Date().toISOString() },
+        [selectedTripId]: { status: "checked_in", checkInTime: new Date().toISOString() },
       }));
+      setProofModal(false);
+      setProofFile(null);
+      setProofPreview(null);
+      setSelectedTripId(null);
     } catch (err: any) {
       message.error(err.response?.data?.message || "Chấm công thất bại");
     } finally {
@@ -775,7 +802,7 @@ export default function DriverDashboard() {
               if (isTripRunning) {
                 disabledReason = "🚌 Xe đang chạy, không thể chấm công";
               } else if (isTooEarly) {
-                disabledReason = `⏳ Còn ${diffMinutes} phút nữa mới đến giờ khởi hành. Chỉ được chấm công trước 15 phút`;
+                disabledReason = `Còn ${diffMinutes} phút nữa mới đến giờ khởi hành. Chỉ được chấm công trước 15 phút`;
               }
 
               return (
@@ -836,9 +863,9 @@ export default function DriverDashboard() {
                       ) : (
                         <Button
                           type="primary"
-                          icon={<CheckCircleOutlined />}
+                          icon={<CameraOutlined />}
                           loading={attendanceLoading}
-                          onClick={() => handleAttendanceCheckIn(trip._id)}
+                          onClick={() => openProofModal(trip._id)}
                           disabled={!canCheckIn}
                           style={canCheckIn
                             ? { background: "#52c41a", borderColor: "#52c41a" }
@@ -855,6 +882,122 @@ export default function DriverDashboard() {
             })}
           </div>
         )}
+      </Modal>
+
+      {/* Proof Image Upload Modal */}
+      <Modal
+        title={
+          <Space>
+            <CameraOutlined style={{ color: "#52c41a" }} />
+            <span>Chọn ảnh minh chứng chấm công</span>
+          </Space>
+        }
+        open={proofModal}
+        onCancel={() => {
+          setProofModal(false);
+          setProofFile(null);
+          setProofPreview(null);
+          setSelectedTripId(null);
+        }}
+        footer={null}
+        width={500}
+      >
+        <div style={{ textAlign: "center", padding: "16px 0" }}>
+          <Text type="secondary" style={{ display: "block", marginBottom: 16 }}>
+            📸 Vui lòng chụp ảnh xe hoặc bảng số xe làm minh chứng chấm công
+          </Text>
+
+          {!proofPreview ? (
+            <Upload.Dragger
+              name="proofImage"
+              accept="image/jpeg,image/png,image/webp"
+              showUploadList={false}
+              beforeUpload={(file) => {
+                const isImage = /\.(jpe?g|png|webp)$/i.test(file.name);
+                if (!isImage) {
+                  message.error("Chỉ chấp nhận file ảnh (jpg, png, webp)!");
+                  return Upload.LIST_IGNORE;
+                }
+                const isLt5M = file.size / 1024 / 1024 < 5;
+                if (!isLt5M) {
+                  message.error("Ảnh phải nhỏ hơn 5MB!");
+                  return Upload.LIST_IGNORE;
+                }
+                setProofFile(file);
+                const reader = new FileReader();
+                reader.onload = (e) => setProofPreview(e.target?.result as string);
+                reader.readAsDataURL(file);
+                return false; // Prevent auto upload
+              }}
+            >
+              <p className="ant-upload-drag-icon">
+                <CameraOutlined style={{ fontSize: 48, color: "#52c41a" }} />
+              </p>
+              <p className="ant-upload-text" style={{ fontWeight: 600 }}>
+                Nhấn hoặc kéo ảnh vào đây
+              </p>
+              <p className="ant-upload-hint">
+                Hỗ trợ: JPG, PNG, WEBP (tối đa 5MB)
+              </p>
+            </Upload.Dragger>
+          ) : (
+            <div style={{ position: "relative", display: "inline-block" }}>
+              <img
+                src={proofPreview}
+                alt="Ảnh minh chứng"
+                style={{
+                  maxWidth: "100%",
+                  maxHeight: 300,
+                  borderRadius: 8,
+                  border: "2px solid #52c41a",
+                  objectFit: "contain",
+                }}
+              />
+              <Button
+                type="primary"
+                danger
+                shape="circle"
+                icon={<DeleteOutlined />}
+                size="small"
+                style={{
+                  position: "absolute",
+                  top: -8,
+                  right: -8,
+                }}
+                onClick={() => {
+                  setProofFile(null);
+                  setProofPreview(null);
+                }}
+              />
+              <div style={{ marginTop: 8 }}>
+                <Text type="secondary">{proofFile?.name}</Text>
+              </div>
+            </div>
+          )}
+
+          <div style={{ marginTop: 24, display: "flex", gap: 12, justifyContent: "center" }}>
+            <Button
+              onClick={() => {
+                setProofModal(false);
+                setProofFile(null);
+                setProofPreview(null);
+                setSelectedTripId(null);
+              }}
+            >
+              Hủy
+            </Button>
+            <Button
+              type="primary"
+              icon={<CheckCircleOutlined />}
+              loading={attendanceLoading}
+              disabled={!proofFile}
+              onClick={handleAttendanceCheckIn}
+              style={proofFile ? { background: "#52c41a", borderColor: "#52c41a" } : {}}
+            >
+              Xác nhận chấm công
+            </Button>
+          </div>
+        </div>
       </Modal>
 
       {/* Check-in Vé Modal */}

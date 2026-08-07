@@ -313,6 +313,43 @@ export const checkInTicket = asyncHandler(async (req, res) => {
         });
     }
 
+    // Kiểm tra chuyến xe đã hoàn thành hoặc huỷ thì không cho check-in
+    if (booking.trip.status === "hoàn thành") {
+        return res.status(400).json({
+            success: false,
+            message: "Chuyến xe đã hoàn thành, không thể check-in!",
+        });
+    }
+
+    if (booking.trip.status === "huỷ") {
+        return res.status(400).json({
+            success: false,
+            message: "Chuyến xe đã bị huỷ, không thể check-in!",
+        });
+    }
+
+    // Kiểm tra thời gian: chỉ cho check-in trong khoảng 30 phút trước giờ khởi hành
+    const now = new Date();
+    const departureTime = new Date(booking.trip.departureTime);
+    const diffMs = departureTime.getTime() - now.getTime();
+    const diffMinutes = diffMs / (1000 * 60);
+
+    // Nếu còn hơn 30 phút nữa mới đến giờ khởi hành → chưa cho check-in
+    if (diffMinutes > 30) {
+        return res.status(400).json({
+            success: false,
+            message: `Chưa đến giờ check-in! Bạn chỉ được check-in vé trước giờ khởi hành 30 phút`,
+        });
+    }
+
+    // Nếu đã quá giờ khởi hành 30 phút → không cho check-in nữa
+    if (diffMinutes < -30) {
+        return res.status(400).json({
+            success: false,
+            message: "Đã quá giờ khởi hành 30 phút, không thể check-in vé!",
+        });
+    }
+
     booking.status = "Đã check-in";
     await booking.save();
 
