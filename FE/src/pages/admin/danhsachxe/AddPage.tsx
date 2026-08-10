@@ -37,13 +37,15 @@ function AddPage() {
         ...values,
         name: values.name?.trim(),
         licensePlates: values.licensePlates?.trim().toUpperCase(),
-        hangxe: values.hangxe?.trim() || "", // Đảm bảo không bị undefined
-        capacity: Number(values.capacity), // Bắt buộc ép kiểu Number cho Backend
+        hangxe: values.hangxe?.trim() || "",
+        capacity: Number(values.capacity),
       };
 
       await Add(payload);
     } catch (error: any) {
-      message.error(error?.response?.data?.message || "Thêm xe thất bại, vui lòng kiểm tra lại!");
+      message.error(
+        error?.response?.data?.message || "Thêm xe thất bại, vui lòng kiểm tra lại!"
+      );
     }
   };
 
@@ -53,16 +55,11 @@ function AddPage() {
       <Form
         form={form}
         layout="vertical"
-        initialValues={{
-          // type: "Seater",
-          // capacity: 16,
-          // status: "hoạt động",
-          // hangxe: "",
-        }}
         onFinish={handleSubmit}
         onValuesChange={handleValuesChange}
         className="space-y-6"
       >
+        {/* Tên xe / Nhà xe */}
         <Form.Item
           label="Tên xe / Nhà xe"
           name="name"
@@ -70,30 +67,95 @@ function AddPage() {
             { required: true, message: "Vui lòng nhập tên xe" },
             { whitespace: true, message: "Tên xe không được chỉ chứa khoảng trắng" },
             { min: 6, message: "Tên xe phải có ít nhất 6 ký tự" },
+            {
+              validator: (_, value) => {
+                if (!value) return Promise.resolve();
+
+                const cleanValue = value.trim().toLowerCase();
+
+                // Kiểm tra trùng tên trong danh sách xe hiện có
+                const isDuplicate = list?.some(
+                  (bus: any) => bus.name?.trim().toLowerCase() === cleanValue
+                );
+
+                if (isDuplicate) {
+                  return Promise.reject(
+                    new Error("Tên xe này đã tồn tại trong hệ thống!")
+                  );
+                }
+
+                return Promise.resolve();
+              },
+            },
           ]}
         >
           <Input placeholder="Nhập tên xe hoặc nhà xe" />
         </Form.Item>
 
-        {/* Trường Hãng xe */}
+        {/* Hãng xe */}
         <Form.Item label="Hãng xe" name="hangxe">
           <Input placeholder="Nhập hãng sản xuất (VD: Thaco, Hyundai, Samco, Ford...)" />
         </Form.Item>
 
+        {/* Biển số xe dịch vụ */}
         <Form.Item
-          label="Biển số xe"
+          label="Biển số xe dịch vụ (Nền vàng)"
           name="licensePlates"
           rules={[
             { required: true, message: "Vui lòng nhập biển số xe" },
             { whitespace: true, message: "Biển số xe không được chỉ chứa khoảng trắng" },
             {
+              // Định dạng chuẩn: Mã tỉnh (2 số) + Chữ cái seri + Dãy số (VD: 29B-123.45 hoặc 51E-12345)
               pattern: /^[0-9]{2}[A-Z]{1,2}-[0-9]{3,5}(\.[0-9]{2})?$/i,
-              message: "Biển số xe không hợp lệ (Ví dụ: 29B-123.45 hoặc 29B-1234)",
+              message: "Định dạng không hợp lệ! Ví dụ đúng: 29B-123.45 hoặc 51E-12345",
             },
             {
               validator: (_, value) => {
                 if (!value) return Promise.resolve();
                 const cleanValue = value.trim().toUpperCase();
+
+                // 1. Chặn toàn bộ biển số mã 80 (Cơ quan Trung ương / Bộ Công an)
+                if (cleanValue.startsWith("80")) {
+                  return Promise.reject(
+                    new Error("Không được nhập biển số mã 80 (Cơ quan Trung ương / Bộ Công an)!")
+                  );
+                }
+
+                // 2. Chặn các mã tỉnh không tồn tại tại Việt Nam
+                const invalidProvinces = ["00", "10", "13", "42", "44", "45", "46", "87", "96"];
+                const provinceCode = cleanValue.substring(0, 2);
+                if (invalidProvinces.includes(provinceCode)) {
+                  return Promise.reject(
+                    new Error(`Mã tỉnh/thành phố (${provinceCode}) không tồn tại tại Việt Nam!`)
+                  );
+                }
+
+                // 3. Chặn các ký hiệu xe Ngoại giao, Quốc tế, Công an chuyên dùng
+                const forbiddenCodes = ["NG", "QT", "CV", "NN", "CD"];
+                const hasForbiddenCode = forbiddenCodes.some((code) => cleanValue.includes(code));
+                if (hasForbiddenCode) {
+                  return Promise.reject(
+                    new Error("Không được nhập biển Ngoại giao (NG), Quốc tế (QT), Công vụ (CV, NN) hoặc Công an chuyên dùng (CD)!")
+                  );
+                }
+
+                // 4. Chặn seri 'A' (Cấp cho xe con cá nhân / Cơ quan nhà nước)
+                const privateOrGovPattern = /^[0-9]{2}[A]{1}-[0-9]{3,5}(\.[0-9]{2})?$/;
+                if (privateOrGovPattern.test(cleanValue)) {
+                  return Promise.reject(
+                    new Error("Seri 'A' dành cho xe con cá nhân / cơ quan nhà nước, không phải xe dịch vụ!")
+                  );
+                }
+
+                // 5. Chặn biển Quân đội (Viết tắt 2 chữ cái đầu như TM-1234, QP-5678, TH-1234...)
+                const militaryPattern = /^[A-Z]{2}-[0-9]{3,5}$/;
+                if (militaryPattern.test(cleanValue)) {
+                  return Promise.reject(
+                    new Error("Không được nhập biển số thuộc lực lượng Quân đội!")
+                  );
+                }
+
+                // 6. Kiểm tra trùng lặp trong hệ thống
                 const isDuplicate = list?.some(
                   (bus: any) => bus.licensePlates?.trim().toUpperCase() === cleanValue
                 );
@@ -102,12 +164,20 @@ function AddPage() {
                     new Error("Biển số xe này đã tồn tại trong hệ thống!")
                   );
                 }
+
                 return Promise.resolve();
               },
             },
           ]}
         >
-          <Input placeholder="Nhập biển số xe" />
+          <Input
+            placeholder="Nhập biển số xe (VD: 29B-123.45)"
+            onChange={(e) => {
+              // Tự động chuyển toàn bộ ký tự sang HOA khi gõ
+              const upperValue = e.target.value.toUpperCase();
+              form.setFieldsValue({ licensePlates: upperValue });
+            }}
+          />
         </Form.Item>
 
         {/* Loại xe */}
@@ -141,7 +211,7 @@ function AddPage() {
           />
         </Form.Item>
 
-        {/* Trạng thái tiếng Việt */}
+        {/* Trạng thái */}
         <Form.Item
           label="Trạng thái"
           name="status"
