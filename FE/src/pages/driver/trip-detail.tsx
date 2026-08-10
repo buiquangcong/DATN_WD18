@@ -1103,6 +1103,12 @@ export default function TripDetailPage() {
                   <CarOutlined style={{ marginRight: 4 }} />
                   {trip.bus?.name || "N/A"}
                 </Descriptions.Item>
+                <Descriptions.Item label="Biển số xe">
+                  <CarOutlined style={{ marginRight: 4 }} />
+                  <Text strong style={{ color: "#1890ff" }}>
+                    {trip.bus?.licensePlates || "N/A"}
+                  </Text>
+                </Descriptions.Item>
                 <Descriptions.Item label="Giá vé">
                   <Text strong style={{ color: "#52c41a" }}>
                     {trip.ticketPrice?.toLocaleString("vi-VN")}đ
