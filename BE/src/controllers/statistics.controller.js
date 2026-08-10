@@ -7,12 +7,15 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
         // Tổng số lượt đặt vé (Total bookings)
         const totalBookings = await Booking.countDocuments();
 
-        // Tổng lượt đi mới / Total confirmed bookings (New/Confirmed Bookings)
-        const newBookings = await Booking.countDocuments({ status: "Đã xác nhận" });
+        // Trạng thái booking hợp lệ (không tính đã huỷ, hoàn tiền)
+        const validStatuses = ["Đã xác nhận", "Đã check-in", "Đã checkin", "Chờ xác nhận"];
 
-        // Tổng doanh thu (Total Revenue)
-        const confirmedBookings = await Booking.find({ status: "Đã xác nhận" });
-        const totalRevenue = confirmedBookings.reduce((sum, booking) => sum + booking.totalPrice, 0);
+        // Tổng lượt đi mới / Total confirmed bookings (New/Confirmed Bookings)
+        const newBookings = await Booking.countDocuments({ status: { $in: ["Đã xác nhận", "Đã check-in", "Đã checkin"] } });
+
+        // Tổng doanh thu (Total Revenue) - chỉ tính booking hợp lệ
+        const validBookings = await Booking.find({ status: { $in: validStatuses } });
+        const totalRevenue = validBookings.reduce((sum, booking) => sum + booking.totalPrice, 0);
 
         // Tổng chuyến xe chạy (Total trips)
         const totalTrips = await Trip.countDocuments();
