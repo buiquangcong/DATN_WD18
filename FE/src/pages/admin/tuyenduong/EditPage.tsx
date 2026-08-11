@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Button, Form, Input, InputNumber, Select, Space, message, Spin, Card } from "antd";
 import { MinusCircleOutlined, PlusOutlined } from "@ant-design/icons";
 import { useCRUD } from "../../../hooks/useCRUD";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 
 // Tọa độ Lat/Lng trung tâm chuẩn của 25 tỉnh Miền Bắc
 const NORTHERN_PROVINCES_COORDS: Record<string, { lat: number; lng: number }> = {
@@ -37,7 +37,6 @@ const NORTHERN_PROVINCES = Object.keys(NORTHERN_PROVINCES_COORDS);
 
 function JourneyEditPage() {
   const { id } = useParams();
-  const navigate = useNavigate();
   const [form] = Form.useForm();
 
   // 1. Lấy hàm Edit và danh sách journeys từ custom hook
@@ -158,7 +157,7 @@ function JourneyEditPage() {
       _id: id,
       ...values,
     });
-    navigate("/admin/journey");
+    
   };
 
   return (
@@ -170,12 +169,12 @@ function JourneyEditPage() {
           <Form form={form} layout="vertical" onFinish={onFinish}>
             <div className="grid grid-cols-2 gap-4">
               {/* Điểm Đi */}
-              <Form.Item
+              <Form.Item 
                 label="Điểm Đi"
                 name="diemDi"
                 rules={[{ required: true, message: "Vui lòng chọn điểm đi" }]}
               >
-                <Select
+                <Select disabled
                   showSearch
                   placeholder="Chọn tỉnh đi"
                   options={NORTHERN_PROVINCES.map((p) => ({ label: p, value: p }))}
@@ -188,7 +187,7 @@ function JourneyEditPage() {
                 name="diemDen"
                 rules={[{ required: true, message: "Vui lòng chọn điểm đến" }]}
               >
-                <Select
+                <Select disabled
                   showSearch
                   placeholder="Chọn tỉnh đến"
                   options={destinationOptions}
@@ -202,7 +201,7 @@ function JourneyEditPage() {
                 name="quangDuong"
                 rules={[{ required: true, message: "Vui lòng nhập quãng đường" }]}
               >
-                <InputNumber
+                <InputNumber disabled
                   className="w-full"
                   min={1}
                   max={3000}
@@ -219,7 +218,7 @@ function JourneyEditPage() {
                   { min: 3, message: "Thời gian di chuyển không hợp lệ" },
                 ]}
               >
-                <Input placeholder="Tự động tính toán (VD: 2 giờ 40 phút)" />
+                <Input disabled placeholder="Tự động tính toán (VD: 2 giờ 40 phút)" />
               </Form.Item>
             </div>
 
