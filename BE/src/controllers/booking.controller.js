@@ -1,6 +1,7 @@
 import asyncHandler from "../utils/asyncHandler.js";
 import Booking from "../models/booking.model.js";
 import Trip from "../models/trip.model.js";
+import Attendance from "../models/attendance.model.js";
 import ticketEventEmitter from "../utils/ticketEvent.js";
 import { PayOS } from "@payos/node";
 
@@ -311,6 +312,42 @@ export const checkInTicket = asyncHandler(async (req, res) => {
             success: false,
             message: "Vé này chưa được xác nhận thanh toán",
         });
+    }
+
+    // Kiểm tra tài xế đã nhận chuyến chưa (có bản ghi attendance)
+    const tripId = booking.trip?._id || booking.trip;
+    const attendance = await Attendance.findOne({
+        trip: tripId,
+        status: "checked_in",
+    });
+
+    if (!attendance) {
+        return res.status(400).json({
+            success: false,
+            message: "Chưa có tài xế nhận chuyến này. Không thể check-in vé.",
+        });
+    }
+
+    // Kiểm tra thời gian: chỉ được check-in trong khoảng 15 phút trước đến 15 phút sau giờ khởi hành
+    const trip = await Trip.findById(tripId);
+    if (trip && trip.departureTime) {
+        const now = new Date();
+        const departure = new Date(trip.departureTime);
+        const diffMinutes = (now - departure) / (1000 * 60); // phút
+
+        if (diffMinutes < -15) {
+            return res.status(400).json({
+                success: false,
+                message: "Chưa đến thời gian check-in. Chỉ được check-in từ 15 phút trước giờ khởi hành.",
+            });
+        }
+
+        if (diffMinutes > 15) {
+            return res.status(400).json({
+                success: false,
+                message: "Đã quá thời gian check-in. Chỉ được check-in trong vòng 15 phút sau giờ khởi hành.",
+            });
+        }
     }
 
     booking.status = "Đã check-in";

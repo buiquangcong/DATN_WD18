@@ -406,6 +406,12 @@ export default function TripDetailPage() {
       ),
     },
     {
+      title: "Thời gian đặt",
+      dataIndex: "createdAt",
+      key: "createdAt",
+      render: (date: string) => new Date(date).toLocaleString("vi-VN"),
+    },
+    {
       title: "Tổng tiền",
       dataIndex: "totalPrice",
       key: "totalPrice",
@@ -419,57 +425,18 @@ export default function TripDetailPage() {
       title: "Trạng thái",
       dataIndex: "status",
       key: "status",
-      render: (status: string) => (
-        <Tag color={getStatusColor(status)} icon={
-          status === "Đã check-in" ? <CheckCircleOutlined /> :
-          status === "Đã huỷ" ? <CloseCircleOutlined /> : undefined
-        }>
-          {status}
-        </Tag>
-      ),
-    },
-    {
-      title: "Thời gian đặt",
-      dataIndex: "createdAt",
-      key: "createdAt",
-      render: (date: string) => new Date(date).toLocaleString("vi-VN"),
-    },
-    {
-      title: "Hành động",
-      key: "action",
-      render: (_: any, record: Booking) => {
-        if (record.status === "Đã xác nhận") {
-          let isTimeValid = true;
-          if (trip && trip.departureTime) {
-            const now = dayjs();
-            const departure = dayjs(trip.departureTime);
-            const diffMinutes = now.diff(departure, "minute");
-            isTimeValid = diffMinutes >= -15 && diffMinutes <= 15;
-          }
-
-          return (
-            <Tooltip title={isTimeValid ? "Check-in vé này" : "Chỉ được phép check-in trong khoảng từ 15 phút trước đến 15 phút sau giờ xe chạy"}>
-              <Button
-                type="primary"
-                size="small"
-                icon={<CheckOutlined />}
-                onClick={() => handleQuickCheckIn(record.orderCode)}
-                disabled={!isTimeValid}
-                style={isTimeValid ? { background: "#52c41a", borderColor: "#52c41a" } : {}}
-              >
-                Check-in
-              </Button>
-            </Tooltip>
-          );
+      render: (status: string) => {
+        if (status === "Đã xác nhận") {
+          return <Tag color="orange">Chưa check-in</Tag>;
         }
-        if (record.status === "Đã check-in") {
+        if (status === "Đã check-in") {
           return (
             <Tag color="blue" icon={<CheckCircleOutlined />}>
               Đã lên xe
             </Tag>
           );
         }
-        return <Text type="secondary">—</Text>;
+        return <Tag color={getStatusColor(status)}>{status}</Tag>;
       },
     },
   ];
@@ -1057,14 +1024,6 @@ export default function TripDetailPage() {
                 <Tag color={getTripStatusColor(trip.status)} style={{ fontSize: 14, padding: "4px 16px" }}>
                   {trip.status?.toUpperCase()}
                 </Tag>
-                <Button
-                  type="primary"
-                  icon={<CheckCircleOutlined />}
-                  onClick={() => setCheckInModal(true)}
-                  style={{ background: "#722ed1", borderColor: "#722ed1" }}
-                >
-                  Check-in vé
-                </Button>
               </Space>
             </Col>
           </Row>
@@ -1091,17 +1050,23 @@ export default function TripDetailPage() {
                 <Descriptions.Item label="Khoảng cách">
                   {trip.journey?.quangDuong || "N/A"} km
                 </Descriptions.Item>
-                <Descriptions.Item label="Khởi hành">
+                <Descriptions.Item label="Khởi hành(dự kiến)">
                   <ClockCircleOutlined style={{ marginRight: 4 }} />
                   {new Date(trip.departureTime).toLocaleString("vi-VN")}
                 </Descriptions.Item>
-                <Descriptions.Item label="Đến nơi">
+                <Descriptions.Item label="Đến nơi (dự kiến)">
                   <ClockCircleOutlined style={{ marginRight: 4 }} />
                   {new Date(trip.arrivalTime).toLocaleString("vi-VN")}
                 </Descriptions.Item>
                 <Descriptions.Item label="Xe">
                   <CarOutlined style={{ marginRight: 4 }} />
                   {trip.bus?.name || "N/A"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Biển số xe">
+                  <CarOutlined style={{ marginRight: 4 }} />
+                  <Text strong style={{ color: "#1890ff" }}>
+                    {trip.bus?.licensePlates || "N/A"}
+                  </Text>
                 </Descriptions.Item>
                 <Descriptions.Item label="Giá vé">
                   <Text strong style={{ color: "#52c41a" }}>
@@ -1190,7 +1155,7 @@ export default function TripDetailPage() {
           title={
             <Space>
               <UserOutlined style={{ color: "#722ed1" }} />
-              <Text strong>Danh sách hành khách ({bookings.length})</Text>
+              <Text strong>Danh sách hành khách ({confirmedBookings.length})</Text>
             </Space>
           }
           extra={
@@ -1205,7 +1170,7 @@ export default function TripDetailPage() {
           }
         >
           <Table
-            dataSource={bookings}
+            dataSource={confirmedBookings}
             columns={bookingColumns}
             rowKey="_id"
             pagination={{ pageSize: 10 }}

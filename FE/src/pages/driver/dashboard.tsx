@@ -529,7 +529,12 @@ new Date(record.departureTime).toLocaleString("vi-VN"),
 {
 title: "Xe",
 render: (_: any, record: any) =>
-record.bus?.name || record.bus?.licensePlate || "N/A",
+record.bus?.name || "N/A",
+},
+{
+title: "Biển số xe",
+render: (_: any, record: any) =>
+<Tag color="blue">{record.bus?.licensePlates || "N/A"}</Tag>,
 },
 {
 title: "Số ghế",
