@@ -568,27 +568,77 @@ return (
 },
 },
 {
-title: "Hành động",
-render: (_: any, record: any) => (
-<Space>
-<Button
-type="primary"
-size="small"
-icon={<ScanOutlined />}
-onClick={() => {
-setActiveTripForOption(record);
-setIsCheckInOptionModalOpen(true);
-}}
-className="bg-emerald-600 hover:bg-emerald-700 border-none rounded-md text-xs font-semibold flex items-center"
->
-Check-in vé
-</Button>
-<Button type="link" onClick={() => navigate(`/taixe/trip/${record._id}`)}>
-Chi tiết
-</Button>
-</Space>
-),
-},
+      title: "Hành động",
+      render: (_: any, record: any) => {
+        const att = attendanceMap[record._id];
+        const isCheckedIn = att?.status === "checked_in";
+        const isCheckedOut = att?.status === "checked_out";
+
+        // Tính thời gian còn lại đến giờ khởi hành
+        const now = new Date();
+        const departureTime = new Date(record.departureTime);
+        const diffMs = departureTime.getTime() - now.getTime();
+        const diffMinutes = Math.floor(diffMs / (1000 * 60));
+
+        // Điều kiện chấm công: chỉ trong khoảng trước giờ khởi hành 15 phút và sau giờ khởi hành 15 phút
+        const isTripRunning = record.status === "đang chạy";
+        const isTooEarly = diffMinutes > 15;
+        const isTooLate = diffMinutes < -15;
+        const canCheckIn = !isTooEarly && !isTooLate && !isTripRunning && !isCheckedIn && !isCheckedOut;
+
+        // Thông báo lý do không thể chấm công
+        let tooltipTitle = "";
+        if (isTripRunning) {
+          tooltipTitle = "Xe đang chạy, không thể chấm công";
+        } else if (isTooEarly) {
+          tooltipTitle = `Chỉ được chấm công trước 15 phút`;
+        } else if (isTooLate) {
+          tooltipTitle = "Đã quá giờ khởi hành 15 phút, không thể chấm công";
+        }
+
+        return (
+          <Space>
+            {isCheckedOut ? (
+              <Tag color="green" icon={<CheckCircleOutlined />} style={{ fontSize: 12, padding: "2px 8px" }}>
+                Đã hoàn thành
+              </Tag>
+            ) : isCheckedIn ? (
+              <Button
+                type="primary"
+                danger
+                size="small"
+                icon={<LoginOutlined />}
+                loading={attendanceLoading}
+                onClick={() => handleAttendanceCheckOut(record._id)}
+              >
+                Check-out
+              </Button>
+            ) : (
+              <Button
+                type="primary"
+                size="small"
+                icon={<CheckCircleOutlined />}
+                loading={attendanceLoading}
+                onClick={() => {
+                  if (!canCheckIn) {
+                    message.error(tooltipTitle);
+                    return;
+                  }
+                  setSelectedTripIdForCheckIn(record._id);
+                  setUploadModalOpen(true);
+                }}
+                style={{ background: "#52c41a", borderColor: "#52c41a" }}
+              >
+                Chấm công
+              </Button>
+            )}
+            <Button type="link" size="small" onClick={() => navigate(`/taixe/trip/${record._id}`)}>
+              Chi tiết
+            </Button>
+          </Space>
+        );
+      },
+    },
 ];
 
 return (
@@ -641,27 +691,7 @@ color: "#52c41a",
 </Col>
 </Row>
 
-{/* Action Buttons: Chấm công */}
-<Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-<Col>
-<Button
-type="primary"
-size="large"
-icon={<ClockCircleOutlined />}
-onClick={() => setAttendanceModal(true)}
-style={{
-background: "linear-gradient(135deg, #52c41a, #389e0d)",
-borderColor: "#389e0d",
-borderRadius: 12,
-height: 48,
-fontWeight: 700,
-boxShadow: "0 4px 12px rgba(82, 196, 26, 0.3)",
-}}
->
-🕐 Chấm công
-</Button>
-</Col>
-</Row>
+
 
 {/* Main Section */}
 <Row gutter={[24, 24]}>
@@ -733,133 +763,7 @@ style={{ marginTop: 24 }}
 </Row>
 </Card>
 
-{/* Attendance Modal */}
-<Modal
-title={
-<Space>
-<ClockCircleOutlined style={{ color: "#52c41a" }} />
-<span>Chấm công chuyến xe hôm nay</span>
-</Space>
-}
-open={attendanceModal}
-onCancel={() => setAttendanceModal(false)}
-footer={null}
-width={700}
->
-{todayTrips.length === 0 ? (
-<div style={{ textAlign: "center", padding: 40 }}>
-<Text type="secondary">Hôm nay bạn chưa có chuyến xe nào.</Text>
-</div>
-) : (
-<div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-{todayTrips.map((trip) => {
-const att = attendanceMap[trip._id];
-const isCheckedIn = att?.status === "checked_in";
-const isCheckedOut = att?.status === "checked_out";
 
-// Tính thời gian còn lại đến giờ khởi hành
-const now = new Date();
-const departureTime = new Date(trip.departureTime);
-const diffMs = departureTime.getTime() - now.getTime();
-const diffMinutes = Math.floor(diffMs / (1000 * 60));
-
-// Điều kiện chấm công: chỉ trong khoảng trước giờ khởi hành 15 phút và sau giờ khởi hành 15 phút
-const isTripRunning = trip.status === "đang chạy";
-const isTooEarly = diffMinutes > 15;
-const isTooLate = diffMinutes < -15;
-const canCheckIn = !isTooEarly && !isTooLate && !isTripRunning && !isCheckedIn && !isCheckedOut;
-
-// Thông báo lý do không thể chấm công
-let disabledReason = "";
-if (isTripRunning) {
-disabledReason = "🚌 Xe đang chạy, không thể chấm công";
-} else if (isTooEarly) {
-disabledReason = `⏳ Còn ${diffMinutes} phút nữa mới đến giờ khởi hành. Chỉ được chấm công trước 15 phút`;
-} else if (isTooLate) {
-disabledReason = "⏳ Đã quá giờ khởi hành 15 phút, không thể chấm công";
-}
-
-return (
-<Card key={trip._id} size="small" style={{
-borderLeft: isCheckedOut ? "4px solid #52c41a" : isCheckedIn ? "4px solid #1890ff" : "4px solid #d9d9d9",
-}}>
-<Row justify="space-between" align="middle">
-<Col flex="auto">
-<Text strong>
-{trip.journey?.diemDi} → {trip.journey?.diemDen}
-</Text>
-<br />
-<Text type="secondary" style={{ fontSize: 12 }}>
-Mã: {trip._id?.slice(-6).toUpperCase()} · Khởi hành: {new Date(trip.departureTime).toLocaleString("vi-VN")}
-</Text>
-<br />
-<Text type="secondary" style={{ fontSize: 12 }}>
-Xe: {trip.bus?.name || "N/A"} · Trạng thái: <Tag color={trip.status === "đang chạy" ? "green" : trip.status === "sắp chạy" ? "blue" : "default"} style={{ fontSize: 11 }}>{trip.status}</Tag>
-</Text>
-{att?.checkInTime && (
-<div style={{ marginTop: 4 }}>
-<Text type="success" style={{ fontSize: 12 }}>
-✅ Check-in: {new Date(att.checkInTime).toLocaleString("vi-VN")}
-</Text>
-</div>
-)}
-{att?.checkOutTime && (
-<div>
-<Text style={{ fontSize: 12, color: "#722ed1" }}>
-🏁 Check-out: {new Date(att.checkOutTime).toLocaleString("vi-VN")}
-</Text>
-</div>
-)}
-{/* Hiển thị lý do không thể chấm công */}
-{!isCheckedIn && !isCheckedOut && disabledReason && (
-<div style={{ marginTop: 6 }}>
-<Text style={{ fontSize: 12, color: isTripRunning ? "#ff4d4f" : "#faad14" }}>
-{disabledReason}
-</Text>
-</div>
-)}
-</Col>
-<Col>
-{isCheckedOut ? (
-<Tag color="green" icon={<CheckCircleOutlined />} style={{ fontSize: 13, padding: "4px 12px" }}>
-Hoàn thành
-</Tag>
-) : isCheckedIn ? (
-<Button
-type="primary"
-danger
-icon={<LoginOutlined />}
-loading={attendanceLoading}
-onClick={() => handleAttendanceCheckOut(trip._id)}
->
-Check-out
-</Button>
-) : (
-<Button
-type="primary"
-icon={<CheckCircleOutlined />}
-loading={attendanceLoading}
-onClick={() => {
-setSelectedTripIdForCheckIn(trip._id);
-setUploadModalOpen(true);
-}}
-disabled={!canCheckIn}
-style={canCheckIn
-? { background: "#52c41a", borderColor: "#52c41a" }
-: {}
-}
->
-Check-in
-</Button>
-)}
-</Col>
-</Row>
-</Card>
-);
-})}
-</div>
-)}
-</Modal>
 
 {/* Modal Tải lên ảnh minh chứng để chấm công */}
 <Modal
