@@ -87,7 +87,7 @@ function HolidayListPage() {
             Sửa
           </Button>
 
-          <Popconfirm
+          {/* <Popconfirm
             title="Xóa ngày lễ?"
             description="Bạn có chắc chắn muốn xóa ngày lễ này không?"
             onConfirm={() => Delete(record._id)}
@@ -96,7 +96,7 @@ function HolidayListPage() {
             okButtonProps={{ danger: true }}
           >
             <Button danger>Xóa</Button>
-          </Popconfirm>
+          </Popconfirm> */}
         </Space>
       ),
     },
