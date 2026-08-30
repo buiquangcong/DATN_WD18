@@ -1035,3 +1035,58 @@ export const getTripsByStaff = asyncHandler(async (req, res) => {
     data: trips,
   });
 });
+// Tài xế xác nhận chạy chuyến
+export const confirmTrip = asyncHandler(async (req, res) => {
+  const { tripId } = req.params;
+  const { staffId } = req.body;
+
+  if (!staffId) {
+    return res.status(400).json({
+      success: false,
+      message: "Thiếu thông tin staffId",
+    });
+  }
+
+  const trip = await Trip.findById(tripId);
+
+  if (!trip) {
+    return res.status(404).json({
+      success: false,
+      message: "Không tìm thấy chuyến xe",
+    });
+  }
+
+  // Kiểm tra chuyến thuộc tài xế này
+  if (trip.staff.toString() !== staffId) {
+    return res.status(403).json({
+      success: false,
+      message: "Chuyến xe này không được phân công cho bạn",
+    });
+  }
+
+  // Kiểm tra đã xác nhận chưa
+  if (trip.driverConfirmed) {
+    return res.status(400).json({
+      success: false,
+      message: "Bạn đã xác nhận chạy chuyến này rồi",
+    });
+  }
+
+  // Kiểm tra chuyến chưa hoàn thành/huỷ
+  if (trip.status === "hoàn thành" || trip.status === "huỷ") {
+    return res.status(400).json({
+      success: false,
+      message: "Chuyến xe đã hoàn thành hoặc bị huỷ, không thể xác nhận",
+    });
+  }
+
+  trip.driverConfirmed = true;
+  trip.driverConfirmedAt = new Date();
+  await trip.save();
+
+  return res.json({
+    success: true,
+    message: "Xác nhận chạy chuyến thành công!",
+    data: trip,
+  });
+});

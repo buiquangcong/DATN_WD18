@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { createOne, deleteOne, getAll, updateOne,createSchedule, getDrivers,getTripsByStaff,getAvailableDrivers,getAvailableBuses } from "../controllers/trip.controller";
+import { createOne, deleteOne, getAll, updateOne,createSchedule,confirmTrip, getDrivers,getTripsByStaff,getAvailableDrivers,getAvailableBuses } from "../controllers/trip.controller";
 import { getOne } from "../controllers/trip.controller";
 
 
@@ -13,6 +13,7 @@ tripRouter.get("/staff/:staffId", getTripsByStaff);
 tripRouter.get("/:id", getOne);
 tripRouter.post("/add",  createOne);
 tripRouter.post("/generate",createSchedule);
+tripRouter.post("/confirm/:tripId", confirmTrip);
 tripRouter.put("/update/:id",  updateOne);
 tripRouter.delete("/delete/:id", deleteOne);
 
