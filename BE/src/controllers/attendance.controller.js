@@ -71,6 +71,14 @@ export const checkIn = asyncHandler(async (req, res) => {
     });
   }
 
+  // Kiểm tra tài xế đã xác nhận chạy chuyến chưa
+  if (!trip.driverConfirmed) {
+    return res.status(400).json({
+      success: false,
+      message: "Bạn phải xác nhận chạy chuyến trước khi chấm công!",
+    });
+  }
+
   // Kiểm tra xe đang chạy thì không được chấm công
   if (trip.status === "đang chạy") {
     return res.status(400).json({

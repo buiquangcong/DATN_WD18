@@ -87,6 +87,8 @@ interface TripType {
   ticketPrice: number;
   arrivalTime: string;
   status: "sắp chạy" | "đang chạy" | "hoàn thành" | "huỷ";
+  driverConfirmed?: boolean;
+  driverConfirmedAt?: string;
 
   seats: {
     seatCode: string;
@@ -732,6 +734,19 @@ function TripListPage() {
               </Tag>
             )}
           </div>
+        );
+      },
+    },
+    {
+      title: "Xác nhận chuyến",
+      render: (_, record) => {
+        if (record.status === "huỷ") {
+          return <Tag color="default">—</Tag>;
+        }
+        return record.driverConfirmed ? (
+          <Tag color="green">✓ Đã xác nhận</Tag>
+        ) : (
+          <Tag color="red">✗ Chưa xác nhận</Tag>
         );
       },
     },
