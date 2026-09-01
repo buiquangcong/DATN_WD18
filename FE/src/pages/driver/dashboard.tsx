@@ -1,4 +1,4 @@
-import { Row, Col, Card, Typography, Button, Avatar, Badge, Progress, List, Space, Table, Tag, Modal, Input, message, Select, Upload } from "antd";
+import { Row, Col, Card, Typography, Button, Avatar, Badge, Progress, List, Space, Table, Tag, Modal, Input, message, Select, Upload, Tooltip } from "antd";
 import { BellOutlined, UserOutlined, TeamOutlined, CheckCircleOutlined, ClockCircleOutlined, LoginOutlined, ScanOutlined, QrcodeOutlined, UploadOutlined, CarOutlined } from "@ant-design/icons";
 import { ClientLayout } from "./layout";
 import { useEffect, useState } from "react";
@@ -633,33 +633,48 @@ export default function DriverDashboard() {
                             >
                                 Check-out
                             </Button>
-                        ) : !isConfirmed && !isTripDone ? (
-                            <Button
-                                type="primary"
-                                size="small"
-                                icon={<CarOutlined />}
-                                onClick={() => {
-                                    Modal.confirm({
-                                        title: "Xác nhận chạy chuyến",
-                                        content: (
-                                            <div>
-                                                <p>Bạn xác nhận sẽ chạy chuyến xe này?</p>
-                                                <p style={{ marginTop: 8 }}>
-                                                    <strong>{record.journey?.diemDi} → {record.journey?.diemDen}</strong>
-                                                </p>
-                                                <p>Khởi hành: <strong>{new Date(record.departureTime).toLocaleString("vi-VN")}</strong></p>
-                                            </div>
-                                        ),
-                                        okText: "Xác nhận",
-                                        cancelText: "Hủy",
-                                        onOk: () => handleConfirmTrip(record._id),
-                                    });
-                                }}
-                                style={{ background: "#faad14", borderColor: "#faad14" }}
-                            >
-                                Xác nhận chạy chuyến
-                            </Button>
-                        ) : isConfirmed && !isTripDone ? (
+                        ) : !isConfirmed && !isTripDone ? (() => {
+                            const isPastDeparture = now >= departureTime;
+                            return isPastDeparture ? (
+                                <Tooltip title="Đã đến giờ khởi hành, không thể xác nhận chạy chuyến nữa!">
+                                    <Button
+                                        type="primary"
+                                        size="small"
+                                        icon={<CarOutlined />}
+                                        disabled
+                                        style={{ background: "#d9d9d9", borderColor: "#d9d9d9" }}
+                                    >
+                                        Xác nhận chạy chuyến
+                                    </Button>
+                                </Tooltip>
+                            ) : (
+                                <Button
+                                    type="primary"
+                                    size="small"
+                                    icon={<CarOutlined />}
+                                    onClick={() => {
+                                        Modal.confirm({
+                                            title: "Xác nhận chạy chuyến",
+                                            content: (
+                                                <div>
+                                                    <p>Bạn xác nhận sẽ chạy chuyến xe này?</p>
+                                                    <p style={{ marginTop: 8 }}>
+                                                        <strong>{record.journey?.diemDi} → {record.journey?.diemDen}</strong>
+                                                    </p>
+                                                    <p>Khởi hành: <strong>{new Date(record.departureTime).toLocaleString("vi-VN")}</strong></p>
+                                                </div>
+                                            ),
+                                            okText: "Xác nhận",
+                                            cancelText: "Hủy",
+                                            onOk: () => handleConfirmTrip(record._id),
+                                        });
+                                    }}
+                                    style={{ background: "#faad14", borderColor: "#faad14" }}
+                                >
+                                    Xác nhận chạy chuyến
+                                </Button>
+                            );
+                        })() : isConfirmed && !isTripDone ? (
                             <Button
                                 type="primary"
                                 size="small"
