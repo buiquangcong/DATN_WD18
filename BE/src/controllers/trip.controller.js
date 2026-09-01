@@ -1080,6 +1080,16 @@ export const confirmTrip = asyncHandler(async (req, res) => {
     });
   }
 
+// Kiểm tra đã đến giờ khởi hành chưa - nếu đã đến giờ thì không cho xác nhận
+  const now = new Date();
+  const departureTime = new Date(trip.departureTime);
+  if (now >= departureTime) {
+    return res.status(400).json({
+      success: false,
+      message: "Đã đến giờ khởi hành, không thể xác nhận chạy chuyến nữa!",
+    });
+  }
+
   trip.driverConfirmed = true;
   trip.driverConfirmedAt = new Date();
   await trip.save();
