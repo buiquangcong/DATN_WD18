@@ -119,18 +119,21 @@ export default function DriverDashboard() {
         greeting = "Chào buổi tối";
     }
 
-    // Lấy các chuyến đi trong ngày hôm nay từ API
-    const todayTrips = trips.filter((trip) => {
+    // Lấy các chuyến đi hôm nay + sắp tới từ API
+    const getDateStr = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const todayStr = getDateStr(new Date());
+
+    const upcomingTrips = trips.filter((trip) => {
         if (!trip.departureTime) return false;
-        const tripDate = new Date(trip.departureTime);
-        const today = new Date();
-        return tripDate.toLocaleDateString("vi-VN") === today.toLocaleDateString("vi-VN");
-    });
+        const tripDateStr = getDateStr(new Date(trip.departureTime));
+        // Hiện chuyến xe có ngày khởi hành >= hôm nay (bao gồm cả hôm nay)
+        return tripDateStr >= todayStr;
+    }).sort((a, b) => new Date(a.departureTime).getTime() - new Date(b.departureTime).getTime());
 
-    const todayTripsCount = todayTrips.length;
+    const upcomingTripsCount = upcomingTrips.length;
 
-    // Tính tổng số hành khách (số lượng ghế đã đặt - status là "BOOKED") của ngày hôm nay
-    const todayPassengersCount = todayTrips.reduce((total, trip) => {
+    // Tính tổng số hành khách (số lượng ghế đã đặt - status là "BOOKED") của các chuyến sắp tới
+    const upcomingPassengersCount = upcomingTrips.reduce((total, trip) => {
         if (!trip.seats || !Array.isArray(trip.seats)) return total;
         const bookedSeatsCount = trip.seats.filter((seat: any) => seat.status === "BOOKED").length;
         return total + bookedSeatsCount;
@@ -290,7 +293,7 @@ export default function DriverDashboard() {
 
             let targetTrip = activeTripForScan;
             if (!targetTrip) {
-                targetTrip = todayTrips.find((t) => String(t._id) === String(bookingTripId));
+                targetTrip = upcomingTrips.find((t) => String(t._id) === String(bookingTripId));
             }
 
             if (!targetTrip) {
@@ -732,8 +735,8 @@ export default function DriverDashboard() {
                 <Row gutter={[16, 16]} style={{ marginBottom: 32 }}>
                     <Col xs={24} md={12} lg={6}>
                         <Card>
-                            <Text type="secondary">Chuyến đi hôm nay</Text>
-                            <Title level={2}>{String(todayTripsCount).padStart(2, '0')}</Title>
+                            <Text type="secondary">Chuyến đi sắp tới</Text>
+                            <Title level={2}>{String(upcomingTripsCount).padStart(2, '0')}</Title>
                             <Text style={{ color: "#52c41a" }}>Green trip</Text>
                         </Card>
                     </Col>
@@ -741,7 +744,7 @@ export default function DriverDashboard() {
                     <Col xs={24} md={12} lg={6}>
                         <Card>
                             <Text type="secondary">Tổng hành khách</Text>
-                            <Title level={2}>{String(todayPassengersCount).padStart(2, '0')}</Title>
+                            <Title level={2}>{String(upcomingPassengersCount).padStart(2, '0')}</Title>
                             <TeamOutlined
                                 style={{
                                     fontSize: 24,
@@ -758,12 +761,12 @@ export default function DriverDashboard() {
                 <Row gutter={[24, 24]}>
                     {/* Active Trips */}
                     <Col xs={24}>
-                        <Card title={<Text strong style={{ color: "#52c41a" }}>DANH SÁCH CHUYẾN XE HÔM NAY CỦA {driverName.toUpperCase()}</Text>}>
-                            {todayTrips.length === 0 ? (
-                                <Text type="secondary">Hôm nay chưa có chuyến đi nào được phân công cho bạn.</Text>
+                        <Card title={<Text strong style={{ color: "#52c41a" }}>DANH SÁCH CHUYẾN XE HÔM NAY & SẮP TỚI CỦA {driverName.toUpperCase()}</Text>}>
+                            {upcomingTrips.length === 0 ? (
+                                <Text type="secondary">Hiện chưa có chuyến đi nào sắp tới được phân công cho bạn.</Text>
                             ) : (
                                 <Table
-                                    dataSource={todayTrips}
+                                    dataSource={upcomingTrips}
                                     columns={columns}
                                     rowKey="_id"
                                     pagination={{ pageSize: 5 }}
