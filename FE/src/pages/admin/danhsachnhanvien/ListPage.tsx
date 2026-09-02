@@ -132,7 +132,7 @@ function ListPage() {
                         Sửa
                     </Button>
 
-                    <Popconfirm
+                    {/* <Popconfirm
                         title="Xóa nhân viên này"
                         description="Bạn có chắc chắn muốn xóa nhân viên này khỏi hệ thống?"
                         onConfirm={() => Delete(record._id)}
@@ -143,7 +143,7 @@ function ListPage() {
                         <Button type="primary" danger>
                             Xóa
                         </Button>
-                    </Popconfirm>
+                    </Popconfirm> */}
                 </Space>
             ),
         },

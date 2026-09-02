@@ -772,7 +772,7 @@ function TripListPage() {
             Sửa
           </Button>
 
-          <Popconfirm
+          {/* <Popconfirm
             title="Xoá chuyến xe"
             onConfirm={() => Delete(record._id)}
             okText="Có"
@@ -780,7 +780,7 @@ function TripListPage() {
             okButtonProps={{ danger: true }}
           >
             <Button danger>Xoá</Button>
-          </Popconfirm>
+          </Popconfirm> */}
         </Space>
       ),
     },
@@ -930,14 +930,14 @@ function TripListPage() {
                 >
                   Danh sách khách đặt
                 </Button>
-                <Button
+                {/* <Button
                   type="primary"
                   icon={<QrcodeOutlined />}
                   className="bg-emerald-600 hover:bg-emerald-700 border-none rounded-lg font-medium flex items-center gap-1.5 shadow-xs"
                   onClick={() => setIsScannerOpen(true)}
                 >
                   Quét QR Check-in Khách
-                </Button>
+                </Button> */}
               </>
             )}
             <Button

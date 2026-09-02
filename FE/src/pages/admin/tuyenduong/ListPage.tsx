@@ -158,7 +158,7 @@ function JourneyListPage() {
           >
             Sửa
           </Button>
-          <Popconfirm
+          {/* <Popconfirm
             title="Xóa hành trình này"
             description="Bạn có chắc chắn muốn xóa thông tin hành trình này?"
             onConfirm={() => Delete(record._id)}
@@ -167,7 +167,7 @@ function JourneyListPage() {
             okButtonProps={{ danger: true }}
           >
             <Button type="primary" danger>Xóa</Button>
-          </Popconfirm>
+          </Popconfirm> */}
         </Space>
       ),
     },
