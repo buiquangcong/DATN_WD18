@@ -476,7 +476,15 @@ export default function DriverDashboard() {
         setBookingsLoading(true);
         try {
             const res = await axios.get(`http://localhost:3000/api/booking/trip/${tripId}`);
-            setTripBookings(res.data.data || []);
+            const allBookings = res.data.data || [];
+            const filtered = allBookings.filter(
+                (b: any) =>
+                    b.status === "Đã xác nhận" ||
+                    b.status === "Đã check-in" ||
+                    b.status === "Đã checkin" ||
+                    b.status === "Hoàn thành"
+            );
+            setTripBookings(filtered);
         } catch (err) {
             console.error("Lỗi lấy danh sách khách đặt:", err);
             message.error("Không thể tải danh sách khách đặt vé!");

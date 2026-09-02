@@ -497,7 +497,12 @@ function TripListPage() {
       const res = await axios.get("http://localhost:3000/api/booking");
       const allBookings = res.data || [];
       const filtered = allBookings.filter(
-        (b: any) => String(b.trip?._id || b.trip) === String(currentTripId)
+        (b: any) =>
+          String(b.trip?._id || b.trip) === String(currentTripId) &&
+          (b.status === "Đã xác nhận" ||
+            b.status === "Đã check-in" ||
+            b.status === "Đã checkin" ||
+            b.status === "Hoàn thành")
       );
       setTripBookings(filtered);
     } catch (err) {
@@ -610,7 +615,12 @@ function TripListPage() {
   );
 
   const bookingsForTrip = (bookings || []).filter(
-    (b: BookingType) => b.trip?._id === selectedBookingTripId
+    (b: BookingType) =>
+      b.trip?._id === selectedBookingTripId &&
+      (b.status === "Đã xác nhận" ||
+        b.status === "Đã check-in" ||
+        b.status === "Đã checkin" ||
+        b.status === "Hoàn thành")
   );
 
   const bookingColumns: ColumnsType<BookingType> = [
@@ -1453,7 +1463,7 @@ function TripListPage() {
                 dataIndex: "status",
                 render: (status: string) => {
                   let color = "orange";
-                  if (status === "Hoàn thành") color = "blue";
+                  if (status === "Hoàn thành" || status === "Đã check-in" || status === "Đã checkin") color = "blue";
                   else if (status === "Đã xác nhận") color = "green";
                   else if (status === "Đã huỷ") color = "red";
                   return <Tag color={color}>{status}</Tag>;
@@ -1463,7 +1473,7 @@ function TripListPage() {
                 title: "Hành động",
                 key: "action",
                 render: (_: any, record: BookingType) => {
-                  if (record.status === "Hoàn thành") {
+                  if (record.status === "Hoàn thành" || record.status === "Đã check-in" || record.status === "Đã checkin") {
                     return <span className="text-gray-400 font-medium text-xs">✓ Đã check-in</span>;
                   }
                   if (record.status === "Đã huỷ") {
