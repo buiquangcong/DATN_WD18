@@ -136,7 +136,7 @@ function FareRuleListPage() {
           >
             Sửa
           </Button>
-          <Popconfirm
+          {/* <Popconfirm
             title="Xóa giá vé này?"
             description="Bạn có chắc muốn xóa quy tắc giá này không?"
             onConfirm={() => handleDelete(record._id)} // Gọi hàm handleDelete đã bọc try...catch
@@ -147,7 +147,7 @@ function FareRuleListPage() {
             <Button type="primary" danger>
               Xóa
             </Button>
-          </Popconfirm>
+          </Popconfirm> */}
         </Space>
       ),
     },

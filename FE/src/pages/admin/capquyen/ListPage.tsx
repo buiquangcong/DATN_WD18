@@ -114,7 +114,7 @@ function UserListPage() {
             Sửa
           </Button>
 
-          <Popconfirm
+          {/* <Popconfirm
             title="Xóa tài khoản?"
             description="Bạn có chắc chắn muốn xóa tài khoản này khỏi hệ thống?"
             okText="Có"
@@ -123,7 +123,7 @@ function UserListPage() {
             okButtonProps={{ danger: true }}
           >
             <Button danger>Xóa</Button>
-          </Popconfirm>
+          </Popconfirm> */}
         </Space>
       ),
     },
