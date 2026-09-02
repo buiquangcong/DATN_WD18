@@ -6,7 +6,7 @@ import Staff from "../models/staff.model.js";
 import FareRule from "../models/giave.model.js";
 import Booking from "../models/booking.model.js";
 import Journey from "../models/journey.model.js";
-import {TURN_AROUND_MINUTES,LOCATION_CHECK_MAX_GAP_MINUTES,checkBusAvailability,checkStaffAvailability,} from "../services/tripAvailability.service.js";
+import {TURN_AROUND_MINUTES,LOCATION_CHECK_MAX_GAP_MINUTES,checkBusAvailability,checkStaffAvailability,} from "../services/Tripavailability.service.js";
 import { calculateTicketPrice } from "../services/tripPricing.service.js";
 const updateTripStatus = async () => {
   const now = new Date();
@@ -347,7 +347,7 @@ export const getAvailableBuses = asyncHandler(async (req, res) => {
   // =====================================================
 
   const allBuses = await Bus.find({
-    status: "Hoạt động",
+    status: "hoạt động",
   });
 
   const availableBuses = [];
