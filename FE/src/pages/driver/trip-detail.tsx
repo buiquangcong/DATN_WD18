@@ -994,7 +994,13 @@ export default function TripDetailPage() {
 
   const totalBookedSeats = trip.seats?.filter((s: any) => s.status === "BOOKED").length || 0;
   const totalSeats = trip.seats?.length || 0;
-  const confirmedBookings = bookings.filter((b) => b.status === "Đã xác nhận" || b.status === "Đã check-in");
+  const confirmedBookings = bookings.filter(
+    (b) =>
+      b.status === "Đã xác nhận" ||
+      b.status === "Đã check-in" ||
+      b.status === "Đã checkin" ||
+      b.status === "Hoàn thành"
+  );
 
   return (
     <ClientLayout>
@@ -1106,7 +1112,7 @@ export default function TripDetailPage() {
                   >
                     <Text type="secondary" style={{ fontSize: 12 }}>Đơn đặt vé</Text>
                     <Title level={3} style={{ margin: 0, color: "#1890ff" }}>
-                      {bookings.length}
+                      {confirmedBookings.length}
                     </Title>
                   </Card>
                 </Col>
@@ -1117,7 +1123,7 @@ export default function TripDetailPage() {
                   >
                     <Text type="secondary" style={{ fontSize: 12 }}>Đã check-in</Text>
                     <Title level={3} style={{ margin: 0, color: "#722ed1" }}>
-                      {bookings.filter((b) => b.status === "Đã check-in").length}
+                      {bookings.filter((b) => b.status === "Đã check-in" || b.status === "Đã checkin" || b.status === "Hoàn thành").length}
                     </Title>
                   </Card>
                 </Col>
