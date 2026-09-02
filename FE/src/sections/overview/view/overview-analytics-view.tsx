@@ -60,7 +60,7 @@ const EmojiEventsIcon = (props: any) => (
 );
 
 // Trạng thái booking hợp lệ (không tính đã huỷ, đã hoàn tiền)
-const VALID_BOOKING_STATUSES = ['Đã xác nhận', 'Đã check-in', 'Đã checkin', 'Chờ xác nhận'];
+const VALID_BOOKING_STATUSES = ['Đã xác nhận', 'Đã check-in', 'Đã checkin'];
 
 export function OverviewAnalyticsView() {
   const [stats, setStats] = useState({
@@ -126,22 +126,46 @@ export function OverviewAnalyticsView() {
     });
   }, [trips, filterTab, todayKey]);
 
+  // Tính doanh thu trực tiếp từ bookings (nguồn chính xác nhất)
+  const validBookings = useMemo(
+    () => bookings.filter((b) => VALID_BOOKING_STATUSES.includes(b.status || '')),
+    [bookings]
+  );
+
+  // Tổng doanh thu toàn hệ thống (tất cả booking hợp lệ)
+  const allValidRevenue = useMemo(
+    () => validBookings.reduce((sum, b) => sum + (b.totalPrice || b.price || 0), 0),
+    [validBookings]
+  );
+
+  // Tổng vé đã bán toàn hệ thống
+  const allValidTicketCount = validBookings.length;
+
   const tripsWithRevenue = useMemo(() => {
     return filteredTrips.map((trip) => {
-      const tripBookings = bookings.filter((b) => {
+      const tripBookings = validBookings.filter((b) => {
         const bookingTripId = b.trip?._id || b.trip || b.tripId;
-        const status = b.status || '';
-        return bookingTripId === trip._id && VALID_BOOKING_STATUSES.includes(status);
+        return bookingTripId === trip._id;
       });
       const revenue = tripBookings.reduce((sum, b) => sum + (b.totalPrice || b.price || 0), 0);
       const ticketCount = tripBookings.length;
       return { ...trip, revenue, ticketCount };
     });
-  }, [filteredTrips, bookings]);
+  }, [filteredTrips, validBookings]);
 
+  // Doanh thu theo tab: nếu "Tất cả" thì dùng allValidRevenue (khớp card trên), nếu "Hôm nay" thì tính theo trips
   const filteredRevenue = useMemo(
-    () => tripsWithRevenue.reduce((sum, t) => sum + t.revenue, 0),
-    [tripsWithRevenue]
+    () => filterTab === 'all'
+      ? allValidRevenue
+      : tripsWithRevenue.reduce((sum, t) => sum + t.revenue, 0),
+    [tripsWithRevenue, filterTab, allValidRevenue]
+  );
+
+  const filteredTicketCount = useMemo(
+    () => filterTab === 'all'
+      ? allValidTicketCount
+      : tripsWithRevenue.reduce((sum, t) => sum + t.ticketCount, 0),
+    [tripsWithRevenue, filterTab, allValidTicketCount]
   );
 
   const topRevenueTrip = useMemo(() => {
@@ -177,7 +201,7 @@ export function OverviewAnalyticsView() {
           <AnalyticsWidgetSummary
             title="Tổng doanh thu"
             percent={0}
-            total={stats.totalRevenue}
+            total={allValidRevenue}
             icon={<img alt="Weekly sales" src="/assets/icons/glass/ic-glass-bag.svg" />}
             chart={{
               categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'],
@@ -295,7 +319,7 @@ export function OverviewAnalyticsView() {
                   {filterTab === 'today' ? 'Vé đã bán hôm nay' : 'Tổng vé đã bán'}
                 </Typography>
                 <Typography variant="h3" fontWeight="bold" color="info.main">
-                  {tripsWithRevenue.reduce((sum, t) => sum + t.ticketCount, 0).toLocaleString('vi-VN')} vé
+                  {filteredTicketCount.toLocaleString('vi-VN')} vé
                 </Typography>
                 <Typography variant="caption" color="text.disabled">
                   Cập nhật realtime
