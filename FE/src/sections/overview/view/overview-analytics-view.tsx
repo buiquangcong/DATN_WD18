@@ -37,7 +37,7 @@ function formatDateVN(date: Date) {
 }
 
 function getDateKey(date: Date) {
-  return date.toISOString().split('T')[0];
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
 // SVG Icons inline — khỏi cài @mui/icons-material
