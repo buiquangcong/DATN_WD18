@@ -1,6 +1,40 @@
 import asyncHandler from "../utils/asyncHandler.js";
 import Attendance from "../models/attendance.model.js";
 import Trip from "../models/trip.model.js";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+
+// Multer config for attendance proof images
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = "uploads/attendance";
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  },
+});
+
+export const uploadProofImage = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|webp/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    if (extname && mimetype) {
+      cb(null, true);
+    } else {
+      cb(new Error("Chỉ chấp nhận file ảnh (jpg, png, webp)!"));
+    }
+  },
+}).single("proofImage");
+
 // Lấy toàn bộ danh sách chấm công
 export const getAll = asyncHandler(async (req, res) => {
   const records = await Attendance.find();
@@ -37,6 +71,14 @@ export const checkIn = asyncHandler(async (req, res) => {
     });
   }
 
+  // Kiểm tra tài xế đã xác nhận chạy chuyến chưa
+  if (!trip.driverConfirmed) {
+    return res.status(400).json({
+      success: false,
+      message: "Bạn phải xác nhận chạy chuyến trước khi chấm công!",
+    });
+  }
+
   // Kiểm tra xe đang chạy thì không được chấm công
   if (trip.status === "đang chạy") {
     return res.status(400).json({
@@ -59,10 +101,18 @@ export const checkIn = asyncHandler(async (req, res) => {
     });
   }
 
-  if (diffMinutes < 0 && trip.status !== "sắp chạy") {
+  if (diffMinutes < -15) {
     return res.status(400).json({
       success: false,
-      message: "Đã quá giờ khởi hành, không thể chấm công!",
+      message: "Đã quá giờ khởi hành 15 phút, không thể chấm công!",
+    });
+  }
+
+  // Yêu cầu upload ảnh minh chứng
+  if (!req.file) {
+    return res.status(400).json({
+      success: false,
+      message: "Vui lòng tải lên ảnh minh chứng để chấm công!",
     });
   }
 
@@ -76,11 +126,14 @@ export const checkIn = asyncHandler(async (req, res) => {
     });
   }
 
+  const proofImage = `/${req.file.path}`;
+
   const attendance = await Attendance.create({
     staff: staffId,
     trip: tripId,
     checkInTime: new Date(),
     status: "checked_in",
+    proofImage,
   });
 
   return res.status(201).json({

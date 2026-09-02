@@ -68,6 +68,48 @@ export default function RefundListPage() {
   const [proofImage, setProofImage] = useState<string>("");
   const [form] = Form.useForm();
 
+  const getRefundPolicy = (record: RefundType) => {
+    const departureTime = record.booking?.trip?.departureTime;
+    const requestedTime = record.requestedAt || (record as any).createdAt;
+    
+    if (!departureTime || !requestedTime) {
+      return {
+        percent: 100,
+        amount: record.amount,
+        hours: null,
+        label: "N/A"
+      };
+    }
+
+    const dep = dayjs(departureTime);
+    const req = dayjs(requestedTime);
+    const diffHours = dep.diff(req, "hour", true);
+    const originalPrice = record.booking?.totalPrice || record.amount;
+
+    if (diffHours >= 6) {
+      return {
+        percent: 100,
+        amount: originalPrice,
+        hours: diffHours,
+        label: "Ngoài 6 tiếng (Miễn phí hủy - Hoàn 100%)"
+      };
+    } else if (diffHours >= 2 && diffHours < 6) {
+      return {
+        percent: 50,
+        amount: originalPrice * 0.5,
+        hours: diffHours,
+        label: "Từ 2 - 5 tiếng (Phí hủy 50% - Hoàn 50%)"
+      };
+    } else {
+      return {
+        percent: 0,
+        amount: 0,
+        hours: diffHours,
+        label: "Dưới 2 tiếng (Phí hủy 100% - Không hoàn tiền)"
+      };
+    }
+  };
+
   const handleOpenProcess = (record: RefundType) => {
     setSelectedRefund(record);
     setProofImage("");
@@ -102,8 +144,10 @@ export default function RefundListPage() {
     }
 
     try {
+      const policy = getRefundPolicy(selectedRefund);
       await axios.put(`http://localhost:3000/api/refund/update/${selectedRefund._id}`, {
         status: "Đã hoàn tiền",
+        amount: policy.amount,
         proofImage: finalProof,
         processedAt: new Date()
       });
@@ -145,7 +189,18 @@ export default function RefundListPage() {
     },
     {
       title: "Số tiền hoàn trả",
-      render: (_, record) => <span className="font-bold text-red-500">{record.amount?.toLocaleString("vi-VN")}đ</span>,
+      render: (_, record) => {
+        const policy = getRefundPolicy(record);
+        return (
+          <div className="space-y-1">
+            <div className="font-bold text-red-500">{policy.amount?.toLocaleString("vi-VN")}đ</div>
+            {record.booking?.totalPrice && record.booking.totalPrice !== policy.amount && (
+              <div className="text-[10px] text-slate-400 line-through">Gốc: {record.booking.totalPrice?.toLocaleString("vi-VN")}đ</div>
+            )}
+            <div className="text-[10px] text-slate-500 font-medium">{policy.label}</div>
+          </div>
+        );
+      },
     },
     {
       title: "Ngân hàng thụ hưởng",
@@ -207,7 +262,8 @@ export default function RefundListPage() {
     const bank = refund.bankName;
     const account = refund.accountNumber;
     const name = refund.accountName;
-    const amount = refund.amount;
+    const policy = getRefundPolicy(refund);
+    const amount = policy.amount;
     const addInfo = `Hoan tien don hang NB-${refund.booking?.orderCode || "XXXXXX"}`;
 
     return `https://img.vietqr.io/image/${bank}-${account}-compact2.jpg?amount=${amount}&addInfo=${encodeURIComponent(addInfo)}&accountName=${encodeURIComponent(name)}`;
@@ -256,7 +312,12 @@ export default function RefundListPage() {
                 <div>Ngân hàng: <strong>{VIETNAMESE_BANKS[selectedRefund.bankName] || selectedRefund.bankName}</strong></div>
                 <div>Số tài khoản: <strong>{selectedRefund.accountNumber}</strong></div>
                 <div>Chủ tài khoản: <strong>{selectedRefund.accountName}</strong></div>
-                <div>Số tiền cần hoàn: <strong className="text-red-500 text-sm">{selectedRefund.amount?.toLocaleString("vi-VN")}đ</strong></div>
+                <div>Số tiền vé gốc: <strong>{selectedRefund.booking?.totalPrice?.toLocaleString("vi-VN")}đ</strong></div>
+                <div>Khởi hành: <strong>{selectedRefund.booking?.trip?.departureTime ? dayjs(selectedRefund.booking.trip.departureTime).format("HH:mm - DD/MM/YYYY") : "N/A"}</strong></div>
+                <div>Thời gian hủy: <strong>{selectedRefund.requestedAt ? dayjs(selectedRefund.requestedAt).format("HH:mm - DD/MM/YYYY") : "N/A"}</strong></div>
+                <Divider style={{ margin: "4px 0" }} />
+                <div>Chính sách: <span className="text-emerald-700 font-bold">{getRefundPolicy(selectedRefund).label}</span></div>
+                <div>Số tiền hoàn trả thực tế: <strong className="text-red-500 text-sm">{getRefundPolicy(selectedRefund).amount?.toLocaleString("vi-VN")}đ</strong></div>
               </div>
 
               <Form

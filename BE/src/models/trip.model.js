@@ -71,7 +71,15 @@ const tripSchema = new mongoose.Schema(
       enum: ["sắp chạy", "đang chạy", "hoàn thành", "huỷ"],
       default: "sắp chạy",
     },
+    driverConfirmed: {
+      type: Boolean,
+      default: false,
+    },
 
+    driverConfirmedAt: {
+      type: Date,
+      default: null,
+    },
     seats: [seatStatusSchema],
   }, 
   {

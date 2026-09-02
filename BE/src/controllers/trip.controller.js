@@ -78,162 +78,190 @@ export const getDrivers = asyncHandler(async (req, res) => {
   res.json(drivers);
 });
 
-export const getAvailableDrivers = asyncHandler(async (req, res) => {
-  await updateTripStatus();
-  const {
-    weekdays,
-    startDate,
-    endDate,
-    departureHour,
-    arrivalHour,
-    journey, // id của Journey đang chọn, dùng để check khớp vị trí bến
-    excludeTripId,
-  } = req.query;
+export const getAvailableDrivers = asyncHandler(
+  async (req, res) => {
+    await updateTripStatus();
 
-  if (
-    !weekdays ||
-    !startDate ||
-    !endDate ||
-    !departureHour ||
-    !arrivalHour
-  ) {
-    return res.status(400).json({
-      message:
-        "Thiếu thông tin để kiểm tra tài xế rảnh (ngày chạy, khoảng ngày, giờ)",
-    });
-  }
+    const {
+      weekdays,
+      startDate,
+      endDate,
+      departureHour,
+      arrivalHour,
+      journey,
+      excludeTripId,
+    } = req.query;
 
-  const weekdaysArr = String(weekdays)
-    .split(",")
-    .map((n) => Number(n))
-    .filter((n) => !Number.isNaN(n));
+    // ==================================================
+    // VALIDATE
+    // ==================================================
 
-  const [depHour, depMinute] = departureHour.split(":");
-  const [arrHour, arrMinute] = arrivalHour.split(":");
-
-  const journeyInfo = journey ? await Journey.findById(journey) : null;
-
-  // Sinh danh sách các khung giờ (departure/arrival) tương ứng với từng ngày chạy trong khoảng
-  const slots = [];
-  let current = new Date(startDate);
-  const end = new Date(endDate);
-
-  while (current <= end) {
-    if (weekdaysArr.includes(current.getDay())) {
-      const dep = new Date(current);
-      dep.setHours(Number(depHour), Number(depMinute), 0, 0);
-
-      const arr = new Date(current);
-      arr.setHours(Number(arrHour), Number(arrMinute), 0, 0);
-
-      slots.push({ dep, arr });
+    if (
+      !weekdays ||
+      !startDate ||
+      !endDate ||
+      !departureHour ||
+      !arrivalHour ||
+      !journey
+    ) {
+      return res.status(400).json({
+        message:
+          "Thiếu thông tin để kiểm tra tài xế rảnh.",
+      });
     }
 
-    current.setDate(current.getDate() + 1);
-  }
+    // ==================================================
+    // NGÀY CHẠY
+    // ==================================================
 
-  const allDrivers = await Staff.find({
-    chucVu: "Driver",
-  });
-
-  const availableDrivers = [];
-
-  for (const driver of allDrivers) {
-    let busy = false;
-
-    for (const slot of slots) {
-      // Mở rộng khung giờ query theo LOCATION_CHECK_MAX_GAP_MINUTES (không phải
-      // TURN_AROUND_MINUTES), vì việc check vị trí bến cần nhìn xa hơn nhiều so
-      // với việc check nghỉ tối thiểu 30 phút - nếu chỉ mở rộng 30 phút sẽ bỏ sót
-      // các chuyến cách xa hơn 30 phút nhưng vẫn cần khớp vị trí (trong 12 tiếng)
-      const bufferedStart = new Date(
-        slot.dep.getTime() - LOCATION_CHECK_MAX_GAP_MINUTES * 60000
-      );
-      const bufferedEnd = new Date(
-        slot.arr.getTime() + LOCATION_CHECK_MAX_GAP_MINUTES * 60000
+    const weekdaysArr = String(weekdays)
+      .split(",")
+      .map(Number)
+      .filter(
+        (n) =>
+          !Number.isNaN(n) &&
+          n >= 0 &&
+          n <= 6
       );
 
-      const query = {
-        staff: driver._id,
-        departureTime: { $lt: bufferedEnd },
-        arrivalTime: { $gt: bufferedStart },
-      };
+    // ==================================================
+    // GIỜ
+    // ==================================================
 
-      if (excludeTripId) {
-        query._id = { $ne: excludeTripId };
+    const [depHour, depMinute] =
+      departureHour.split(":").map(Number);
+
+    const [arrHour, arrMinute] =
+      arrivalHour.split(":").map(Number);
+
+    const depMinutes =
+      depHour * 60 + depMinute;
+
+    const arrMinutes =
+      arrHour * 60 + arrMinute;
+
+    if (arrMinutes <= depMinutes) {
+      return res.status(400).json({
+        message:
+          "Giờ đến phải sau giờ khởi hành trong cùng ngày.",
+      });
+    }
+
+    // ==================================================
+    // TUYẾN
+    // ==================================================
+
+    const journeyInfo =
+      await Journey.findById(journey);
+
+    if (!journeyInfo) {
+      return res.status(404).json({
+        message:
+          "Không tìm thấy tuyến đường.",
+      });
+    }
+
+    // ==================================================
+    // TẠO SLOT
+    // ==================================================
+
+    const slots = [];
+
+    let current = new Date(startDate);
+    const end = new Date(endDate);
+
+    current.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
+
+    while (current <= end) {
+      if (
+        weekdaysArr.includes(
+          current.getDay()
+        )
+      ) {
+        const departureTime =
+          new Date(current);
+
+        departureTime.setHours(
+          depHour,
+          depMinute,
+          0,
+          0
+        );
+
+        const arrivalTime =
+          new Date(current);
+
+        arrivalTime.setHours(
+          arrHour,
+          arrMinute,
+          0,
+          0
+        );
+
+        slots.push({
+          departureTime,
+          arrivalTime,
+        });
       }
 
-      const nearbyTrips = await Trip.find(query).populate("journey");
+      current.setDate(
+        current.getDate() + 1
+      );
+    }
 
-      for (const ot of nearbyTrips) {
-        const oldDeparture = new Date(ot.departureTime);
-        const oldArrival = new Date(ot.arrivalTime);
+    // ==================================================
+    // LẤY TÀI XẾ
+    // ==================================================
 
-        // Trùng giờ trực tiếp
-        if (slot.dep < oldArrival && slot.arr > oldDeparture) {
-          busy = true;
+    const allDrivers = await Staff.find({
+      chucVu: "Driver",
+    });
+
+    const availableDrivers = [];
+
+    // ==================================================
+    // CHECK TỪNG TÀI XẾ
+    // ==================================================
+
+    for (const driver of allDrivers) {
+      let available = true;
+
+      for (const slot of slots) {
+        const error =
+          await checkStaffAvailability(
+            driver._id,
+            journeyInfo,
+            slot.departureTime,
+            slot.arrivalTime,
+            excludeTripId || null
+          );
+
+        if (error) {
+          available = false;
           break;
         }
-
-        // Chuyến cũ kết thúc trước, chuyến mới bắt đầu sau -> check nghỉ tối thiểu
-        if (oldArrival <= slot.dep) {
-          const gapMinutes = (slot.dep - oldArrival) / 60000;
-
-          if (gapMinutes < TURN_AROUND_MINUTES) {
-            busy = true;
-            break;
-          }
-
-          if (
-            journeyInfo &&
-            gapMinutes <= LOCATION_CHECK_MAX_GAP_MINUTES &&
-            ot.journey?.diemDen !== journeyInfo.diemDi
-          ) {
-            busy = true;
-            break;
-          }
-        }
-
-        // Chuyến mới kết thúc trước, chuyến cũ bắt đầu sau -> check nghỉ tối thiểu
-        if (oldDeparture >= slot.arr) {
-          const gapMinutes = (oldDeparture - slot.arr) / 60000;
-
-          if (gapMinutes < TURN_AROUND_MINUTES) {
-            busy = true;
-            break;
-          }
-
-          if (
-            journeyInfo &&
-            gapMinutes <= LOCATION_CHECK_MAX_GAP_MINUTES &&
-            journeyInfo.diemDen !== ot.journey?.diemDi
-          ) {
-            busy = true;
-            break;
-          }
-        }
       }
 
-      if (busy) break;
+      if (available) {
+        availableDrivers.push(driver);
+      }
     }
 
-    if (!busy) {
-      availableDrivers.push(driver);
-    }
+    return res.json(availableDrivers);
   }
-
-  return res.json(availableDrivers);
-});
+);
 
 export const getAvailableBuses = asyncHandler(async (req, res) => {
   await updateTripStatus();
+
   const {
     weekdays,
     startDate,
     endDate,
     departureHour,
     arrivalHour,
-    journey, // id của Journey đang chọn, dùng để check khớp vị trí bến
+    journey,
     excludeTripId,
   } = req.query;
 
@@ -242,127 +270,113 @@ export const getAvailableBuses = asyncHandler(async (req, res) => {
     !startDate ||
     !endDate ||
     !departureHour ||
-    !arrivalHour
+    !arrivalHour ||
+    !journey
   ) {
     return res.status(400).json({
-      message:
-        "Thiếu thông tin để kiểm tra xe rảnh (ngày chạy, khoảng ngày, giờ)",
+      message: "Thiếu thông tin để kiểm tra xe rảnh.",
     });
   }
 
   const weekdaysArr = String(weekdays)
     .split(",")
-    .map((n) => Number(n))
+    .map(Number)
     .filter((n) => !Number.isNaN(n));
 
-  const [depHour, depMinute] = departureHour.split(":");
-  const [arrHour, arrMinute] = arrivalHour.split(":");
+  const journeyInfo = await Journey.findById(journey);
 
-  const journeyInfo = journey ? await Journey.findById(journey) : null;
+  if (!journeyInfo) {
+    return res.status(404).json({
+      message: "Không tìm thấy tuyến đường",
+    });
+  }
 
-  // Sinh danh sách các khung giờ (departure/arrival) tương ứng với từng ngày chạy trong khoảng
+  const [depHour, depMinute] = departureHour
+    .split(":")
+    .map(Number);
+
+  const [arrHour, arrMinute] = arrivalHour
+    .split(":")
+    .map(Number);
+
+  // =====================================================
+  // TẠO CÁC SLOT CẦN KIỂM TRA
+  // =====================================================
+
   const slots = [];
+
   let current = new Date(startDate);
   const end = new Date(endDate);
 
+  current.setHours(0, 0, 0, 0);
+  end.setHours(0, 0, 0, 0);
+
   while (current <= end) {
     if (weekdaysArr.includes(current.getDay())) {
-      const dep = new Date(current);
-      dep.setHours(Number(depHour), Number(depMinute), 0, 0);
+      const departureTime = new Date(current);
 
-      const arr = new Date(current);
-      arr.setHours(Number(arrHour), Number(arrMinute), 0, 0);
+      departureTime.setHours(
+        depHour,
+        depMinute,
+        0,
+        0
+      );
 
-      slots.push({ dep, arr });
+      const arrivalTime = new Date(current);
+
+      arrivalTime.setHours(
+        arrHour,
+        arrMinute,
+        0,
+        0
+      );
+
+      slots.push({
+        departureTime,
+        arrivalTime,
+      });
     }
 
-    current.setDate(current.getDate() + 1);
+    current.setDate(
+      current.getDate() + 1
+    );
   }
 
-  const allBuses = await Bus.find();
+  // =====================================================
+  // LẤY XE HOẠT ĐỘNG
+  // =====================================================
+
+  const allBuses = await Bus.find({
+    status: "Hoạt động",
+  });
 
   const availableBuses = [];
 
-  for (const busDoc of allBuses) {
-    let busy = false;
+  // =====================================================
+  // CHECK TỪNG XE
+  // =====================================================
+
+  for (const bus of allBuses) {
+    let available = true;
 
     for (const slot of slots) {
-      // Mở rộng khung giờ query theo LOCATION_CHECK_MAX_GAP_MINUTES (không phải
-      // TURN_AROUND_MINUTES), giống hệt logic bên tài xế - tránh bỏ sót các
-      // chuyến cách xa hơn 30 phút nhưng vẫn cần khớp vị trí (trong 12 tiếng)
-      const bufferedStart = new Date(
-        slot.dep.getTime() - LOCATION_CHECK_MAX_GAP_MINUTES * 60000
+
+      const error = await checkBusAvailability(
+        bus._id,
+        journeyInfo,
+        slot.departureTime,
+        slot.arrivalTime,
+        excludeTripId || null
       );
-      const bufferedEnd = new Date(
-        slot.arr.getTime() + LOCATION_CHECK_MAX_GAP_MINUTES * 60000
-      );
 
-      const query = {
-        bus: busDoc._id,
-        departureTime: { $lt: bufferedEnd },
-        arrivalTime: { $gt: bufferedStart },
-      };
-
-      if (excludeTripId) {
-        query._id = { $ne: excludeTripId };
+      if (error) {
+        available = false;
+        break;
       }
-
-      const nearbyTrips = await Trip.find(query).populate("journey");
-
-      for (const ot of nearbyTrips) {
-        const oldDeparture = new Date(ot.departureTime);
-        const oldArrival = new Date(ot.arrivalTime);
-
-        // Trùng giờ trực tiếp
-        if (slot.dep < oldArrival && slot.arr > oldDeparture) {
-          busy = true;
-          break;
-        }
-
-        // Chuyến cũ kết thúc trước, chuyến mới bắt đầu sau -> check nghỉ tối thiểu
-        if (oldArrival <= slot.dep) {
-          const gapMinutes = (slot.dep - oldArrival) / 60000;
-
-          if (gapMinutes < TURN_AROUND_MINUTES) {
-            busy = true;
-            break;
-          }
-
-          if (
-            journeyInfo &&
-            gapMinutes <= LOCATION_CHECK_MAX_GAP_MINUTES &&
-            ot.journey?.diemDen !== journeyInfo.diemDi
-          ) {
-            busy = true;
-            break;
-          }
-        }
-
-        // Chuyến mới kết thúc trước, chuyến cũ bắt đầu sau -> check nghỉ tối thiểu
-        if (oldDeparture >= slot.arr) {
-          const gapMinutes = (oldDeparture - slot.arr) / 60000;
-
-          if (gapMinutes < TURN_AROUND_MINUTES) {
-            busy = true;
-            break;
-          }
-
-          if (
-            journeyInfo &&
-            gapMinutes <= LOCATION_CHECK_MAX_GAP_MINUTES &&
-            journeyInfo.diemDen !== ot.journey?.diemDi
-          ) {
-            busy = true;
-            break;
-          }
-        }
-      }
-
-      if (busy) break;
     }
 
-    if (!busy) {
-      availableBuses.push(busDoc);
+    if (available) {
+      availableBuses.push(bus);
     }
   }
 
@@ -1019,5 +1033,70 @@ export const getTripsByStaff = asyncHandler(async (req, res) => {
   return res.json({
     success: true,
     data: trips,
+  });
+});
+// Tài xế xác nhận chạy chuyến
+export const confirmTrip = asyncHandler(async (req, res) => {
+  const { tripId } = req.params;
+  const { staffId } = req.body;
+
+  if (!staffId) {
+    return res.status(400).json({
+      success: false,
+      message: "Thiếu thông tin staffId",
+    });
+  }
+
+  const trip = await Trip.findById(tripId);
+
+  if (!trip) {
+    return res.status(404).json({
+      success: false,
+      message: "Không tìm thấy chuyến xe",
+    });
+  }
+
+  // Kiểm tra chuyến thuộc tài xế này
+  if (trip.staff.toString() !== staffId) {
+    return res.status(403).json({
+      success: false,
+      message: "Chuyến xe này không được phân công cho bạn",
+    });
+  }
+
+  // Kiểm tra đã xác nhận chưa
+  if (trip.driverConfirmed) {
+    return res.status(400).json({
+      success: false,
+      message: "Bạn đã xác nhận chạy chuyến này rồi",
+    });
+  }
+
+  // Kiểm tra chuyến chưa hoàn thành/huỷ
+  if (trip.status === "hoàn thành" || trip.status === "huỷ") {
+    return res.status(400).json({
+      success: false,
+      message: "Chuyến xe đã hoàn thành hoặc bị huỷ, không thể xác nhận",
+    });
+  }
+
+// Kiểm tra đã đến giờ khởi hành chưa - nếu đã đến giờ thì không cho xác nhận
+  const now = new Date();
+  const departureTime = new Date(trip.departureTime);
+  if (now >= departureTime) {
+    return res.status(400).json({
+      success: false,
+      message: "Đã đến giờ khởi hành, không thể xác nhận chạy chuyến nữa!",
+    });
+  }
+
+  trip.driverConfirmed = true;
+  trip.driverConfirmedAt = new Date();
+  await trip.save();
+
+  return res.json({
+    success: true,
+    message: "Xác nhận chạy chuyến thành công!",
+    data: trip,
   });
 });

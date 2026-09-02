@@ -1,6 +1,7 @@
 import asyncHandler from "../utils/asyncHandler.js";
 import Booking from "../models/booking.model.js";
 import Trip from "../models/trip.model.js";
+import Attendance from "../models/attendance.model.js";
 import ticketEventEmitter from "../utils/ticketEvent.js";
 import { PayOS } from "@payos/node";
 
@@ -313,41 +314,40 @@ export const checkInTicket = asyncHandler(async (req, res) => {
         });
     }
 
-    // Kiểm tra chuyến xe đã hoàn thành hoặc huỷ thì không cho check-in
-    if (booking.trip.status === "hoàn thành") {
+    // Kiểm tra tài xế đã nhận chuyến chưa (có bản ghi attendance)
+    const tripId = booking.trip?._id || booking.trip;
+    const attendance = await Attendance.findOne({
+        trip: tripId,
+        status: "checked_in",
+    });
+
+    if (!attendance) {
         return res.status(400).json({
             success: false,
-            message: "Chuyến xe đã hoàn thành, không thể check-in!",
+            message: "Chưa có tài xế nhận chuyến này. Không thể check-in vé.",
         });
     }
 
-    if (booking.trip.status === "huỷ") {
-        return res.status(400).json({
-            success: false,
-            message: "Chuyến xe đã bị huỷ, không thể check-in!",
-        });
-    }
+    // Kiểm tra thời gian: chỉ được check-in trong khoảng 15 phút trước đến 15 phút sau giờ khởi hành
+    const trip = await Trip.findById(tripId);
+    if (trip && trip.departureTime) {
+        const now = new Date();
+        const departure = new Date(trip.departureTime);
+        const diffMinutes = (now - departure) / (1000 * 60); // phút
 
-    // Kiểm tra thời gian: chỉ cho check-in trong khoảng 30 phút trước giờ khởi hành
-    const now = new Date();
-    const departureTime = new Date(booking.trip.departureTime);
-    const diffMs = departureTime.getTime() - now.getTime();
-    const diffMinutes = diffMs / (1000 * 60);
+        if (diffMinutes < -15) {
+            return res.status(400).json({
+                success: false,
+                message: "Chưa đến thời gian check-in. Chỉ được check-in từ 15 phút trước giờ khởi hành.",
+            });
+        }
 
-    // Nếu còn hơn 30 phút nữa mới đến giờ khởi hành → chưa cho check-in
-    if (diffMinutes > 30) {
-        return res.status(400).json({
-            success: false,
-            message: `Chưa đến giờ check-in! Bạn chỉ được check-in vé trước giờ khởi hành 30 phút`,
-        });
-    }
-
-    // Nếu đã quá giờ khởi hành 30 phút → không cho check-in nữa
-    if (diffMinutes < -30) {
-        return res.status(400).json({
-            success: false,
-            message: "Đã quá giờ khởi hành 30 phút, không thể check-in vé!",
-        });
+        if (diffMinutes > 15) {
+            return res.status(400).json({
+                success: false,
+                message: "Đã quá thời gian check-in. Chỉ được check-in trong vòng 15 phút sau giờ khởi hành.",
+            });
+        }
     }
 
     booking.status = "Đã check-in";

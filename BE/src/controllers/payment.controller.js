@@ -12,7 +12,7 @@ const payos = new PayOS({
 
 // Hàm tạo link thanh toán từ đơn Booking đã có sẵn
 export const createPaymentLink = asyncHandler(async (req, res) => {
-    const { bookingId } = req.body;
+    const { bookingId, isAdmin } = req.body;
 
     const booking = await Booking.findById(bookingId);
     if (!booking) {
@@ -27,12 +27,20 @@ export const createPaymentLink = asyncHandler(async (req, res) => {
     const seatString = booking.seats.join("-");
     const customDescription = `Ghe-${seatString}`.slice(0, 25);
 
+    const returnUrl = isAdmin 
+      ? `http://localhost:5173/admin/offline-booking/success?orderCode=${booking.orderCode}`
+      : `http://localhost:5173/khachhang/booking/success?orderCode=${booking.orderCode}`;
+
+    const cancelUrl = isAdmin
+      ? `http://localhost:5173/admin/offline-booking`
+      : "http://localhost:5173/khachhang/booking/cancel";
+
     const paymentBody = {
         orderCode: booking.orderCode,
         amount: booking.totalPrice,
         description: customDescription,
-        cancelUrl: "http://localhost:5173/khachhang/booking/cancel",
-        returnUrl: `http://localhost:5173/khachhang/booking/success?orderCode=${booking.orderCode}`
+        cancelUrl,
+        returnUrl
     };
 
     const paymentLinkData = await payos.paymentRequests.create(paymentBody);

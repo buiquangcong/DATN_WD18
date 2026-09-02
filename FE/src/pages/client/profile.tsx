@@ -531,16 +531,53 @@ export default function ProfileClientPage() {
     }
   };
 
+  const getRefundPolicyForClient = (bookingRecord: any) => {
+    const departureTime = bookingRecord?.originalBooking?.trip?.departureTime;
+    if (!departureTime) {
+      return {
+        percent: 100,
+        amount: bookingRecord?.totalPrice || 0,
+        label: "N/A"
+      };
+    }
+
+    const dep = dayjs(departureTime);
+    const now = dayjs();
+    const diffHours = dep.diff(now, "hour", true);
+    const totalPrice = bookingRecord.totalPrice || 0;
+
+    if (diffHours >= 6) {
+      return {
+        percent: 100,
+        amount: totalPrice,
+        label: "Ngoài 6 tiếng (Miễn phí hủy - Hoàn 100%)"
+      };
+    } else if (diffHours >= 2 && diffHours < 6) {
+      return {
+        percent: 50,
+        amount: totalPrice * 0.5,
+        label: "Từ 2 - 5 tiếng (Phí hủy 50% - Hoàn 50%)"
+      };
+    } else {
+      return {
+        percent: 0,
+        amount: 0,
+        label: "Dưới 2 tiếng (Không thể hủy vé/hoàn tiền)"
+      };
+    }
+  };
+
   const handleCancelBooking = async (values: any) => {
     if (!cancellingBooking) return;
     try {
+      const policy = getRefundPolicyForClient(cancellingBooking);
       await axios.post("http://localhost:3000/api/refund/add", {
         booking: cancellingBooking.id,
         user: userData?._id,
         bankName: values.bankName,
         accountNumber: values.accountNumber,
         accountName: values.accountName,
-        amount: cancellingBooking.totalPrice,
+        amount: policy.amount,
         reason: values.reason || ""
       });
       toast.success("Gửi yêu cầu hủy vé và hoàn tiền thành công!");
@@ -551,7 +588,8 @@ export default function ProfileClientPage() {
       }
     } catch (err: any) {
       console.error("Lỗi khi hủy vé:", err);
-      toast.error("Không thể gửi yêu cầu hủy vé!");
+      const errMsg = err.response?.data?.message || "Không thể gửi yêu cầu hủy vé!";
+      toast.error(errMsg);
     }
   };
 
@@ -1238,9 +1276,29 @@ export default function ProfileClientPage() {
                 Tuyến đường: <strong className="text-slate-800 dark:text-slate-100">{cancellingBooking.journey}</strong>
               </div>
               <div>
-                Số tiền hoàn lại: <strong className="text-red-500 text-sm">{cancellingBooking.totalPrice.toLocaleString("vi-VN")}đ</strong>
+                Giờ khởi hành: <strong className="text-slate-800 dark:text-slate-100">{cancellingBooking.departureTime}</strong>
+              </div>
+              <Divider style={{ margin: "6px 0" }} />
+              <div>
+                Giá trị vé gốc: <strong className="text-slate-800 dark:text-slate-100">{cancellingBooking.totalPrice.toLocaleString("vi-VN")}đ</strong>
+              </div>
+              <div>
+                Chính sách áp dụng: <span className="font-bold text-emerald-600">{getRefundPolicyForClient(cancellingBooking).label}</span>
+              </div>
+              <div>
+                Số tiền hoàn trả dự kiến: <strong className="text-red-500 text-sm">{getRefundPolicyForClient(cancellingBooking).amount.toLocaleString("vi-VN")}đ</strong>
               </div>
             </div>
+
+            {getRefundPolicyForClient(cancellingBooking).percent === 0 && (
+              <Alert
+                message="Không thể hủy vé & hoàn tiền"
+                description="Theo chính sách nhà xe, bạn chỉ có thể yêu cầu hủy vé/hoàn tiền trước giờ xe khởi hành tối thiểu 2 tiếng."
+                type="error"
+                showIcon
+                className="mb-4"
+              />
+            )}
 
             <Form.Item
               name="bankName"
@@ -1291,6 +1349,7 @@ export default function ProfileClientPage() {
                 danger
                 htmlType="submit"
                 className="font-bold border-none"
+                disabled={getRefundPolicyForClient(cancellingBooking).percent === 0}
               >
                 Gửi yêu cầu hoàn tiền
               </Button>
