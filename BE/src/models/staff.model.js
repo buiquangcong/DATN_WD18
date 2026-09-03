@@ -58,6 +58,11 @@ const staffSchema = new mongoose.Schema(
             type: String,
             default: "",
         },
+        trangThai: {
+            type: String,
+            enum: ['Đang làm việc', 'Đã nghỉ việc'],
+            default: 'Đang làm việc',
+        },
     },
     {
         timestamps: true,
