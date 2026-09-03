@@ -1,8 +1,10 @@
 import { useState, useMemo } from "react";
 import { Popconfirm, Space, Table, Button, Tag, Input, Card, Select } from "antd";
+import { EyeOutlined } from "@ant-design/icons";
 import { useCRUD } from "../../../hooks/useCRUD";
 import { useNavigate } from "react-router-dom";
 import type { ColumnsType } from "antd/es/table";
+import SeatMapModal from "./SeatMapModal";
 
 interface DriverType {
   _id: string;
@@ -35,6 +37,10 @@ function ListPage() {
   const [selectedType, setSelectedType] = useState<string | undefined>(undefined);
   const [selectedCapacity, setSelectedCapacity] = useState<number | undefined>(undefined);
   const [selectedHangXe, setSelectedHangXe] = useState<string | undefined>(undefined);
+
+  // State cho Modal xem sơ đồ ghế
+  const [selectedBusForSeatMap, setSelectedBusForSeatMap] = useState<BusType | null>(null);
+  const [isSeatMapModalOpen, setIsSeatMapModalOpen] = useState<boolean>(false);
 
   // Tự động gom danh sách Hãng xe duy nhất từ dữ liệu trả về để làm bộ lọc
   const hangXeOptions = useMemo(() => {
@@ -156,7 +162,18 @@ function ListPage() {
       title: "Hành Động",
       key: "action",
       render: (_, record) => (
-        <Space size="middle">
+        <Space size="small">
+          <Button
+            icon={<EyeOutlined />}
+            onClick={() => {
+              setSelectedBusForSeatMap(record);
+              setIsSeatMapModalOpen(true);
+            }}
+            className="border-emerald-600 text-emerald-700 hover:!bg-emerald-50 font-medium"
+          >
+            Xem
+          </Button>
+
           <Button
             type="primary"
             onClick={() => navigate(`/admin/bus/edit/${record._id}`)}
@@ -270,6 +287,16 @@ function ListPage() {
           />
         </div>
       </Card>
+
+      {/* Modal hiển thị sơ đồ ghế của xe */}
+      <SeatMapModal
+        open={isSeatMapModalOpen}
+        bus={selectedBusForSeatMap}
+        onClose={() => {
+          setIsSeatMapModalOpen(false);
+          setSelectedBusForSeatMap(null);
+        }}
+      />
     </div>
   );
 }
