@@ -20,7 +20,7 @@ const busSchema = new mongoose.Schema({
     },
     type: {
         type: String,
-        enum: ['Sleeper', 'Seater'],
+        enum: ['Sleeper', 'Seater', 'Limousine'],
         default: 'Seater'
     },
     hangxe:
