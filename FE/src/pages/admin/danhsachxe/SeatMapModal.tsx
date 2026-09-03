@@ -41,6 +41,95 @@ interface SeatMapModalProps {
 export function generateBusSeats(capacity: number, busType: string): GeneratedSeat[] {
   const seats: GeneratedSeat[] = [];
 
+  // 1. Trường hợp xe Limousine VIP / Xe 16 chỗ hoán cải hạ tải (7 đến 9 chỗ)
+  if (busType === "Limousine" || (busType === "Seater" && capacity >= 7 && capacity <= 10)) {
+    // 2 ghế VIP hàng 1 (ngay sau khoang lái, khoảng để chân rộng rãi)
+    seats.push({
+      seatCode: "VIP1",
+      rowIndex: 1,
+      colIndex: 1,
+      status: "AVAILABLE",
+      floor: 1,
+      label: "Ghế VIP Thương gia (Cửa sổ trái)",
+    });
+    seats.push({
+      seatCode: "VIP2",
+      rowIndex: 1,
+      colIndex: 3,
+      status: "AVAILABLE",
+      floor: 1,
+      label: "Ghế VIP Thương gia (Lối lên phải)",
+    });
+
+    // 2 ghế VIP hàng 2 (chức năng ngả sâu / massage)
+    seats.push({
+      seatCode: "VIP3",
+      rowIndex: 2,
+      colIndex: 1,
+      status: "AVAILABLE",
+      floor: 1,
+      label: "Ghế VIP Massage (Cửa sổ trái)",
+    });
+    seats.push({
+      seatCode: "VIP4",
+      rowIndex: 2,
+      colIndex: 3,
+      status: "AVAILABLE",
+      floor: 1,
+      label: "Ghế VIP Massage (Lối lên phải)",
+    });
+
+    // Băng ghế sofa 3 chỗ sau cùng
+    seats.push({
+      seatCode: "VIP5",
+      rowIndex: 3,
+      colIndex: 1,
+      status: "AVAILABLE",
+      floor: 1,
+      label: "Băng sofa VIP (Góc trái)",
+    });
+    seats.push({
+      seatCode: "VIP6",
+      rowIndex: 3,
+      colIndex: 2,
+      status: "AVAILABLE",
+      floor: 1,
+      label: "Băng sofa VIP (Chính giữa)",
+    });
+    seats.push({
+      seatCode: "VIP7",
+      rowIndex: 3,
+      colIndex: 3,
+      status: "AVAILABLE",
+      floor: 1,
+      label: "Băng sofa VIP (Góc phải)",
+    });
+
+    // Nếu xe 8 chỗ: có thêm 1 ghế A1 ở khoang đầu (ngồi ngay cạnh tài xế)
+    if (capacity >= 8) {
+      seats.push({
+        seatCode: "A1",
+        rowIndex: 0, // rowIndex = 0 để khi render (row + 1) sẽ nằm ở Hàng 1 cạnh tài xế
+        colIndex: 2,
+        status: "AVAILABLE",
+        floor: 1,
+        label: "Ghế khoang đầu (Cạnh tài xế)",
+      });
+    }
+    // Nếu xe 9 chỗ: có thêm ghế A2 cạnh cửa phụ khoang đầu
+    if (capacity >= 9) {
+      seats.push({
+        seatCode: "A2",
+        rowIndex: 0, // Nằm ở Hàng 1 cạnh ghế A1
+        colIndex: 3,
+        status: "AVAILABLE",
+        floor: 1,
+        label: "Ghế khoang đầu (Cửa phụ)",
+      });
+    }
+    return seats;
+  }
+
   if (busType === "Sleeper" && (capacity === 34 || capacity === 38)) {
     // Xe giường nằm 34 chỗ (2 tầng, mỗi tầng 17 giường)
     for (let floor = 1; floor <= 2; floor++) {
@@ -306,9 +395,10 @@ export const SeatMapModal: React.FC<SeatMapModalProps> = ({ open, bus, onClose }
   // Số cột của grid
   const totalCols = useMemo(() => {
     if (isSleeper) return 5;
+    if (capacity <= 10 || bus?.type === "Limousine") return 3; // Limousine 3 cột (Ghế trái - Lối đi - Ghế phải)
     if (capacity === 16) return 4;
     return 5; // 29, 45 chỗ đều là 5 cột (2 ghế - lối đi - 2 ghế)
-  }, [isSleeper, capacity]);
+  }, [isSleeper, capacity, bus?.type]);
 
   // Render 1 ghế hoặc giường
   const renderSeatItem = (seat: GeneratedSeat, showCockpit: boolean) => {
@@ -519,25 +609,34 @@ export const SeatMapModal: React.FC<SeatMapModalProps> = ({ open, bus, onClose }
                   </div>
                 </div>
 
-                {/* Khoảng trống táp-lô */}
-                {Array.from({ length: totalCols - 2 }).map((_, idx) => (
-                  <div
-                    key={`cockpit-blank-${idx}`}
-                    style={{ gridColumnStart: idx + 2, gridRowStart: 1 }}
-                  />
-                ))}
+                {/* Khoảng trống táp-lô (chỉ vẽ nếu vị trí đó không có ghế A1) */}
+                {Array.from({ length: totalCols - 2 }).map((_, idx) => {
+                  const col = idx + 2;
+                  const hasSeatHere = seatsInFloor.some(
+                    (s) => s.colIndex === col && s.rowIndex === 0
+                  );
+                  if (hasSeatHere) return null;
+                  return (
+                    <div
+                      key={`cockpit-blank-${idx}`}
+                      style={{ gridColumnStart: col, gridRowStart: 1 }}
+                    />
+                  );
+                })}
 
-                {/* Cửa lên xe */}
-                <div
-                  style={{ gridColumnStart: totalCols, gridRowStart: 1 }}
-                  className="flex items-center justify-center h-10"
-                >
-                  <div className="border border-dashed border-emerald-400 bg-emerald-50/60 text-emerald-700 text-[8px] p-1 text-center font-bold rounded-md leading-tight">
-                    CỬA
-                    <br />
-                    LÊN
+                {/* Cửa lên xe (chỉ vẽ nếu cột cuối chưa bị ghế A2 chiếm) */}
+                {!seatsInFloor.some((s) => s.colIndex === totalCols && s.rowIndex === 0) && (
+                  <div
+                    style={{ gridColumnStart: totalCols, gridRowStart: 1 }}
+                    className="flex items-center justify-center h-10"
+                  >
+                    <div className="border border-dashed border-emerald-400 bg-emerald-50/60 text-emerald-700 text-[8px] p-1 text-center font-bold rounded-md leading-tight">
+                      CỬA
+                      <br />
+                      LÊN
+                    </div>
                   </div>
-                </div>
+                )}
               </>
             )}
 

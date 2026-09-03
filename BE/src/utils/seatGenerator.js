@@ -7,6 +7,25 @@
 const generateSeats = (capacity, busType) => {
     const seats = [];
 
+    // Xe VIP Limousine 7-9 chỗ (hoán cải từ xe 16 chỗ Ford Transit/Solati)
+    if (busType === 'Limousine' || (capacity >= 7 && capacity <= 10)) {
+        seats.push({ seatCode: 'VIP1', rowIndex: 1, colIndex: 1, status: 'AVAILABLE', floor: 1 });
+        seats.push({ seatCode: 'VIP2', rowIndex: 1, colIndex: 3, status: 'AVAILABLE', floor: 1 });
+        seats.push({ seatCode: 'VIP3', rowIndex: 2, colIndex: 1, status: 'AVAILABLE', floor: 1 });
+        seats.push({ seatCode: 'VIP4', rowIndex: 2, colIndex: 3, status: 'AVAILABLE', floor: 1 });
+        seats.push({ seatCode: 'VIP5', rowIndex: 3, colIndex: 1, status: 'AVAILABLE', floor: 1 });
+        seats.push({ seatCode: 'VIP6', rowIndex: 3, colIndex: 2, status: 'AVAILABLE', floor: 1 });
+        seats.push({ seatCode: 'VIP7', rowIndex: 3, colIndex: 3, status: 'AVAILABLE', floor: 1 });
+
+        if (capacity >= 8) {
+            seats.push({ seatCode: 'A1', rowIndex: 0, colIndex: 2, status: 'AVAILABLE', floor: 1 });
+        }
+        if (capacity >= 9) {
+            seats.push({ seatCode: 'A2', rowIndex: 0, colIndex: 3, status: 'AVAILABLE', floor: 1 });
+        }
+        return seats;
+    }
+
     if (capacity === 16 && busType === 'Seater') {
         for (let row = 1; row <= 4; row++) {
             seats.push({

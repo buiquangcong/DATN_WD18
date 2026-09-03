@@ -4,7 +4,8 @@ import { useCRUD } from "../../../hooks/useCRUD";
 // Khai báo tập trung danh sách số chỗ tương ứng với từng loại xe
 const CAPACITY_OPTIONS_MAP: Record<string, number[]> = {
   Sleeper: [34],
-  Seater: [16, 29, 45],
+  Seater: [7, 8, 9, 16, 29, 45],
+  Limousine: [7, 8, 9, 11, 19],
 };
 
 function AddPage() {
@@ -21,6 +22,8 @@ function AddPage() {
         form.setFieldsValue({ capacity: 34 });
       } else if (changedValues.type === "Seater") {
         form.setFieldsValue({ capacity: 16 });
+      } else if (changedValues.type === "Limousine") {
+        form.setFieldsValue({ capacity: 9 });
       }
     }
   };
@@ -191,6 +194,7 @@ function AddPage() {
             options={[
               { value: "Sleeper", label: "Xe giường nằm (Sleeper)" },
               { value: "Seater", label: "Xe ghế ngồi (Seater)" },
+              { value: "Limousine", label: "Xe Limousine VIP (7 - 9 chỗ)" },
             ]}
           />
         </Form.Item>
@@ -206,7 +210,14 @@ function AddPage() {
             disabled={selectedType === "Sleeper"}
             options={capacityOptions.map((cap) => ({
               value: cap,
-              label: `${cap} chỗ`,
+              label:
+                cap === 7
+                  ? "7 chỗ (VIP Limousine)"
+                  : cap === 8
+                  ? "8 chỗ (VIP Limousine)"
+                  : cap === 9
+                  ? "9 chỗ (VIP DCar)"
+                  : `${cap} chỗ`,
             }))}
           />
         </Form.Item>

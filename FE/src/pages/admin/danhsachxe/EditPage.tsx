@@ -87,6 +87,7 @@ function EditPage() {
                         options={[
                             { value: "Sleeper", label: "Xe giường nằm (Sleeper)" },
                             { value: "Seater", label: "Xe ghế ngồi (Seater)" },
+                            { value: "Limousine", label: "Xe Limousine VIP" },
                         ]}
                     />
                 </Form.Item>

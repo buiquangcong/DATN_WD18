@@ -25,8 +25,8 @@ interface BusType {
 
 const CAPACITY_OPTIONS_MAP: Record<string, number[]> = {
   Sleeper: [34, 40],
-  Seater: [16, 29, 45],
-  Limousine: [9, 11, 19],
+  Seater: [7, 8, 9, 16, 29, 45],
+  Limousine: [7, 8, 9, 11, 19],
 };
 
 function ListPage() {
@@ -63,7 +63,7 @@ function ListPage() {
     if (selectedType && CAPACITY_OPTIONS_MAP[selectedType]) {
       return CAPACITY_OPTIONS_MAP[selectedType];
     }
-    return [16,29, 34, 45];
+    return [7, 8, 9, 16, 29, 34, 45];
   };
 
   const filteredList = list?.filter((item: BusType) => {
@@ -124,6 +124,7 @@ function ListPage() {
       render: (type: string) => {
         if (type === "Sleeper") return "Xe giường nằm";
         if (type === "Seater") return "Xe ghế ngồi";
+        if (type === "Limousine") return "Xe Limousine VIP";
         return type;
       },
     },
