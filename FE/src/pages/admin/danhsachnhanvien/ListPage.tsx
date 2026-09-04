@@ -7,14 +7,14 @@ import type { ColumnsType } from "antd/es/table";
 interface StaffType {
     _id: string;
     ten: string;
-    namSinh: String;
-    gioiTinh: 'Nam' | 'Nữ' | 'Khác';
+    namSinh: string;
+    gioiTinh: "Nam" | "Nữ" | "Khác";
     email: string;
     sdt: string;
     diaChi: string;
     image?: string;
     cccd: string;
-    chucVu: 'Admin' | 'Driver' | 'Staff';
+    chucVu: "Admin" | "Driver" | "Staff" | "Assistant_Driver";
     bangLai?: string;
     anhBangLai?: string;
 }
@@ -26,12 +26,16 @@ function ListPage() {
     const [selectedChucVu, setSelectedChucVu] = useState<string>("All");
     const [previewImage, setPreviewImage] = useState("");
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-    const filteredList = list.filter((item: StaffType) => {
+
+    const filteredList = (list || []).filter((item: StaffType) => {
+        const searchLower = searchText.toLowerCase().trim();
         const matchesSearch =
-            item.ten?.toLowerCase().includes(searchText.toLowerCase()) ||
-            item.email?.toLowerCase().includes(searchText.toLowerCase()) ||
-            item.sdt?.includes(searchText) ||
-            item.cccd?.includes(searchText);
+            !searchLower ||
+            item.ten?.toLowerCase().includes(searchLower) ||
+            item.email?.toLowerCase().includes(searchLower) ||
+            item.sdt?.includes(searchLower) ||
+            item.cccd?.includes(searchLower);
+
         const matchesChucVu = selectedChucVu === "All" || item.chucVu === selectedChucVu;
         return matchesSearch && matchesChucVu;
     });
@@ -69,13 +73,27 @@ function ListPage() {
             render: (chucVu: string, record: StaffType) => {
                 let color = "geekblue";
                 let label = "Nhân viên";
-                if (chucVu === "Admin") {
-                    color = "volcano";
-                    label = "Quản trị viên";
-                } else if (chucVu === "Driver") {
-                    color = "green";
-                    label = "Tài xế";
+
+                switch (chucVu) {
+                    case "Admin":
+                        color = "volcano";
+                        label = "Quản trị viên";
+                        break;
+                    case "Driver":
+                        color = "green";
+                        label = "Tài xế";
+                        break;
+                    case "Assistant_Driver":
+                        color = "cyan";
+                        label = "Phụ xe";
+                        break;
+                    case "Staff":
+                    default:
+                        color = "geekblue";
+                        label = "Nhân viên";
+                        break;
                 }
+
                 return (
                     <Space direction="vertical" size={4} align="start">
                         <Tag color={color} className="font-semibold uppercase tracking-wider text-xs px-2.5 py-0.5 rounded-md">
@@ -87,9 +105,9 @@ function ListPage() {
                             </Tag>
                         )}
                         {chucVu === "Driver" && record.anhBangLai && (
-                            <Button 
-                                type="link" 
-                                size="small" 
+                            <Button
+                                type="link"
+                                size="small"
                                 className="p-0 text-xs text-blue-500 hover:text-blue-400 h-auto"
                                 onClick={() => {
                                     setPreviewImage(record.anhBangLai || "");
@@ -115,10 +133,10 @@ function ListPage() {
             },
         },
         {
-            title: " Ngày tháng Năm Sinh",
+            title: "Ngày tháng Năm Sinh",
             dataIndex: "namSinh",
             key: "namSinh",
-            render: (namSinh: string) => <span className="text-gray-600 text-sm">{namSinh}</span>,
+            render: (namSinh: string) => <span className="text-gray-600 text-sm">{namSinh || "---"}</span>,
         },
         {
             title: "Hành Động",
@@ -133,17 +151,17 @@ function ListPage() {
                     </Button>
 
                     {/* <Popconfirm
-                        title="Xóa nhân viên này"
-                        description="Bạn có chắc chắn muốn xóa nhân viên này khỏi hệ thống?"
-                        onConfirm={() => Delete(record._id)}
-                        okText="Có"
-                        cancelText="Không"
-                        okButtonProps={{ danger: true }}
-                    >
-                        <Button type="primary" danger>
-                            Xóa
-                        </Button>
-                    </Popconfirm> */}
+            title="Xóa nhân viên này"
+            description="Bạn có chắc chắn muốn xóa nhân viên này khỏi hệ thống?"
+            onConfirm={() => Delete(record._id)}
+            okText="Có"
+            cancelText="Không"
+            okButtonProps={{ danger: true }}
+          >
+            <Button type="primary" danger>
+              Xóa
+            </Button>
+          </Popconfirm> */}
                 </Space>
             ),
         },
@@ -165,6 +183,7 @@ function ListPage() {
                     Thêm Nhân Viên
                 </Button>
             </div>
+
             <Card className="shadow-xs border border-gray-100 rounded-xl bg-white">
                 <div className="flex flex-col md:flex-row gap-4 mb-6">
                     <div className="flex-1">
@@ -187,8 +206,9 @@ function ListPage() {
                             options={[
                                 { value: "All", label: "Tất cả chức vụ" },
                                 { value: "Admin", label: "Quản trị viên" },
-                                { value: "Driver", label: "Tài xế" },
                                 { value: "Staff", label: "Nhân viên" },
+                                { value: "Driver", label: "Tài xế" },
+                                { value: "Assistant_Driver", label: "Phụ xe" },
                             ]}
                         />
                     </div>
@@ -218,16 +238,15 @@ function ListPage() {
                 centered
             >
                 <div className="flex justify-center items-center p-2">
-                    <img 
-                        src={previewImage} 
-                        alt="Ảnh bằng lái xe" 
+                    <img
+                        src={previewImage}
+                        alt="Ảnh bằng lái xe"
                         className="max-w-full max-h-[70vh] object-contain rounded-lg border shadow-sm"
                     />
                 </div>
             </Modal>
         </div>
-    )
-
-
+    );
 }
+
 export default ListPage;
