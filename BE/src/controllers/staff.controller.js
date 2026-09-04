@@ -63,6 +63,7 @@ export const updateOne = asyncHandler(async (req, res) => {
         const role = chucVu.toString().trim();
         if (role === "Quản trị viên" || role === "Admin") finalRole = "Admin";
         else if (role === "Tài xế" || role === "Driver") finalRole = "Driver";
+        else if (role === "Phụ xe" || role === "Assistant_Driver") finalRole = "Assistant_Driver";
         else if (role === "Nhân viên" || role === "Staff") finalRole = "Staff";
         updateData.chucVu = finalRole;
     }

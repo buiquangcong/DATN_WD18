@@ -43,11 +43,12 @@ export const createOne = asyncHandler(async (req, res) => {
             const roleLower = req.body.role.toLowerCase();
             if (roleLower === 'admin') validRole = 'Admin';
             else if (roleLower === 'driver') validRole = 'Driver';
+            else if (roleLower === 'assistant_driver') validRole = 'Assistant_Driver';
         }
 
-        // 4. Chỉ tự tạo Staff tương ứng nếu là Admin, Driver, hoặc Staff
+        // 4. Chỉ tự tạo Staff tương ứng nếu là Admin, Driver, Staff hoặc Phụ xe (Assistant_Driver)
         const roleStr = req.body.role ? String(req.body.role).toLowerCase() : "";
-        if (["admin", "driver", "staff"].includes(roleStr)) {
+        if (["admin", "driver", "staff", "assistant_driver"].includes(roleStr)) {
             await Staff.create({
                 userId: user._id,
                 ten: req.body.username ? req.body.username.split('@')[0] : "Nhân viên mới",
