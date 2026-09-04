@@ -9,7 +9,7 @@ interface UserType {
   username: string;
   email: string;
   avatar?: string;
-  role: "admin" | "user" | "driver" | "staff";
+  role: "admin" | "user" | "driver" | "staff" | "assistant_driver";
   createdAt: string;
 }
 
@@ -80,6 +80,10 @@ function UserListPage() {
           case "driver":
             color = "orange";
             label = "Tài xế";
+            break;
+          case "assistant_driver":
+            color = "cyan";
+            label = "Phụ xe";
             break;
           case "staff":
             color = "green";
@@ -175,6 +179,7 @@ function UserListPage() {
                 { value: "admin", label: "Quản trị viên (Admin)" },
                 { value: "staff", label: "Nhân viên (Staff)" },
                 { value: "driver", label: "Tài xế (Driver)" },
+                { value: "assistant_driver", label: "Phụ xe (Assistant Driver)" },
                 { value: "user", label: "Khách hàng (User)" },
               ]}
             />

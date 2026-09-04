@@ -1,20 +1,11 @@
-import { Button, Form, Input, InputNumber, Select, Card, Space, Upload, Radio } from "antd";
-import { PlusOutlined } from "@ant-design/icons";
+import { Button, Form, Input, InputNumber, Select, Card } from "antd";
 import { useCRUD } from "../../../hooks/useCRUD";
 import { useNavigate } from "react-router-dom";
 
 function AddPage() {
-    const { Add, list } = useCRUD("staff");
+    const { Add, list, isLoading } = useCRUD("staff");
     const [form] = Form.useForm();
     const navigate = useNavigate();
-
-    const getBase64 = (file: any): Promise<string> =>
-        new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = (error) => reject(error);
-        });
 
     const getGoogleDriveDirectLink = (url: string): string => {
         if (!url) return "";
@@ -31,7 +22,9 @@ function AddPage() {
         <div className="p-6 max-w-4xl mx-auto">
             <div className="mb-6">
                 <h1 className="text-2xl font-bold text-gray-800">Thêm Mới Nhân Viên</h1>
-                <p className="text-sm text-gray-500">Nhập đầy đủ thông tin nhân sự để lưu vào cơ sở dữ liệu.</p>
+                <p className="text-sm text-gray-500">
+                    Nhập đầy đủ thông tin nhân sự để lưu vào cơ sở dữ liệu.
+                </p>
             </div>
 
             <Card className="shadow-xs border border-gray-100 rounded-xl bg-white p-4">
@@ -40,10 +33,12 @@ function AddPage() {
                     layout="vertical"
                     onFinish={(values) => {
                         const payload = { ...values };
-                        if (payload.anhBangLai) {
+                        if (payload.chucVu !== "Driver") {
+                            payload.bangLai = "";
+                            payload.anhBangLai = "";
+                        } else if (payload.anhBangLai) {
                             payload.anhBangLai = getGoogleDriveDirectLink(payload.anhBangLai);
                         }
-                        // Remove temporary licenseSource from final data
                         delete payload.licenseSource;
                         Add(payload);
                     }}
@@ -57,7 +52,10 @@ function AddPage() {
                         <Form.Item
                             label="Họ và tên"
                             name="ten"
-                            rules={[{ required: true, message: "Vui lòng nhập họ tên" }]}
+                            rules={[
+                                { required: true, message: "Vui lòng nhập họ tên" },
+                                { whitespace: true, message: "Họ tên không được để trống" },
+                            ]}
                         >
                             <Input placeholder="Nhập đầy đủ họ và tên" size="large" />
                         </Form.Item>
@@ -67,10 +65,15 @@ function AddPage() {
                             name="namSinh"
                             rules={[
                                 { required: true, message: "Vui lòng nhập năm sinh" },
-                                { type: "string", max: new Date().getFullYear(), message: "phải đầy đủ ngày tháng năm sinh" },
                             ]}
                         >
-                            <InputNumber className="w-full" min={1900} max={new Date().getFullYear()} placeholder="Nhập năm sinh" size="large" />
+                            <InputNumber
+                                className="w-full"
+                                min={1950}
+                                max={new Date().getFullYear()}
+                                placeholder="VD: 1995"
+                                size="large"
+                            />
                         </Form.Item>
 
                         <Form.Item
@@ -99,6 +102,7 @@ function AddPage() {
                                 size="large"
                                 options={[
                                     { value: "Staff", label: "Nhân viên" },
+                                    { value: "Assistant_Driver", label: "Phụ xe" },
                                     { value: "Driver", label: "Tài xế" },
                                     { value: "Admin", label: "Quản trị viên" },
                                 ]}
@@ -129,7 +133,10 @@ function AddPage() {
                             name="sdt"
                             rules={[
                                 { required: true, message: "Vui lòng nhập số điện thoại" },
-                                { pattern: /^[0-9]{9,11}$/, message: "Số điện thoại phải từ 9 đến 11 số" },
+                                {
+                                    pattern: /(84|0[3|5|7|8|9])+([0-9]{8})\b/,
+                                    message: "Số điện thoại không đúng định dạng",
+                                },
                                 {
                                     validator: (_, value) => {
                                         if (value && list?.some((item: any) => item.sdt === value)) {
@@ -140,7 +147,7 @@ function AddPage() {
                                 },
                             ]}
                         >
-                            <Input placeholder="Nhập số điện thoại" size="large" />
+                            <Input placeholder="Nhập số điện thoại (10 số)" size="large" />
                         </Form.Item>
 
                         <Form.Item
@@ -148,7 +155,7 @@ function AddPage() {
                             name="cccd"
                             rules={[
                                 { required: true, message: "Vui lòng nhập số CCCD" },
-                                { pattern: /^[0-9]{9,12}$/, message: "CCCD phải từ 9 đến 12 số" },
+                                { pattern: /^[0-9]{12}$/, message: "CCCD phải bao gồm đúng 12 chữ số" },
                                 {
                                     validator: (_, value) => {
                                         if (value && list?.some((item: any) => item.cccd === value)) {
@@ -159,7 +166,7 @@ function AddPage() {
                                 },
                             ]}
                         >
-                            <Input placeholder="Số căn cước công dân" size="large" />
+                            <Input placeholder="Nhập 12 số CCCD" size="large" />
                         </Form.Item>
 
                         <Form.Item label="Đường dẫn ảnh đại diện (Image URL)" name="image">
@@ -171,8 +178,7 @@ function AddPage() {
                             shouldUpdate={(prevValues, currentValues) => prevValues.chucVu !== currentValues.chucVu}
                         >
                             {({ getFieldValue }) => {
-                                const chucVu = getFieldValue("chucVu");
-                                const isDriver = chucVu === "Driver";
+                                const isDriver = getFieldValue("chucVu") === "Driver";
                                 return (
                                     <>
                                         <Form.Item
@@ -188,15 +194,23 @@ function AddPage() {
                                                         if (isDriver && value) {
                                                             const allowed = ["D", "E", "F", "FB2", "FC", "FD", "FE"];
                                                             if (!allowed.includes(value.trim().toUpperCase())) {
-                                                                return Promise.reject(new Error("Bằng lái xe của tài xế phải từ hạng D trở lên (D, E, F, FC, FD, FE)"));
+                                                                return Promise.reject(
+                                                                    new Error(
+                                                                        "Bằng lái xe của tài xế phải từ hạng D trở lên (D, E, F, FC, FD, FE)"
+                                                                    )
+                                                                );
                                                             }
                                                         }
                                                         return Promise.resolve();
-                                                    }
-                                                }
+                                                    },
+                                                },
                                             ]}
                                         >
-                                            <Input placeholder={isDriver ? "VD: B2, C, D..." : "Chỉ áp dụng cho Tài xế"} size="large" disabled={!isDriver} />
+                                            <Input
+                                                placeholder={isDriver ? "VD: D, E, FC..." : "Chỉ áp dụng cho Tài xế"}
+                                                size="large"
+                                                disabled={!isDriver}
+                                            />
                                         </Form.Item>
 
                                         <Form.Item
@@ -209,7 +223,15 @@ function AddPage() {
                                                 },
                                             ]}
                                         >
-                                            <Input placeholder={isDriver ? "Nhập link ảnh hoặc link chia sẻ từ Google Drive..." : "Chỉ áp dụng cho Tài xế"} size="large" disabled={!isDriver} />
+                                            <Input
+                                                placeholder={
+                                                    isDriver
+                                                        ? "Link ảnh hoặc link chia sẻ Google Drive..."
+                                                        : "Chỉ áp dụng cho Tài xế"
+                                                }
+                                                size="large"
+                                                disabled={!isDriver}
+                                            />
                                         </Form.Item>
                                     </>
                                 );
@@ -222,14 +244,23 @@ function AddPage() {
                         name="diaChi"
                         rules={[{ required: true, message: "Vui lòng nhập địa chỉ" }]}
                     >
-                        <Input.TextArea placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành phố" rows={3} />
+                        <Input.TextArea
+                            placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành phố"
+                            rows={3}
+                        />
                     </Form.Item>
 
                     <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
                         <Button size="large" onClick={() => navigate("/admin/staff/list")}>
                             Hủy
                         </Button>
-                        <Button type="primary" htmlType="submit" size="large" className="bg-blue-600 hover:bg-blue-700">
+                        <Button
+                            type="primary"
+                            htmlType="submit"
+                            size="large"
+                            loading={isLoading}
+                            className="bg-blue-600 hover:bg-blue-700"
+                        >
                             Thêm Nhân Viên
                         </Button>
                     </div>
