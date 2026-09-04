@@ -108,17 +108,17 @@ export const checkIn = asyncHandler(async (req, res) => {
   // KIỂM TRA NHÂN VIÊN ĐƯỢC PHÂN CÔNG
   // ===============================
 
-  // Tài xế
+  // Tài xế (field "staff" trong trip model)
   const isDriver =
-    trip.driver &&
-    trip.driver.toString() === staffId;
-
-  // Phụ xe
-  const isStaff =
     trip.staff &&
     trip.staff.toString() === staffId;
 
-  if (!isDriver && !isStaff) {
+  // Phụ xe (field "assistantDriver" trong trip model)
+  const isAssistantDriver =
+    trip.assistantDriver &&
+    trip.assistantDriver.toString() === staffId;
+
+  if (!isDriver && !isAssistantDriver) {
     return res.status(403).json({
       success: false,
       message: "Bạn không được phân công cho chuyến xe này",
@@ -142,7 +142,7 @@ export const checkIn = asyncHandler(async (req, res) => {
   // KIỂM TRA TRẠNG THÁI CHUYẾN
   // ===============================
 
-  if (trip.status === "đang chạy") {
+  if (isDriver && trip.status === "đang chạy") {
     return res.status(400).json({
       success: false,
       message: "Xe đang chạy, không thể chấm công!",
@@ -255,6 +255,15 @@ export const checkIn = asyncHandler(async (req, res) => {
     proofImage,
   });
 
+  // ===============================
+  // CẬP NHẬT TRẠNG THÁI CHUYẾN XE
+  // SẮP CHẠY -> ĐANG CHẠY
+  // ===============================
+
+  if (isDriver && trip.status === "sắp chạy") {
+    await Trip.findByIdAndUpdate(tripId, { status: "đang chạy" });
+  }
+
   return res.status(201).json({
     success: true,
     message: "Check-in thành công!",
@@ -294,6 +303,10 @@ export const checkOut = asyncHandler(async (req, res) => {
     });
   }
 
+  // Kiểm tra trip để xác định vai trò
+  const trip = await Trip.findById(tripId);
+  const isDriver = trip && trip.staff && trip.staff.toString() === staffId;
+
   // ===============================
   // CHƯA CHECK-IN
   // ===============================
@@ -315,6 +328,15 @@ export const checkOut = asyncHandler(async (req, res) => {
   attendance.status = "checked_out";
 
   await attendance.save();
+
+  // ===============================
+  // CẬP NHẬT TRẠNG THÁI CHUYẺN XE
+  // ĐANG CHẠY -> HOÀN THÀNH
+  // ===============================
+
+  if (isDriver && trip && trip.status === "đang chạy") {
+    await Trip.findByIdAndUpdate(tripId, { status: "hoàn thành" });
+  }
 
   return res.json({
     success: true,

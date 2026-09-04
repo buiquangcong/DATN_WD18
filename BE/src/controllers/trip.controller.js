@@ -13,34 +13,15 @@ const updateTripStatus = async () => {
 
   // ==============================
   // Sắp chạy -> Đang chạy
+  // KHÔNG tự động theo giờ nữa.
+  // Chỉ tài xế check-in mới kích hoạt (xem attendance.controller.js)
   // ==============================
-  await Trip.updateMany(
-    {
-      departureTime: { $lte: now },
-      arrivalTime: { $gt: now },
-      status: "sắp chạy",
-    },
-    {
-      $set: {
-        status: "đang chạy",
-      },
-    }
-  );
 
   // ==============================
   // Đang chạy -> Hoàn thành
+  // KHÔNG tự động theo giờ nữa.
+  // Chỉ tài xế check-out mới kích hoạt (xem attendance.controller.js)
   // ==============================
-  await Trip.updateMany(
-    {
-      arrivalTime: { $lte: now },
-      status: "đang chạy",
-    },
-    {
-      $set: {
-        status: "hoàn thành",
-      },
-    }
-  );
 };
 export const getAll = asyncHandler(async (req, res) => {
   await updateTripStatus();
