@@ -5,28 +5,45 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 
-// Multer config for attendance proof images
+// ===============================
+// MULTER CONFIG - UPLOAD ẢNH
+// ===============================
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const dir = "uploads/attendance";
+
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
+
     cb(null, dir);
   },
+
   filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    const uniqueSuffix =
+      Date.now() + "-" + Math.round(Math.random() * 1e9);
+
     cb(null, uniqueSuffix + path.extname(file.originalname));
   },
 });
 
 export const uploadProofImage = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+  },
+
   fileFilter: (req, file, cb) => {
     const allowedTypes = /jpeg|jpg|png|webp/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+
+    const extname = allowedTypes.test(
+      path.extname(file.originalname).toLowerCase()
+    );
+
     const mimetype = allowedTypes.test(file.mimetype);
+
     if (extname && mimetype) {
       cb(null, true);
     } else {
@@ -35,15 +52,33 @@ export const uploadProofImage = multer({
   },
 }).single("proofImage");
 
-// Lấy toàn bộ danh sách chấm công
+// ===============================
+// LẤY TOÀN BỘ CHẤM CÔNG
+// ===============================
+
 export const getAll = asyncHandler(async (req, res) => {
-  const records = await Attendance.find();
+  const records = await Attendance.find()
+    .populate("staff")
+    .populate({
+      path: "trip",
+      populate: [
+        { path: "journey" },
+        { path: "bus" },
+      ],
+    })
+    .sort({ createdAt: -1 });
+
   return res.json({
     success: true,
     data: records,
   });
 });
-// Check-in: Tài xế bắt đầu ca làm việc cho 1 chuyến
+
+// ===============================
+// CHECK-IN
+// Dùng cho cả TÀI XẾ và PHỤ XE
+// ===============================
+
 export const checkIn = asyncHandler(async (req, res) => {
   const { staffId, tripId } = req.body;
 
@@ -54,8 +89,13 @@ export const checkIn = asyncHandler(async (req, res) => {
     });
   }
 
-  // Kiểm tra chuyến xe tồn tại và thuộc về tài xế này
-  const trip = await Trip.findById(tripId).populate("journey").populate("bus");
+  // ===============================
+  // KIỂM TRA CHUYẾN XE
+  // ===============================
+
+  const trip = await Trip.findById(tripId)
+    .populate("journey")
+    .populate("bus");
 
   if (!trip) {
     return res.status(404).json({
@@ -64,22 +104,44 @@ export const checkIn = asyncHandler(async (req, res) => {
     });
   }
 
-  if (trip.staff.toString() !== staffId) {
+  // ===============================
+  // KIỂM TRA NHÂN VIÊN ĐƯỢC PHÂN CÔNG
+  // ===============================
+
+  // Tài xế
+  const isDriver =
+    trip.driver &&
+    trip.driver.toString() === staffId;
+
+  // Phụ xe
+  const isStaff =
+    trip.staff &&
+    trip.staff.toString() === staffId;
+
+  if (!isDriver && !isStaff) {
     return res.status(403).json({
       success: false,
-      message: "Chuyến xe này không được phân công cho bạn",
+      message: "Bạn không được phân công cho chuyến xe này",
     });
   }
 
-  // Kiểm tra tài xế đã xác nhận chạy chuyến chưa
-  if (!trip.driverConfirmed) {
+  // ===============================
+  // NẾU LÀ TÀI XẾ
+  // PHẢI XÁC NHẬN CHẠY CHUYẾN
+  // ===============================
+
+  if (isDriver && !trip.driverConfirmed) {
     return res.status(400).json({
       success: false,
-      message: "Bạn phải xác nhận chạy chuyến trước khi chấm công!",
+      message:
+        "Bạn phải xác nhận chạy chuyến trước khi chấm công!",
     });
   }
 
-  // Kiểm tra xe đang chạy thì không được chấm công
+  // ===============================
+  // KIỂM TRA TRẠNG THÁI CHUYẾN
+  // ===============================
+
   if (trip.status === "đang chạy") {
     return res.status(400).json({
       success: false,
@@ -87,63 +149,124 @@ export const checkIn = asyncHandler(async (req, res) => {
     });
   }
 
-  // Kiểm tra chỉ được chấm công trước giờ khởi hành 15 phút
-  const now = new Date();
-  const departureTime = new Date(trip.departureTime);
-  const diffMs = departureTime.getTime() - now.getTime();
-  const diffMinutes = diffMs / (1000 * 60);
-
-  if (diffMinutes > 15) {
-    const allowTime = new Date(departureTime.getTime() - 15 * 60 * 1000);
+  if (trip.status === "hoàn thành") {
     return res.status(400).json({
       success: false,
-      message: `Chưa đến giờ chấm công! Bạn chỉ được chấm công trước giờ khởi hành 15 phút (từ ${allowTime.toLocaleString("vi-VN")})`,
+      message: "Chuyến xe đã hoàn thành!",
     });
   }
 
+  if (trip.status === "huỷ") {
+    return res.status(400).json({
+      success: false,
+      message: "Chuyến xe đã bị huỷ!",
+    });
+  }
+
+  // ===============================
+  // KIỂM TRA THỜI GIAN CHECK-IN
+  // CHỈ ĐƯỢC CHECK-IN TRƯỚC GIỜ ĐI 15 PHÚT
+  // ===============================
+
+  const now = new Date();
+
+  const departureTime = new Date(
+    trip.departureTime
+  );
+
+  const diffMs =
+    departureTime.getTime() - now.getTime();
+
+  const diffMinutes =
+    diffMs / (1000 * 60);
+
+  // Còn hơn 15 phút mới chạy
+  if (diffMinutes > 15) {
+    const allowTime = new Date(
+      departureTime.getTime() -
+        15 * 60 * 1000
+    );
+
+    return res.status(400).json({
+      success: false,
+      message: `Chưa đến giờ chấm công! Bạn chỉ được chấm công từ ${allowTime.toLocaleString(
+        "vi-VN"
+      )}`,
+    });
+  }
+
+  // Quá 15 phút sau giờ khởi hành
   if (diffMinutes < -15) {
     return res.status(400).json({
       success: false,
-      message: "Đã quá giờ khởi hành 15 phút, không thể chấm công!",
+      message:
+        "Đã quá giờ khởi hành 15 phút, không thể chấm công!",
     });
   }
 
-  // Yêu cầu upload ảnh minh chứng
+  // ===============================
+  // BẮT BUỘC UPLOAD ẢNH
+  // ===============================
+
   if (!req.file) {
     return res.status(400).json({
       success: false,
-      message: "Vui lòng tải lên ảnh minh chứng để chấm công!",
+      message:
+        "Vui lòng tải lên ảnh minh chứng để chấm công!",
     });
   }
 
-  // Kiểm tra đã chấm công chưa
-  const existing = await Attendance.findOne({ staff: staffId, trip: tripId });
+  // ===============================
+  // KIỂM TRA ĐÃ CHECK-IN CHƯA
+  // ===============================
+
+  const existing = await Attendance.findOne({
+    staff: staffId,
+    trip: tripId,
+  });
 
   if (existing) {
     return res.status(400).json({
       success: false,
-      message: "Bạn đã chấm công cho chuyến xe này rồi",
+      message:
+        "Bạn đã check-in cho chuyến xe này rồi",
     });
   }
 
+  // ===============================
+  // LƯU ẢNH
+  // ===============================
+
   const proofImage = `/${req.file.path}`;
+
+  // ===============================
+  // TẠO BẢN GHI CHẤM CÔNG
+  // ===============================
 
   const attendance = await Attendance.create({
     staff: staffId,
     trip: tripId,
+
     checkInTime: new Date(),
+
+    // Khi mới tạo => đã check-in
     status: "checked_in",
+
     proofImage,
   });
 
   return res.status(201).json({
     success: true,
-    message: "Chấm công thành công!",
+    message: "Check-in thành công!",
     data: attendance,
   });
 });
 
-// Check-out: Tài xế kết thúc ca làm việc cho 1 chuyến
+// ===============================
+// CHECK-OUT
+// Dùng cho cả TÀI XẾ và PHỤ XE
+// ===============================
+
 export const checkOut = asyncHandler(async (req, res) => {
   const { staffId, tripId } = req.body;
 
@@ -154,24 +277,43 @@ export const checkOut = asyncHandler(async (req, res) => {
     });
   }
 
-  const attendance = await Attendance.findOne({ staff: staffId, trip: tripId });
+  // ===============================
+  // TÌM BẢN GHI CHẤM CÔNG
+  // ===============================
+
+  const attendance = await Attendance.findOne({
+    staff: staffId,
+    trip: tripId,
+  });
 
   if (!attendance) {
     return res.status(404).json({
       success: false,
-      message: "Bạn chưa chấm công cho chuyến xe này",
+      message:
+        "Bạn chưa check-in cho chuyến xe này",
     });
   }
 
-  if (attendance.status === "checked_out") {
+  // ===============================
+  // CHƯA CHECK-IN
+  // ===============================
+
+  if (attendance.status !== "checked_in") {
     return res.status(400).json({
       success: false,
-      message: "Bạn đã check-out cho chuyến xe này rồi",
+      message:
+        "Bạn chưa check-in nên không thể check-out!",
     });
   }
 
+  // ===============================
+  // CHECK-OUT
+  // ===============================
+
   attendance.checkOutTime = new Date();
+
   attendance.status = "checked_out";
+
   await attendance.save();
 
   return res.json({
@@ -181,14 +323,22 @@ export const checkOut = asyncHandler(async (req, res) => {
   });
 });
 
-// Lấy lịch sử chấm công theo staff
+// ===============================
+// LẤY LỊCH SỬ CHẤM CÔNG THEO STAFF
+// ===============================
+
 export const getByStaff = asyncHandler(async (req, res) => {
   const { staffId } = req.params;
 
-  const records = await Attendance.find({ staff: staffId })
+  const records = await Attendance.find({
+    staff: staffId,
+  })
     .populate({
       path: "trip",
-      populate: [{ path: "journey" }, { path: "bus" }],
+      populate: [
+        { path: "journey" },
+        { path: "bus" },
+      ],
     })
     .sort({ createdAt: -1 });
 
@@ -198,36 +348,67 @@ export const getByStaff = asyncHandler(async (req, res) => {
   });
 });
 
-// Lấy trạng thái chấm công theo chuyến xe
+// ===============================
+// LẤY CHẤM CÔNG THEO CHUYẾN
+// ===============================
+
 export const getByTrip = asyncHandler(async (req, res) => {
   const { tripId } = req.params;
 
-  const record = await Attendance.findOne({ trip: tripId }).populate("staff");
+  const records = await Attendance.find({
+    trip: tripId,
+  })
+    .populate("staff")
+    .populate({
+      path: "trip",
+      populate: [
+        { path: "journey" },
+        { path: "bus" },
+      ],
+    });
 
   return res.json({
     success: true,
-    data: record,
+    data: records,
   });
 });
 
-// Lấy trạng thái chấm công của 1 tài xế cho nhiều chuyến (theo danh sách tripIds)
-export const getByStaffTrips = asyncHandler(async (req, res) => {
-  const { staffId } = req.params;
+// ===============================
+// LẤY TRẠNG THÁI CHẤM CÔNG
+// CỦA 1 STAFF CHO NHIỀU CHUYẾN
+// ===============================
 
-  const records = await Attendance.find({ staff: staffId });
+export const getByStaffTrips = asyncHandler(
+  async (req, res) => {
+    const { staffId } = req.params;
 
-  // Trả về dạng map { tripId: status }
-  const map = {};
-  records.forEach((r) => {
-    map[r.trip.toString()] = {
-      status: r.status,
-      checkInTime: r.checkInTime,
-      checkOutTime: r.checkOutTime,
-    };
-  });
+    const records = await Attendance.find({
+      staff: staffId,
+    });
 
-  return res.json({
-    success: true,
-    data: map,
-  });
-});
+    // Dạng:
+    // {
+    //   tripId: {
+    //      status,
+    //      checkInTime,
+    //      checkOutTime
+    //   }
+    // }
+
+    const map = {};
+
+    records.forEach((r) => {
+      map[r.trip.toString()] = {
+        status: r.status,
+        checkInTime: r.checkInTime,
+        checkOutTime: r.checkOutTime,
+        proofImage: r.proofImage,
+      };
+    });
+
+    return res.json({
+      success: true,
+      data: map,
+    });
+  }
+);

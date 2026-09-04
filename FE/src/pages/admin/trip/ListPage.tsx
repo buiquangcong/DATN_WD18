@@ -82,7 +82,7 @@ interface TripType {
   journey: JourneyType;
   bus: BusType;
   staff: staffType;
-  assistant: staffType;
+  assistantDriver: staffType;
   fareRule: FareRuleType;
   departureTime: string;
   ticketPrice: number;
@@ -91,10 +91,9 @@ interface TripType {
   driverConfirmed?: boolean;
   driverConfirmedAt?: string;
 
-    // Phụ xe
-  assistantConfirmed?: boolean;
-  assistantConfirmedAt?: string;
-
+  // Phụ xe
+  assistantDriverConfirmed?: boolean;
+  assistantDriverConfirmedAt?: string;
   seats: {
     seatCode: string;
     status: "AVAILABLE" | "HOLDING" | "BOOKED";
@@ -260,10 +259,10 @@ function TripListPage() {
         playBeep(true);
         const journeyDi = bookingData.trip?.journey?.diemDi || "Chưa rõ";
         const journeyDen = bookingData.trip?.journey?.diemDen || "Chưa rõ";
-        const departureTime = bookingData.trip?.departureTime 
-          ? new Date(bookingData.trip.departureTime).toLocaleString("vi-VN") 
+        const departureTime = bookingData.trip?.departureTime
+          ? new Date(bookingData.trip.departureTime).toLocaleString("vi-VN")
           : "Chưa rõ";
-        
+
         Modal.error({
           title: "Sai chuyến xe!",
           content: (
@@ -292,7 +291,7 @@ function TripListPage() {
       }
 
       await stopScanner(instance);
-      
+
       await axios.put(`http://localhost:3000/api/booking/update/${bookingData._id}`, {
         status: "Đã checkin"
       });
@@ -305,7 +304,7 @@ function TripListPage() {
       setIsScannerOpen(false);
     } catch (err: any) {
       console.error("Lỗi khi quét hoặc check-in vé:", err);
-      
+
       const searchCode = bookingId.trim();
       if (/^\d+$/.test(searchCode)) {
         try {
@@ -323,8 +322,8 @@ function TripListPage() {
               playBeep(true);
               const journeyDi = foundBooking.trip?.journey?.diemDi || "Chưa rõ";
               const journeyDen = foundBooking.trip?.journey?.diemDen || "Chưa rõ";
-              const departureTime = foundBooking.trip?.departureTime 
-                ? new Date(foundBooking.trip.departureTime).toLocaleString("vi-VN") 
+              const departureTime = foundBooking.trip?.departureTime
+                ? new Date(foundBooking.trip.departureTime).toLocaleString("vi-VN")
                 : "Chưa rõ";
 
               Modal.error({
@@ -354,7 +353,7 @@ function TripListPage() {
             }
 
             await stopScanner(instance);
-            
+
             await axios.put(`http://localhost:3000/api/booking/update/${foundBooking._id}`, {
               status: "Đã checkin"
             });
@@ -368,7 +367,7 @@ function TripListPage() {
             setIsScannerOpen(false);
             return;
           }
-        } catch (e) {}
+        } catch (e) { }
       }
       playBeep(true);
       toast.error("Quét vé thất bại. Vé không hợp lệ hoặc lỗi kết nối!");
@@ -392,7 +391,7 @@ function TripListPage() {
             (decodedText) => {
               handleScanSuccess(decodedText, instance);
             },
-            () => {}
+            () => { }
           );
         } catch (err: any) {
           console.error("Lỗi khi start camera:", err);
@@ -445,7 +444,7 @@ function TripListPage() {
       toast.success(`Check-in thành công cho khách hàng ${scannedBooking.user?.username || "NETBUS"}!`);
 
       window.dispatchEvent(new Event("storage"));
-      
+
       setScannedBooking(null);
       setIsScannerOpen(false);
     } catch (error: any) {
@@ -554,7 +553,7 @@ function TripListPage() {
       setTimeout(playBeep, 150);
 
       toast.success(`Check-in thành công cho khách hàng ${customerName}!`);
-      
+
       window.dispatchEvent(new Event("storage"));
 
       if (trip?._id) {
@@ -583,7 +582,7 @@ function TripListPage() {
   };
 
   // Logic lọc dữ liệu
- // Logic lọc dữ liệu
+  // Logic lọc dữ liệu
   const filteredList = list
     ?.filter((item: TripType) => {
       const searchLower = searchText.toLowerCase().trim();
@@ -727,27 +726,69 @@ function TripListPage() {
     },
     // 🟢 SỬA ĐOẠN NÀY: Cột Nhân viên kiểm tra trạng thái thực tế từ attendanceMap
     {
-  title: "Tài xế",
+      title: "Tài xế",
+      render: (_, record) => {
+        const att = attendanceMap[record._id];
+
+        const isCheckedIn =
+          att?.status === "checked_in" ||
+          att?.status === "checked_out" ||
+          Boolean(att?.checkInTime);
+
+        let driverStatus = {
+          text: "Chưa check-in",
+          color: "orange",
+        };
+
+        if (record.status === "huỷ") {
+          driverStatus = {
+            text: "Đã hủy",
+            color: "red",
+          };
+        } else if (isCheckedIn) {
+          driverStatus = {
+            text: "Đã check-in",
+            color: "green",
+          };
+        }
+
+        return (
+          <div className="flex flex-col gap-1">
+            <span>
+              {record.staff?.ten || "Chưa phân công"}
+            </span>
+
+            {record.staff?.ten && (
+              <Tag color={driverStatus.color} className="w-fit text-xs">
+                {driverStatus.text}
+              </Tag>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+  title: "Phụ xe",
   render: (_, record) => {
     const att = attendanceMap[record._id];
 
     const isCheckedIn =
-      att?.status === "checked_in" ||
-      att?.status === "checked_out" ||
-      Boolean(att?.checkInTime);
+      att?.assistantDriverStatus === "checked_in" ||
+      att?.assistantDriverStatus === "checked_out" ||
+      Boolean(att?.assistantDriverCheckInTime);
 
-    let driverStatus = {
+    let assistantStatus = {
       text: "Chưa check-in",
       color: "orange",
     };
 
     if (record.status === "huỷ") {
-      driverStatus = {
+      assistantStatus = {
         text: "Đã hủy",
         color: "red",
       };
     } else if (isCheckedIn) {
-      driverStatus = {
+      assistantStatus = {
         text: "Đã check-in",
         color: "green",
       };
@@ -756,89 +797,63 @@ function TripListPage() {
     return (
       <div className="flex flex-col gap-1">
         <span>
-          {record.staff?.ten || "Chưa phân công"}
+          {record.assistantDriver?.ten || "Chưa phân công"}
         </span>
 
-        {record.staff?.ten && (
-          <Tag color={driverStatus.color} className="w-fit text-xs">
-            {driverStatus.text}
-          </Tag>
-        )}
-      </div>
-    );
-  },
-},
-{
-  title: "Phụ xe",
-  render: (_, record) => {
-    if (record.status === "huỷ") {
-      return (
-        <Tag color="red">
-          Đã hủy
-        </Tag>
-      );
-    }
-
-    return (
-      <div className="flex flex-col gap-1">
-        <span>
-          {record.assistant?.ten || "Chưa phân công"}
-        </span>
-
-        {record.assistant?.ten && (
+        {record.assistantDriver?.ten && (
           <Tag
-            color={
-              record.assistantConfirmed
-                ? "green"
-                : "red"
-            }
+            color={assistantStatus.color}
             className="w-fit text-xs"
           >
-            {record.assistantConfirmed
-              ? "Đã xác nhận"
-              : "Chưa xác nhận"}
+            {assistantStatus.text}
           </Tag>
         )}
       </div>
     );
   },
 },
-   {
-  title: "Xác nhận chuyến",
-  render: (_, record) => {
-    if (record.status === "huỷ") {
-      return <Tag color="default">—</Tag>;
-    }
+    {
+      title: "Xác nhận chuyến",
+      render: (_, record) => {
+        if (record.status === "huỷ") {
+          return <Tag color="default">—</Tag>;
+        }
 
-    const driverConfirmed = record.driverConfirmed === true;
-    const assistantConfirmed = record.assistantConfirmed === true;
+        const driverConfirmed = record.driverConfirmed === true;
+        const assistantConfirmed =
+          record.assistantDriverConfirmed === true;
 
-    if (driverConfirmed && assistantConfirmed) {
-      return (
-        <div className="flex flex-col gap-1">
-          <Tag color="green">✓ Tài xế đã xác nhận</Tag>
-          <Tag color="green">✓ Phụ xe đã xác nhận</Tag>
-        </div>
-      );
-    }
+        if (driverConfirmed && assistantConfirmed) {
+          return (
+            <div className="flex flex-col gap-1">
+              <Tag color="green">
+                ✓ Tài xế đã xác nhận
+              </Tag>
 
-    return (
-      <div className="flex flex-col gap-1">
-        <Tag color={driverConfirmed ? "green" : "red"}>
-          {driverConfirmed
-            ? "✓ Tài xế đã xác nhận"
-            : "✗ Tài xế chưa xác nhận"}
-        </Tag>
+              <Tag color="green">
+                ✓ Phụ xe đã xác nhận
+              </Tag>
+            </div>
+          );
+        }
 
-        <Tag color={assistantConfirmed ? "green" : "red"}>
-          {assistantConfirmed
-            ? "✓ Phụ xe đã xác nhận"
-            : "✗ Phụ xe chưa xác nhận"}
-        </Tag>
-      </div>
-    );
-  },
-},
+        return (
+          <div className="flex flex-col gap-1">
+            <Tag color={driverConfirmed ? "green" : "red"}>
+              {driverConfirmed
+                ? "✓ Tài xế đã xác nhận"
+                : "✗ Tài xế chưa xác nhận"}
+            </Tag>
+
+            <Tag color={assistantConfirmed ? "green" : "red"}>
+              {assistantConfirmed
+                ? "✓ Phụ xe đã xác nhận"
+                : "✗ Phụ xe chưa xác nhận"}
+            </Tag>
+          </div>
+        );
+      },
+    },
     {
       title: "Trạng thái",
       dataIndex: "status",
@@ -861,7 +876,7 @@ function TripListPage() {
             Sửa
           </Button>
 
-          {/* <Popconfirm
+          <Popconfirm
             title="Xoá chuyến xe"
             onConfirm={() => Delete(record._id)}
             okText="Có"
@@ -869,7 +884,7 @@ function TripListPage() {
             okButtonProps={{ danger: true }}
           >
             <Button danger>Xoá</Button>
-          </Popconfirm> */}
+          </Popconfirm>
         </Space>
       ),
     },
@@ -967,12 +982,11 @@ function TripListPage() {
           <div className="mb-4">
             <span className="text-sm font-medium">
               Có{" "}
-              <span className={`font-bold ${
-                selectedStatus === "sắp chạy" ? "text-orange-600" :
+              <span className={`font-bold ${selectedStatus === "sắp chạy" ? "text-orange-600" :
                 selectedStatus === "đang chạy" ? "text-green-600" :
-                selectedStatus === "hoàn thành" ? "text-gray-600" :
-                "text-red-600"
-              }`}>
+                  selectedStatus === "hoàn thành" ? "text-gray-600" :
+                    "text-red-600"
+                }`}>
                 {filteredList?.length || 0}
               </span>
               {" "} chuyến {selectedStatus}
@@ -1162,131 +1176,135 @@ function TripListPage() {
             <Divider />
 
             <div>
-  <h3 className="font-semibold mb-2">
-    Nhân viên phụ trách
-  </h3>
+              <h3 className="font-semibold mb-2">
+                Nhân viên phụ trách
+              </h3>
 
-  <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3">
 
-    {/* TÀI XẾ */}
-    <div className="col-span-2">
-      <p className="text-xs text-gray-400">
-        Tài xế
-      </p>
+                {/* TÀI XẾ */}
+                <div className="col-span-2">
+                  <p className="text-xs text-gray-400">
+                    Tài xế
+                  </p>
 
-      <p className="font-semibold">
-        {trip.staff?.ten || "Chưa phân công"}
-      </p>
-    </div>
+                  <p className="font-semibold">
+                    {trip.staff?.ten || "Chưa phân công"}
+                  </p>
+                </div>
 
-    <div>
-      <p className="text-xs text-gray-400">
-        Email tài xế
-      </p>
-      <p>{trip.staff?.email || "---"}</p>
-    </div>
+                <div>
+                  <p className="text-xs text-gray-400">
+                    Email tài xế
+                  </p>
+                  <p>{trip.staff?.email || "---"}</p>
+                </div>
 
-    <div>
-      <p className="text-xs text-gray-400">
-        SĐT tài xế
-      </p>
-      <p>{trip.staff?.sdt || "---"}</p>
-    </div>
+                <div>
+                  <p className="text-xs text-gray-400">
+                    SĐT tài xế
+                  </p>
+                  <p>{trip.staff?.sdt || "---"}</p>
+                </div>
 
-    <div>
-      <p className="text-xs text-gray-400">
-        Xác nhận tài xế
-      </p>
+                <div>
+                  <p className="text-xs text-gray-400">
+                    Xác nhận tài xế
+                  </p>
 
-      {trip.driverConfirmed ? (
-        <Tag color="green">
-          ✓ Đã xác nhận
-        </Tag>
-      ) : (
-        <Tag color="red">
-          ✗ Chưa xác nhận
-        </Tag>
-      )}
-    </div>
+                  {trip.driverConfirmed ? (
+                    <Tag color="green">
+                      ✓ Đã xác nhận
+                    </Tag>
+                  ) : (
+                    <Tag color="red">
+                      ✗ Chưa xác nhận
+                    </Tag>
+                  )}
+                </div>
 
-    <div>
-      <p className="text-xs text-gray-400">
-        Thời gian xác nhận
-      </p>
+                <div>
+                  <p className="text-xs text-gray-400">
+                    Thời gian xác nhận
+                  </p>
 
-      <p>
-        {trip.driverConfirmedAt
-          ? new Date(
-              trip.driverConfirmedAt
-            ).toLocaleString("vi-VN")
-          : "---"}
-      </p>
-    </div>
+                  <p>
+                    {trip.driverConfirmedAt
+                      ? new Date(
+                        trip.driverConfirmedAt
+                      ).toLocaleString("vi-VN")
+                      : "---"}
+                  </p>
+                </div>
 
 
-    {/* PHỤ XE */}
-    <div className="col-span-2 mt-3 pt-3 border-t">
-      <p className="text-xs text-gray-400">
-        Phụ xe
-      </p>
+                {/* PHỤ XE */}
+                <div className="col-span-2 mt-3 pt-3 border-t">
+                  <p className="text-xs text-gray-400">
+                    Phụ xe
+                  </p>
 
-      <p className="font-semibold">
-        {trip.assistant?.ten || "Chưa phân công"}
-      </p>
-    </div>
+                  <p className="font-semibold">
+                    {trip.assistantDriver?.ten || "Chưa phân công"}
+                  </p>
+                </div>
 
-    <div>
-      <p className="text-xs text-gray-400">
-        Email phụ xe
-      </p>
+                <div>
+                  <p className="text-xs text-gray-400">
+                    Email phụ xe
+                  </p>
 
-      <p>
-        {trip.assistant?.email || "---"}
-      </p>
-    </div>
+                  <p>
+                    {trip.assistantDriver?.email || "---"}
+                  </p>
+                </div>
 
-    <div>
-      <p className="text-xs text-gray-400">
-        SĐT phụ xe
-      </p>
+                <div>
+                  <p className="text-xs text-gray-400">
+                    SĐT phụ xe
+                  </p>
 
-      <p>
-        {trip.assistant?.sdt || "---"}
-      </p>
-    </div>
+                  <p>
+                    {trip.assistantDriver?.sdt || "---"}
+                  </p>
+                </div>
 
-    <div>
-      <p className="text-xs text-gray-400">
-        Xác nhận phụ xe
-      </p>
+                <div>
+                  <p className="text-xs text-gray-400">
+                    Xác nhận phụ xe
+                  </p>
 
-      {trip.assistantConfirmed ? (
-        <Tag color="green">
-          ✓ Đã xác nhận
-        </Tag>
-      ) : (
-        <Tag color="red">
-          ✗ Chưa xác nhận
-        </Tag>
-      )}
-    </div>
+                  {trip.assistantDriverConfirmed ? (
+                    <Tag color="green">
+                      ✓ Đã xác nhận
+                    </Tag>
+                  ) : (
+                    <Tag color="red">
+                      ✗ Chưa xác nhận
+                    </Tag>
+                  )}
+                </div>
 
-    <div>
-      <p className="text-xs text-gray-400">
-        Thời gian xác nhận
-      </p>
+                <div>
+                  <p className="text-xs text-gray-400">
+                    Thời gian xác nhận
+                  </p>
 
-      <p>
-        {trip.assistantConfirmedAt
-          ? new Date(
-              trip.assistantConfirmedAt
-            ).toLocaleString("vi-VN")
-          : "---"}
-      </p>
-    </div>
+                  <p>
+                    {trip.assistantDriverConfirmedAt
+                      ? new Date(
+                        trip.assistantDriverConfirmedAt
+                      ).toLocaleString("vi-VN")
+                      : "---"}
+                  </p>
+                </div>
 
-  </div>
-</div>
+                <div>
+                 
+                </div>
+
+              </div>
+            </div>
           </div>
         )}
       </Modal>
@@ -1444,7 +1462,7 @@ function TripListPage() {
 
               <div className="text-center px-4">
                 <p className="text-xs text-gray-500 font-semibold text-amber-700">
-                  Chuyến hiện tại: {trip?.journey?.diemDi} → {trip?.journey?.diemDen} ({trip?.departureTime ? new Date(trip.departureTime).toLocaleTimeString("vi-VN", {hour: '2-digit', minute:'2-digit'}) : ""})
+                  Chuyến hiện tại: {trip?.journey?.diemDi} → {trip?.journey?.diemDen} ({trip?.departureTime ? new Date(trip.departureTime).toLocaleTimeString("vi-VN", { hour: '2-digit', minute: '2-digit' }) : ""})
                 </p>
                 <p className="text-[11px] text-gray-400 mt-1">
                   Đưa mã QR trên vé khách hàng trước camera. Hệ thống sẽ tự động đối chiếu chuyến xe.
@@ -1473,8 +1491,8 @@ function TripListPage() {
                   <div className="flex justify-between">
                     <span className="text-gray-400">Giờ đi của chuyến:</span>
                     <span className="font-semibold text-gray-700">
-                      {scannedBooking.trip?.departureTime 
-                        ? new Date(scannedBooking.trip.departureTime).toLocaleString("vi-VN") 
+                      {scannedBooking.trip?.departureTime
+                        ? new Date(scannedBooking.trip.departureTime).toLocaleString("vi-VN")
                         : "---"}
                     </span>
                   </div>
@@ -1491,9 +1509,9 @@ function TripListPage() {
                   <div className="flex justify-between items-center pt-2.5 border-t mt-2">
                     <span className="text-gray-400 font-medium">Trạng thái đặt vé:</span>
                     <Tag color={
-                      scannedBooking.status === "Hoàn thành" ? "blue" : 
-                      scannedBooking.status === "Đã xác nhận" ? "green" : 
-                      scannedBooking.status === "Đã huỷ" ? "red" : "orange"
+                      scannedBooking.status === "Hoàn thành" ? "blue" :
+                        scannedBooking.status === "Đã xác nhận" ? "green" :
+                          scannedBooking.status === "Đã huỷ" ? "red" : "orange"
                     }>
                       {scannedBooking.status || "Chờ xác nhận"}
                     </Tag>
@@ -1531,7 +1549,7 @@ function TripListPage() {
                   >
                     Quét Tiếp
                   </Button>
-                  
+
                   {scannedBooking.status !== "Hoàn thành" && scannedBooking.status !== "Đã huỷ" && (
                     <Button
                       type="primary"

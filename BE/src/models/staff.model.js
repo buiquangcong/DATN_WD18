@@ -60,8 +60,8 @@ const staffSchema = new mongoose.Schema(
         },
         trangThai: {
             type: String,
-            enum: ['Đang làm việc', 'Đã nghỉ việc'],
-            default: 'Đang làm việc',
+            enum: ['hoạt động', 'không hoạt động'],
+            default: 'hoạt động',
         },
     },
     {

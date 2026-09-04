@@ -235,9 +235,6 @@ export const checkStaffAvailability = async (
   excludeTripId
 ) => {
 
-  // Tìm tất cả chuyến mà nhân viên này là:
-  // - tài xế
-  // - hoặc phụ xe
   const query = {
     $or: [
       { staff: staffId },
@@ -245,7 +242,6 @@ export const checkStaffAvailability = async (
     ],
   };
 
-  // Khi sửa chuyến thì bỏ qua chính chuyến đó
   if (excludeTripId) {
     query._id = {
       $ne: excludeTripId,
@@ -258,43 +254,24 @@ export const checkStaffAvailability = async (
       departureTime: 1,
     });
 
-
-  // ====================================================
-  // XÁC ĐỊNH NHÂN VIÊN LÀ TÀI XẾ HAY PHỤ XE
-  // ====================================================
-
-  const isAssistant = staffTrips.some(
-    (trip) =>
-      trip.assistantDriver &&
-      trip.assistantDriver.toString() ===
-        staffId.toString()
-  );
-
-  const roleName = isAssistant
-    ? "Phụ xe"
-    : "Tài xế";
-
-
-  // ====================================================
+  // =========================================
   // 1. CHECK TRÙNG GIỜ
-  // ====================================================
+  // =========================================
 
   for (const trip of staffTrips) {
 
-    const oldDeparture = new Date(
-      trip.departureTime
-    );
+    const oldDeparture =
+      new Date(trip.departureTime);
 
-    const oldArrival = new Date(
-      trip.arrivalTime
-    );
+    const oldArrival =
+      new Date(trip.arrivalTime);
 
     const overlap =
       newDeparture < oldArrival &&
       newArrival > oldDeparture;
 
     if (overlap) {
-      return `${roleName} đã có chuyến từ ${oldDeparture.toLocaleString(
+      return `Nhân viên đã có chuyến từ ${oldDeparture.toLocaleString(
         "vi-VN"
       )} đến ${oldArrival.toLocaleString(
         "vi-VN"
@@ -302,118 +279,79 @@ export const checkStaffAvailability = async (
     }
   }
 
-
-  // ====================================================
-  // 2. TÌM CHUYẾN TRƯỚC GẦN NHẤT
-  // ====================================================
+  // =========================================
+  // 2. CHUYẾN TRƯỚC
+  // =========================================
 
   const previous = findPreviousTrip(
     staffTrips,
     newDeparture
   );
 
-
-  // ====================================================
-  // 3. TÌM CHUYẾN SAU GẦN NHẤT
-  // ====================================================
+  // =========================================
+  // 3. CHUYẾN SAU
+  // =========================================
 
   const next = findNextTrip(
     staffTrips,
     newArrival
   );
 
-
-  // ====================================================
+  // =========================================
   // 4. CHECK CHUYẾN TRƯỚC
-  // ====================================================
+  // =========================================
 
   if (previous) {
 
-    const previousArrival = new Date(
-      previous.arrivalTime
-    );
+    const previousArrival =
+      new Date(previous.arrivalTime);
 
     const gapMinutes =
-      (newDeparture - previousArrival) /
-      60000;
+      (newDeparture - previousArrival) / 60000;
 
-
-    // ----------------------------------------------
-    // Nghỉ tối thiểu 30 phút
-    // ----------------------------------------------
-
-    if (
-      gapMinutes < TURN_AROUND_MINUTES
-    ) {
-      return `${roleName} cần nghỉ tối thiểu ${TURN_AROUND_MINUTES} phút sau chuyến trước.`;
+    // Nghỉ tối thiểu
+    if (gapMinutes < TURN_AROUND_MINUTES) {
+      return `Nhân viên cần nghỉ tối thiểu ${TURN_AROUND_MINUTES} phút sau chuyến trước.`;
     }
 
-
-    // ----------------------------------------------
-    // Nghỉ <= 12 tiếng
-    // -> phải ở đúng địa điểm
-    // ----------------------------------------------
-
+    // Kiểm tra vị trí
     if (
-      gapMinutes <=
-        LOCATION_CHECK_MAX_GAP_MINUTES &&
+      gapMinutes <= LOCATION_CHECK_MAX_GAP_MINUTES &&
       previous.journey &&
       newJourney &&
-      previous.journey.diemDen !==
-        newJourney.diemDi
+      previous.journey.diemDen !== newJourney.diemDi
     ) {
-      return `${roleName} đang ở ${previous.journey.diemDen} sau chuyến trước, không thể xuất phát từ ${newJourney.diemDi}.`;
+      return `Nhân viên đang ở ${previous.journey.diemDen} sau chuyến trước, không thể xuất phát từ ${newJourney.diemDi}.`;
     }
   }
 
-
-  // ====================================================
+  // =========================================
   // 5. CHECK CHUYẾN SAU
-  // ====================================================
+  // =========================================
 
   if (next) {
 
-    const nextDeparture = new Date(
-      next.departureTime
-    );
+    const nextDeparture =
+      new Date(next.departureTime);
 
     const gapMinutes =
-      (nextDeparture - newArrival) /
-      60000;
+      (nextDeparture - newArrival) / 60000;
 
-
-    // ----------------------------------------------
-    // Phải còn ít nhất 30 phút
-    // ----------------------------------------------
-
-    if (
-      gapMinutes < TURN_AROUND_MINUTES
-    ) {
-      return `Không đủ ${TURN_AROUND_MINUTES} phút nghỉ trước chuyến tiếp theo của ${roleName.toLowerCase()}.`;
+    // Nghỉ tối thiểu
+    if (gapMinutes < TURN_AROUND_MINUTES) {
+      return `Không đủ ${TURN_AROUND_MINUTES} phút nghỉ trước chuyến tiếp theo.`;
     }
 
-
-    // ----------------------------------------------
-    // Nghỉ <= 12 tiếng
-    // -> phải kết thúc đúng nơi chuyến sau xuất phát
-    // ----------------------------------------------
-
+    // Kiểm tra vị trí
     if (
-      gapMinutes <=
-        LOCATION_CHECK_MAX_GAP_MINUTES &&
+      gapMinutes <= LOCATION_CHECK_MAX_GAP_MINUTES &&
       next.journey &&
       newJourney &&
-      newJourney.diemDen !==
-        next.journey.diemDi
+      newJourney.diemDen !== next.journey.diemDi
     ) {
-      return `Chuyến này kết thúc tại ${newJourney.diemDen}, nhưng chuyến tiếp theo của ${roleName.toLowerCase()} lại xuất phát từ ${next.journey.diemDi}.`;
+      return `Chuyến này kết thúc tại ${newJourney.diemDen}, nhưng chuyến tiếp theo lại xuất phát từ ${next.journey.diemDi}.`;
     }
   }
-
-
-  // ====================================================
-  // NHÂN VIÊN OK
-  // ====================================================
 
   return null;
 };
