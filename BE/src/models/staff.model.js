@@ -47,7 +47,7 @@ const staffSchema = new mongoose.Schema(
         },
         chucVu: {
             type: String,
-            enum: ['Admin', 'Driver', 'Staff'],
+            enum: ['Admin', 'Driver', 'Staff', 'Assistant_Driver'],
             default: 'Staff'
         },
         bangLai: {
