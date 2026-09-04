@@ -41,7 +41,7 @@ export const getOne = asyncHandler(async (req, res) => {
 });
 
 export const updateOne = asyncHandler(async (req, res) => {
-    const { ten, namSinh, gioiTinh, email, sdt, diaChi, image, chucVu, cccd, bangLai, anhBangLai } = req.body;
+    const { ten, namSinh, gioiTinh, email, sdt, diaChi, image, chucVu, cccd, bangLai, anhBangLai, trangThai } = req.body;
     
     const updateData = {};
     
@@ -55,6 +55,7 @@ export const updateOne = asyncHandler(async (req, res) => {
     if (cccd !== undefined) updateData.cccd = cccd;
     if (bangLai !== undefined) updateData.bangLai = bangLai;
     if (anhBangLai !== undefined) updateData.anhBangLai = anhBangLai;
+    if (trangThai !== undefined) updateData.trangThai = trangThai;
 
 
     let finalRole = "";
