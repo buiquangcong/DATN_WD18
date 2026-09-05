@@ -26,7 +26,7 @@ interface BusType {
 const CAPACITY_OPTIONS_MAP: Record<string, number[]> = {
   Sleeper: [34, 40],
   Seater: [7, 8, 9, 16, 29, 45],
-  Limousine: [7, 8, 9, 11, 19],
+  Limousine: [7, 8, 9],
 };
 
 function ListPage() {
