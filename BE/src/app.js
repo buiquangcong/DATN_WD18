@@ -3,6 +3,7 @@ import "dotenv/config";
 import cors from "cors"; 
 import router from "./routers";
 import mongoose from "mongoose";
+import { startTripStatusCron } from "./utils/tripStatusCron.js";
 
 const app = express();
 
@@ -30,6 +31,9 @@ mongoose.connect(
             await mongoose.connection.db.collection('staffs').dropIndex('cccd_1');
             console.log('Đã xóa index cccd_1 cũ thành công');
         } catch (err) {}
+
+        // Khởi động cron job theo dõi trạng thái chuyến xe
+        startTripStatusCron();
     })
     .catch(() => console.log('Kết nối CSDL thất bại'));
 

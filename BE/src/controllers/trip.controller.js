@@ -58,7 +58,7 @@ export const getOne = asyncHandler(async (req, res) => {
 export const getDrivers = asyncHandler(async (req, res) => {
   const drivers = await Staff.find({
     chucVu: "Driver",
-    trangThai: "hoạt động",
+    trangThai: "Hoạt động",
   });
 
   res.json(drivers);
@@ -67,7 +67,7 @@ export const getDrivers = asyncHandler(async (req, res) => {
 export const getAssistantDrivers = asyncHandler(async (req, res) => {
   const assistantDrivers = await Staff.find({
     chucVu: "Assistant_Driver",
-    trangThai: "hoạt động",
+    trangThai: "Hoạt động",
   });
 
   res.json(assistantDrivers);
@@ -210,6 +210,7 @@ export const getAvailableDrivers = asyncHandler(
     // ==================================================
 
     const allDrivers = await Staff.find({
+      trangThai: "Hoạt động",
       chucVu: "Driver",
     });
 
@@ -362,6 +363,7 @@ export const getAvailableAssistantDrivers = asyncHandler(
     const allAssistantDrivers =
       await Staff.find({
         chucVu: "Assistant_Driver",
+        trangThai: "Hoạt động",
       });
 
     const availableAssistantDrivers = [];
@@ -647,7 +649,7 @@ export const createOne = asyncHandler(async (req, res) => {
     }
 
     // Kiểm tra phụ xe còn làm việc
-    if (assistant.trangThai !== "hoạt động") {
+    if (assistant.trangThai !== "Hoạt động") {
       return res.status(400).json({
         message: "Phụ xe hiện không còn làm việc",
       });
@@ -854,7 +856,7 @@ export const updateOne = asyncHandler(async (req, res) => {
     }
 
     // Kiểm tra còn làm việc
-    if (assistant.trangThai !== "hoạt động") {
+    if (assistant.trangThai !== "Hoạt động") {
       return res.status(400).json({
         message:
           "Phụ xe hiện không còn làm việc",
@@ -1041,7 +1043,7 @@ export const createSchedule = asyncHandler(async (req, res) => {
       });
     }
 
-    if (assistant.trangThai !== "hoạt động") {
+    if (assistant.trangThai !== "Hoạt động") {
       return res.status(400).json({
         message:
           "Phụ xe hiện không còn làm việc",

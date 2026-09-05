@@ -258,10 +258,33 @@ export const checkIn = asyncHandler(async (req, res) => {
   // ===============================
   // CẬP NHẬT TRẠNG THÁI CHUYẾN XE
   // SẮP CHẠY -> ĐANG CHẠY
+  // Chỉ chuyển khi tài xế chấm công VÀ đã đến giờ xuất phát
   // ===============================
 
   if (isDriver && trip.status === "sắp chạy") {
-    await Trip.findByIdAndUpdate(tripId, { status: "đang chạy" });
+    const nowTs = new Date().getTime();
+    const departureTs = new Date(trip.departureTime).getTime();
+
+    if (nowTs >= departureTs) {
+      // Đã đến hoặc qua giờ xuất phát -> chuyển sang đang chạy ngay
+      await Trip.findByIdAndUpdate(tripId, { status: "đang chạy" });
+
+      return res.status(201).json({
+        success: true,
+        message: "Check-in thành công! Xe đã chuyển sang trạng thái đang chạy.",
+        data: attendance,
+      });
+    } else {
+      // Chấm công trước giờ xuất phát -> trạng thái vẫn "sắp chạy"
+      // Thông báo cho tài xế biết xe sẽ chạy đúng giờ xuất phát
+      const depStr = new Date(trip.departureTime).toLocaleString("vi-VN");
+
+      return res.status(201).json({
+        success: true,
+        message: `Check-in thành công! Xe sẽ chuyển sang trạng thái đang chạy lúc ${depStr} (giờ xuất phát).`,
+        data: attendance,
+      });
+    }
   }
 
   return res.status(201).json({
