@@ -10,6 +10,7 @@ interface UserType {
   email: string;
   avatar?: string;
   role: "admin" | "user" | "driver" | "staff" | "assistant_driver";
+  status?: boolean;
   createdAt: string;
 }
 
@@ -17,11 +18,11 @@ function UserListPage() {
   const navigate = useNavigate();
   const { list, Delete, isLoading } = useCRUD("tk");
 
-  // State quản lý tìm kiếm và bộ lọc vai trò
   const [searchText, setSearchText] = useState("");
   const [selectedRole, setSelectedRole] = useState<string>("All");
+  const [selectedStatus, setSelectedStatus] = useState<string>("All");
 
-  // Logic lọc danh sách tài khoản
+  // Logic lọc dữ liệu danh sách tài khoản
   const filteredList = list?.filter((item: UserType) => {
     const searchLower = searchText.toLowerCase().trim();
 
@@ -32,14 +33,18 @@ function UserListPage() {
 
     const matchesRole = selectedRole === "All" || item.role === selectedRole;
 
-    return matchesSearch && matchesRole;
+    const matchesStatus =
+      selectedStatus === "All" ||
+      (selectedStatus === "active" ? item.status !== false : item.status === false);
+
+    return matchesSearch && matchesRole && matchesStatus;
   });
 
   const columns: ColumnsType<UserType> = [
     {
       title: "Tên tài khoản",
       dataIndex: "username",
-      render: (username: string) => <strong className="text-gray-800">{username}</strong>,
+      render: (username: string) => <strong className="text-gray-800">{username || "---"}</strong>,
     },
     {
       title: "Email",
@@ -51,16 +56,9 @@ function UserListPage() {
       dataIndex: "avatar",
       render: (avatar: string, record: UserType) =>
         avatar ? (
-          <Avatar
-            src={avatar}
-            size={44}
-            onError={() => true}
-          />
+          <Avatar src={avatar} size={44} onError={() => true} />
         ) : (
-          <Avatar
-            style={{ backgroundColor: "#1890ff" }}
-            size={44}
-          >
+          <Avatar style={{ backgroundColor: "#1890ff" }} size={44}>
             {record.username ? record.username.charAt(0).toUpperCase() : "U"}
           </Avatar>
         ),
@@ -103,22 +101,37 @@ function UserListPage() {
       },
     },
     {
+      title: "Trạng thái",
+      dataIndex: "status",
+      key: "status",
+      render: (status: boolean | undefined) => {
+        const isActive = status !== false;
+        return (
+          <Tag color={isActive ? "green" : "red"}>
+            {isActive ? "Hoạt động" : "Không hoạt động"}
+          </Tag>
+        );
+      },
+    },
+    {
       title: "Ngày tạo",
       dataIndex: "createdAt",
       render: (date: string) => (date ? new Date(date).toLocaleString("vi-VN") : "---"),
     },
     {
       title: "Hành động",
+      key: "action",
       render: (_, record) => (
         <Space>
           <Button
             type="primary"
+            className="bg-emerald-600 hover:bg-emerald-700 border-none rounded-lg font-medium shadow-xs"
             onClick={() => navigate(`/admin/tk/edit/${record._id}`)}
           >
             Sửa
           </Button>
 
-          {/* <Popconfirm
+          <Popconfirm
             title="Xóa tài khoản?"
             description="Bạn có chắc chắn muốn xóa tài khoản này khỏi hệ thống?"
             okText="Có"
@@ -126,8 +139,10 @@ function UserListPage() {
             onConfirm={() => Delete(record._id)}
             okButtonProps={{ danger: true }}
           >
-            <Button danger>Xóa</Button>
-          </Popconfirm> */}
+            <Button danger className="rounded-lg shadow-xs">
+              Xoá
+            </Button>
+          </Popconfirm>
         </Space>
       ),
     },
@@ -135,12 +150,12 @@ function UserListPage() {
 
   return (
     <div className="p-6 w-full space-y-6">
-      {/* HEADER */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Quản Lý Tài Khoản</h1>
           <p className="text-sm text-gray-500">
-            Quản lý danh sách tài khoản người dùng, phân quyền truy cập hệ thống.
+            Quản lý danh sách tài khoản người dùng, phân quyền truy cập và trạng thái hoạt động.
           </p>
         </div>
 
@@ -154,7 +169,7 @@ function UserListPage() {
         </Button>
       </div>
 
-      {/* CARD BỘ LỌC VÀ BẢNG DỮ LIỆU */}
+      {/* Card Bộ Lọc & Bảng dữ liệu */}
       <Card className="shadow-xs border border-gray-100 rounded-xl bg-white">
         <div className="flex flex-col md:flex-row gap-4 mb-6">
           <div className="flex-1">
@@ -167,7 +182,8 @@ function UserListPage() {
               className="w-full"
             />
           </div>
-          <div className="w-full md:w-64">
+
+          <div className="w-full md:w-56">
             <Select
               placeholder="Lọc theo vai trò"
               size="large"
@@ -181,6 +197,21 @@ function UserListPage() {
                 { value: "driver", label: "Tài xế (Driver)" },
                 { value: "assistant_driver", label: "Phụ xe (Assistant Driver)" },
                 { value: "user", label: "Khách hàng (User)" },
+              ]}
+            />
+          </div>
+
+          <div className="w-full md:w-48">
+            <Select
+              placeholder="Lọc theo trạng thái"
+              size="large"
+              className="w-full"
+              defaultValue="All"
+              onChange={(value) => setSelectedStatus(value)}
+              options={[
+                { value: "All", label: "Tất cả trạng thái" },
+                { value: "active", label: "Hoạt động" },
+                { value: "inactive", label: "Không hoạt động" },
               ]}
             />
           </div>

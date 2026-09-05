@@ -3,6 +3,7 @@ import User from "../models/user.model.js";
 import Staff from "../models/staff.model.js";
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 
 // Ánh xạ role bên User sang chucVu tương ứng trong Enum của Staff
 const mapRoleToChucVu = (role) => {
@@ -30,7 +31,7 @@ export const getOne = asyncHandler(async (req, res) => {
 });
 
 export const createOne = asyncHandler(async (req, res) => {
-    const { email, role, username, password, ...rest } = req.body;
+    const { email, role, username, password, status, ...rest } = req.body;
 
     // 1. Kiểm tra xem email đã tồn tại hay chưa
     if (email) {
@@ -40,7 +41,7 @@ export const createOne = asyncHandler(async (req, res) => {
         }
     }
 
-    // 2. Tạo tài khoản User
+    // 2. Tạo tài khoản User (mặc định status là true nếu không truyền)
     let user;
     try {
         user = await User.create({
@@ -49,6 +50,7 @@ export const createOne = asyncHandler(async (req, res) => {
             email,
             password,
             role: role ? String(role).toLowerCase() : "user",
+            status: typeof status === "boolean" ? status : true,
         });
     } catch (userErr) {
         console.error(">>> LỖI TẠO TÀI KHOẢN (USER):", userErr.message);
@@ -58,7 +60,7 @@ export const createOne = asyncHandler(async (req, res) => {
         });
     }
 
-    // 3. Tự tạo Staff nếu thuộc nhóm nhân sự (bọc try-catch riêng để không chặn tạo User)
+    // 3. Tự tạo Staff nếu thuộc nhóm nhân sự (đồng bộ cả trạng thái)
     const targetChucVu = mapRoleToChucVu(user.role);
     if (targetChucVu) {
         try {
@@ -67,6 +69,7 @@ export const createOne = asyncHandler(async (req, res) => {
                 ten: username ? username.split("@")[0] : "Nhân viên mới",
                 email: user.email,
                 chucVu: targetChucVu,
+                trangThai: user.status !== false ? "Hoạt động" : "Không hoạt động", // Đồng bộ trạng thái ban đầu
             });
         } catch (staffErr) {
             console.error("=== CẢNH BÁO: TẠO STAFF TỰ ĐỘNG THẤT BẠI ===");
@@ -86,10 +89,9 @@ export const createOne = asyncHandler(async (req, res) => {
 
 export const updateOne = asyncHandler(async (req, res) => {
     const updateData = { ...req.body };
-    // Loại bỏ password để tránh việc lưu đè chuỗi thô chưa qua băm mật khẩu
     delete updateData.password;
 
-    // 1. Cập nhật bảng User
+    // 1. Cập nhật bảng User (bao gồm cả trạng thái status bật/tắt)
     const user = await User.findByIdAndUpdate(req.params.id, updateData, {
         new: true,
         runValidators: true,
@@ -99,32 +101,33 @@ export const updateOne = asyncHandler(async (req, res) => {
         return res.status(404).json({ message: "Không tìm thấy tài khoản" });
     }
 
-    // 2. Đồng bộ chức vụ sang bảng Staff
+    // 2. Đồng bộ chức vụ và TRẠNG THÁI sang bảng Staff
     const targetChucVu = mapRoleToChucVu(user.role);
 
     try {
         if (targetChucVu) {
-            // Nhóm nhân sự: Admin, Driver, Assistant_Driver, Staff
+            // Chuyển đổi status (boolean) của User thành string enum của Staff
+            const staffTrangThai = user.status !== false ? "Hoạt động" : "Không hoạt động";
+
             const staffUpdatePayload = {
                 ten: user.username ? user.username.split("@")[0] : "Nhân viên",
                 email: user.email,
                 chucVu: targetChucVu,
+                trangThai: staffTrangThai, // Tự động đồng bộ trạng thái
             };
 
-            // Nếu chuyển thành Phụ xe hoặc vai trò khác ngoài Tài xế -> Xóa sạch bằng lái
             if (targetChucVu !== "Driver") {
                 staffUpdatePayload.bangLai = "";
                 staffUpdatePayload.anhBangLai = "";
             }
 
-            // Cập nhật nếu đã có hồ sơ, tự tạo mới nếu trước đó là khách hàng thường
             await Staff.findOneAndUpdate(
                 { userId: user._id },
                 { $set: staffUpdatePayload },
                 { new: true, upsert: true, setDefaultsOnInsert: true }
             );
         } else {
-            // Chuyển về role "user" thông thường -> Xóa hồ sơ Staff
+            // Nếu đổi sang vai trò khách hàng thông thường (User), xóa hồ sơ bên Staff
             await Staff.findOneAndDelete({ userId: user._id });
         }
     } catch (staffErr) {
@@ -144,11 +147,56 @@ export const deleteOne = asyncHandler(async (req, res) => {
         return res.status(404).json({ message: "Không tìm thấy tài khoản để xóa" });
     }
 
-    // Xóa luôn hồ sơ nhân sự liên kết
     await Staff.findOneAndDelete({ userId: req.params.id });
 
     return res.json({
         message: "Xóa tài khoản và hồ sơ nhân viên tương ứng thành công!",
+    });
+});
+
+// ===============================================
+// HÀM ĐĂNG NHẬP (CHẶN NẾU TÀI KHOẢN BỊ KHÓA)
+// ===============================================
+export const login = asyncHandler(async (req, res) => {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+        return res.status(400).json({ message: "Vui lòng nhập đầy đủ email và mật khẩu!" });
+    }
+
+    // 1. Tìm tài khoản
+    const user = await User.findOne({ email });
+    if (!user) {
+        return res.status(401).json({ message: "Email hoặc mật khẩu không chính xác!" });
+    }
+
+    // 2. Kiểm tra mật khẩu
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch && password !== user.password) {
+        return res.status(401).json({ message: "Email hoặc mật khẩu không chính xác!" });
+    }
+
+    // 3. CHẶN ĐĂNG NHẬP NẾU TRẠNG THÁI status === false
+    if (user.status === false) {
+        return res.status(403).json({
+            message: "Tài khoản của bạn đã bị khóa hoặc ngừng hoạt động. Vui lòng liên hệ quản trị viên!",
+        });
+    }
+
+    // 4. Tạo token JWT
+    const token = jwt.sign(
+        { id: user._id, role: user.role },
+        process.env.JWT_SECRET || "SECRET_KEY_NETBUS",
+        { expiresIn: "7d" }
+    );
+
+    const userData = user.toObject();
+    delete userData.password;
+
+    return res.json({
+        message: "Đăng nhập thành công!",
+        token,
+        user: userData,
     });
 });
 

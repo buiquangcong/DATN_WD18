@@ -8,7 +8,7 @@ function UserAddPage() {
   const { Add, isLoading } = useCRUD("tk");
 
   const onFinish = async (values: any) => {
-    // values trả về: { username, email, avatar, password, role }
+    // values trả về: { username, email, avatar, password, role, status }
     await Add(values);
   };
 
@@ -18,7 +18,7 @@ function UserAddPage() {
         <div className="mb-6">
           <h1 className="text-xl font-bold text-gray-800">Thêm tài khoản mới</h1>
           <p className="text-sm text-gray-500">
-            Tạo tài khoản người dùng và phân quyền tương ứng trên hệ thống.
+            Tạo tài khoản người dùng, thiết lập trạng thái và phân quyền tương ứng trên hệ thống.
           </p>
         </div>
 
@@ -26,7 +26,7 @@ function UserAddPage() {
           form={form}
           layout="vertical"
           onFinish={onFinish}
-          initialValues={{ role: "user" }}
+          initialValues={{ role: "user", status: true }}
         >
           <Form.Item
             label="Tên tài khoản"
@@ -124,6 +124,32 @@ function UserAddPage() {
                 {
                   label: "Phụ xe (Assistant Driver)",
                   value: "assistant_driver",
+                },
+              ]}
+            />
+          </Form.Item>
+
+          {/* TRƯỜNG CHỌN TRẠNG THÁI TÀI KHOẢN (CHỮ BÌNH THƯỜNG) */}
+          <Form.Item
+            label="Trạng thái tài khoản"
+            name="status"
+            rules={[
+              {
+                required: true,
+                message: "Vui lòng chọn trạng thái",
+              },
+            ]}
+          >
+            <Select
+              size="large"
+              options={[
+                {
+                  value: true,
+                  label: "Hoạt động",
+                },
+                {
+                  value: false,
+                  label: "Không hoạt động",
                 },
               ]}
             />

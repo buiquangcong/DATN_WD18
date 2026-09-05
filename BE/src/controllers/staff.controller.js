@@ -8,9 +8,9 @@ export const getAll = asyncHandler(async (req, res) => {
     return res.json(staff);
 });
 
-
 export const createOne = asyncHandler(async (req, res) => {
-    const { chucVu, bangLai, anhBangLai } = req.body;
+    const { chucVu, bangLai, anhBangLai, email, trangThai } = req.body;
+
     if (chucVu === "Driver" || chucVu === "Tài xế") {
         if (!bangLai || !bangLai.trim() || !anhBangLai || !anhBangLai.trim()) {
             return res.status(400).json({
@@ -24,10 +24,23 @@ export const createOne = asyncHandler(async (req, res) => {
             });
         }
     }
+
+    // Đồng bộ trạng thái với tài khoản User nếu đã tồn tại
+    if (email) {
+        const linkedUser = await User.findOne({ email });
+        if (linkedUser) {
+            req.body.userId = linkedUser._id;
+            if (trangThai !== undefined) {
+                await User.findByIdAndUpdate(linkedUser._id, {
+                    status: trangThai === "Hoạt động"
+                });
+            }
+        }
+    }
+
     const staff = await Staff.create(req.body);
     return res.status(201).json(staff);
 });
-
 
 export const getOne = asyncHandler(async (req, res) => {
     const staff = await Staff.findById(req.params.id).populate("userId", "-password");
@@ -42,9 +55,9 @@ export const getOne = asyncHandler(async (req, res) => {
 
 export const updateOne = asyncHandler(async (req, res) => {
     const { ten, namSinh, gioiTinh, email, sdt, diaChi, image, chucVu, cccd, bangLai, anhBangLai, trangThai } = req.body;
-    
+
     const updateData = {};
-    
+
     if (ten !== undefined) updateData.ten = ten;
     if (namSinh !== undefined) updateData.namSinh = namSinh;
     if (gioiTinh !== undefined) updateData.gioiTinh = gioiTinh;
@@ -56,7 +69,6 @@ export const updateOne = asyncHandler(async (req, res) => {
     if (bangLai !== undefined) updateData.bangLai = bangLai;
     if (anhBangLai !== undefined) updateData.anhBangLai = anhBangLai;
     if (trangThai !== undefined) updateData.trangThai = trangThai;
-
 
     let finalRole = "";
     if (chucVu) {
@@ -93,31 +105,68 @@ export const updateOne = asyncHandler(async (req, res) => {
         }
     }
 
+    // Cập nhật thông tin nhân viên
     const staff = await Staff.findByIdAndUpdate(
-        req.params.id, 
-        { $set: updateData }, 
-        { 
-            new: true, 
-            runValidators: true 
+        req.params.id,
+        { $set: updateData },
+        {
+            new: true,
+            runValidators: true
         }
     );
 
+    // =========================================================
+    // 🔥 ĐỒNG BỘ TRẠNG THÁI VÀ VAI TRÒ SANG BẢNG USER
+    // =========================================================
+    try {
+        const targetUserId = staff.userId || existingStaff.userId;
+        const userQuery = (targetUserId && mongoose.Types.ObjectId.isValid(targetUserId))
+            ? { _id: targetUserId }
+            : { email: staff.email || existingStaff.email };
+
+        const userUpdatePayload = {};
+
+        // Đồng bộ trạng thái: "Hoạt động" -> true, "Không hoạt động" -> false
+        if (trangThai !== undefined) {
+            userUpdatePayload.status = trangThai === "Hoạt động";
+        }
+
+        // Đồng bộ chức vụ/role nếu có cập nhật
+        if (finalRole) {
+            userUpdatePayload.role = finalRole.toLowerCase();
+        }
+
+        if (Object.keys(userUpdatePayload).length > 0) {
+            const updatedUser = await User.findOneAndUpdate(
+                userQuery,
+                { $set: userUpdatePayload },
+                { new: true }
+            );
+
+            // Nếu staff chưa có userId nhưng tìm được User qua email thì gán ngược lại
+            if (updatedUser && !staff.userId) {
+                await Staff.findByIdAndUpdate(staff._id, { userId: updatedUser._id });
+            }
+        }
+    } catch (syncError) {
+        console.error(">>> Lỗi khi đồng bộ trạng thái sang bảng User:", syncError.message);
+    }
+
     return res.json({
-        message: "Cập nhật thông tin nhân viên thành công!",
+        message: "Cập nhật thông tin nhân viên và đồng bộ tài khoản thành công!",
         data: staff
     });
 });
+
 export const deleteOne = asyncHandler(async (req, res) => {
     const { id } = req.params;
 
-    // 1. Kiểm tra ID nhân viên truyền lên từ URL có đúng chuẩn ObjectId không
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
         return res.status(400).json({
             message: "ID nhân viên gửi lên không đúng định dạng ObjectId MongoDB!"
         });
     }
 
-    // 2. Tìm nhân viên đó trước để lấy thông tin userId (Chưa xóa vội)
     const staff = await Staff.findById(id);
 
     if (!staff) {
@@ -126,25 +175,20 @@ export const deleteOne = asyncHandler(async (req, res) => {
         });
     }
 
-    // 3. Xóa tài khoản User liên kết một cách an toàn (bọc riêng biệt)
     if (staff.userId) {
         try {
-            // Chỉ gọi lệnh xóa nếu userId thực sự là một ObjectId hợp lệ
             if (mongoose.Types.ObjectId.isValid(staff.userId)) {
                 await User.findByIdAndDelete(staff.userId);
             } else {
                 console.warn(`userId của nhân viên này (${staff.userId}) không hợp lệ, bỏ qua việc xóa tài khoản.`);
             }
         } catch (userError) {
-            // Nếu lỗi (ví dụ tài khoản đã bị xóa trước), ta chỉ log ra terminal, không làm crash API
             console.error("Lỗi âm thầm khi xóa tài khoản liên kết:", userError.message);
         }
     }
 
-    // 4. Tiến hành xóa Nhân viên khỏi DB
     await Staff.findByIdAndDelete(id);
 
-    // 5. Trả về thành công rực rỡ với status 200
     return res.status(200).json({
         message: "Xóa nhân viên và tài khoản liên kết thành công!",
         data: staff

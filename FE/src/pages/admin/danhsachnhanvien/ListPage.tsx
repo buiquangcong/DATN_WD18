@@ -17,6 +17,7 @@ interface StaffType {
     chucVu: "Admin" | "Driver" | "Staff" | "Assistant_Driver";
     bangLai?: string;
     anhBangLai?: string;
+    trangThai?: "Hoạt động" | "Không hoạt động";
 }
 
 function ListPage() {
@@ -24,6 +25,7 @@ function ListPage() {
     const { list, Delete, isLoading } = useCRUD("staff");
     const [searchText, setSearchText] = useState("");
     const [selectedChucVu, setSelectedChucVu] = useState<string>("All");
+    const [selectedTrangThai, setSelectedTrangThai] = useState<string>("All");
     const [previewImage, setPreviewImage] = useState("");
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
@@ -37,7 +39,11 @@ function ListPage() {
             item.cccd?.includes(searchLower);
 
         const matchesChucVu = selectedChucVu === "All" || item.chucVu === selectedChucVu;
-        return matchesSearch && matchesChucVu;
+
+        const matchesTrangThai =
+            selectedTrangThai === "All" || item.trangThai === selectedTrangThai;
+
+        return matchesSearch && matchesChucVu && matchesTrangThai;
     });
 
     const columns: ColumnsType<StaffType> = [
@@ -139,29 +145,43 @@ function ListPage() {
             render: (namSinh: string) => <span className="text-gray-600 text-sm">{namSinh || "---"}</span>,
         },
         {
+            title: "Trạng Thái",
+            dataIndex: "trangThai",
+            key: "trangThai",
+            render: (trangThai: string | undefined) => {
+                const isActive = (trangThai || "Hoạt động") === "Hoạt động";
+                return (
+                    <Tag color={isActive ? "green" : "red"}>
+                        {trangThai || "Hoạt động"}
+                    </Tag>
+                );
+            },
+        },
+        {
             title: "Hành Động",
             key: "action",
             render: (_, record) => (
-                <Space size="middle">
+                <Space>
                     <Button
                         type="primary"
+                        className="bg-emerald-600 hover:bg-emerald-700 border-none rounded-lg font-medium shadow-xs"
                         onClick={() => navigate(`/admin/staff/edit/${record._id}`)}
                     >
                         Sửa
                     </Button>
 
-                    {/* <Popconfirm
-            title="Xóa nhân viên này"
-            description="Bạn có chắc chắn muốn xóa nhân viên này khỏi hệ thống?"
-            onConfirm={() => Delete(record._id)}
-            okText="Có"
-            cancelText="Không"
-            okButtonProps={{ danger: true }}
-          >
-            <Button type="primary" danger>
-              Xóa
-            </Button>
-          </Popconfirm> */}
+                    <Popconfirm
+                        title="Xóa nhân viên này"
+                        description="Bạn có chắc chắn muốn xóa nhân viên này khỏi hệ thống?"
+                        onConfirm={() => Delete(record._id)}
+                        okText="Có"
+                        cancelText="Không"
+                        okButtonProps={{ danger: true }}
+                    >
+                        <Button danger className="rounded-lg shadow-xs">
+                            Xóa
+                        </Button>
+                    </Popconfirm>
                 </Space>
             ),
         },
@@ -172,7 +192,7 @@ function ListPage() {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-800">Quản Lý Danh Sách Nhân Viên</h1>
-                    <p className="text-sm text-gray-500">Quản lý thông tin, phân quyền chức vụ của đội ngũ nhân sự.</p>
+                    <p className="text-sm text-gray-500">Quản lý thông tin, phân quyền chức vụ và trạng thái của đội ngũ nhân sự.</p>
                 </div>
                 <Button
                     type="primary"
@@ -190,13 +210,13 @@ function ListPage() {
                         <Input.Search
                             placeholder="Tìm kiếm theo tên, email, số điện thoại hoặc CCCD..."
                             allowClear
+                            size="large"
                             onChange={(e) => setSearchText(e.target.value)}
                             value={searchText}
-                            size="large"
                             className="w-full"
                         />
                     </div>
-                    <div className="w-full md:w-64">
+                    <div className="w-full md:w-56">
                         <Select
                             placeholder="Lọc theo chức vụ"
                             size="large"
@@ -209,6 +229,20 @@ function ListPage() {
                                 { value: "Staff", label: "Nhân viên" },
                                 { value: "Driver", label: "Tài xế" },
                                 { value: "Assistant_Driver", label: "Phụ xe" },
+                            ]}
+                        />
+                    </div>
+                    <div className="w-full md:w-52">
+                        <Select
+                            placeholder="Lọc theo trạng thái"
+                            size="large"
+                            className="w-full"
+                            defaultValue="All"
+                            onChange={(value) => setSelectedTrangThai(value)}
+                            options={[
+                                { value: "All", label: "Tất cả trạng thái" },
+                                { value: "Hoạt động", label: "Hoạt động" },
+                                { value: "Không hoạt động", label: "Không hoạt động" },
                             ]}
                         />
                     </div>

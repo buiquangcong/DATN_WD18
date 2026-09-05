@@ -23,7 +23,10 @@ function EditPage() {
     useEffect(() => {
         const staff = list?.find((item: any) => item._id === id);
         if (staff) {
-            form.setFieldsValue(staff);
+            form.setFieldsValue({
+                ...staff,
+                trangThai: staff.trangThai || "Hoạt động",
+            });
         }
     }, [id, list, form]);
 
@@ -46,7 +49,7 @@ function EditPage() {
                         } else if (payload.anhBangLai) {
                             payload.anhBangLai = getGoogleDriveDirectLink(payload.anhBangLai);
                         }
-                        Edit({ id, ...payload });
+                        Edit({ _id: id, id, ...payload });
                     }}
                     className="space-y-4"
                 >
@@ -102,6 +105,22 @@ function EditPage() {
                                     { value: "Assistant_Driver", label: "Phụ xe" },
                                     { value: "Driver", label: "Tài xế" },
                                     { value: "Admin", label: "Quản trị viên" },
+                                ]}
+                            />
+                        </Form.Item>
+
+                        {/* TRẠNG THÁI: Hoạt động & Không hoạt động */}
+                        <Form.Item
+                            label="Trạng thái"
+                            name="trangThai"
+                            rules={[{ required: true, message: "Vui lòng chọn trạng thái" }]}
+                        >
+                            <Select
+                                placeholder="Chọn trạng thái"
+                                size="large"
+                                options={[
+                                    { value: "Hoạt động", label: "Hoạt động" },
+                                    { value: "Không hoạt động", label: "Không hoạt động" },
                                 ]}
                             />
                         </Form.Item>
