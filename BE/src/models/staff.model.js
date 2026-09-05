@@ -62,15 +62,8 @@ const staffSchema = new mongoose.Schema(
         // ĐỔI SANG "Hoạt động" VÀ "Không hoạt động"
         trangThai: {
             type: String,
-            enum: ["Hoạt động", "Không hoạt động"],
-            default: "Hoạt động",
-            // Linh hoạt: nếu frontend gửi boolean true/false thì tự convert
-            set: (val) => {
-                if (typeof val === "boolean") {
-                    return val ? "Hoạt động" : "Không hoạt động";
-                }
-                return val;
-            },
+            enum: ['hoạt động', 'không hoạt động'],
+            default: 'hoạt động',
         },
     },
     {

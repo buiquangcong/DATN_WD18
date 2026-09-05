@@ -46,16 +46,20 @@ const tripSchema = new mongoose.Schema(
       ref: "Staff",
       required: [true, "Nhân viên điều hành là bắt buộc"],
     },
-
+    assistantDriver: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Staff",
+      default: null,
+    },
     fareRule: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "FareRule",
       required: [true, "Giá vé là bắt buộc"],
     },
     ticketPrice: {
-    type: Number,
-    required: true,
-},
+      type: Number,
+      required: true,
+    },
     departureTime: {
       type: Date,
       required: [true, "Thời gian khởi hành là bắt buộc"],
@@ -80,8 +84,17 @@ const tripSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    assistantDriverConfirmed: {
+      type: Boolean,
+      default: false,
+    },
+
+    assistantDriverConfirmedAt: {
+      type: Date,
+      default: null,
+    },
     seats: [seatStatusSchema],
-  }, 
+  },
   {
     timestamps: true,
     versionKey: false,
