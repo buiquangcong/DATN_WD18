@@ -1,7 +1,9 @@
 import { Router } from "express";
-import {createOne,getAll,getOne,updateOne,deleteOne,changePassword} from "../controllers/tk.controller.js";
+import {createOne, getAll, getOne, updateOne, deleteOne, changePassword, login} from "../controllers/tk.controller.js";
 
 const TkRouter = Router();
+
+TkRouter.post("/login", login);
 
 TkRouter.get("/", getAll);
 TkRouter.get("/:id", getOne);

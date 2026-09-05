@@ -4,33 +4,34 @@ const staffSchema = new mongoose.Schema(
     {
         userId: {
             type: mongoose.Schema.Types.ObjectId,
-            ref: "User", 
-            required: true,
-            unique: true, 
+            ref: "User",
+            required: false,
+            default: null,
         },
         ten: {
             type: String,
-            required: true, 
+            required: [true, "Vui lòng nhập tên nhân viên"],
             trim: true,
         },
         namSinh: {
             type: String,
-            default: null,
+            default: "",
         },
         gioiTinh: {
             type: String,
-            enum: ['Nam', 'Nữ', 'Khác'],
-            default: 'Khác',
+            enum: ["Nam", "Nữ", "Khác"],
+            default: "Nam",
         },
         email: {
             type: String,
-            required: true,
-            // Đảm bảo không tạo trùng Index lỗi nếu chưa xử lý DB
+            required: [true, "Vui lòng nhập email"],
+            trim: true,
+            lowercase: true,
         },
         sdt: {
             type: String,
-            unique: true,
-            sparse: true,
+            default: "",
+            trim: true,
         },
         diaChi: {
             type: String,
@@ -42,13 +43,13 @@ const staffSchema = new mongoose.Schema(
         },
         cccd: {
             type: String,
-            unique: true,
-            sparse: true,
+            default: "",
+            trim: true,
         },
         chucVu: {
             type: String,
-            enum: ['Admin', 'Driver', 'Staff', 'Assistant_Driver'],
-            default: 'Staff'
+            enum: ["Admin", "Driver", "Staff", "Assistant_Driver"],
+            default: "Staff",
         },
         bangLai: {
             type: String,
@@ -58,6 +59,7 @@ const staffSchema = new mongoose.Schema(
             type: String,
             default: "",
         },
+        // ĐỔI SANG "Hoạt động" VÀ "Không hoạt động"
         trangThai: {
             type: String,
             enum: ['hoạt động', 'không hoạt động'],

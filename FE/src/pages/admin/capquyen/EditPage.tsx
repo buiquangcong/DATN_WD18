@@ -17,6 +17,7 @@ function UserEditPage() {
                 email: user.email,
                 role: user.role,
                 avatar: user.avatar,
+                status: user.status !== false, // Mặc định true nếu chưa có
             });
         }
     }, [user, form]);
@@ -46,7 +47,7 @@ function UserEditPage() {
                 <div className="mb-6">
                     <h1 className="text-xl font-bold text-gray-800">Cập nhật tài khoản</h1>
                     <p className="text-sm text-gray-500">
-                        Chỉnh sửa thông tin tài khoản và điều chỉnh phân quyền hệ thống.
+                        Chỉnh sửa thông tin tài khoản, phân quyền và điều chỉnh trạng thái hoạt động.
                     </p>
                 </div>
 
@@ -134,6 +135,32 @@ function UserEditPage() {
                                 {
                                     label: "Phụ xe (Assistant Driver)",
                                     value: "assistant_driver",
+                                },
+                            ]}
+                        />
+                    </Form.Item>
+
+                    {/* TRẠNG THÁI HIỂN THỊ DẠNG CHỮ BÌNH THƯỜNG */}
+                    <Form.Item
+                        label="Trạng thái tài khoản"
+                        name="status"
+                        rules={[
+                            {
+                                required: true,
+                                message: "Vui lòng chọn trạng thái",
+                            },
+                        ]}
+                    >
+                        <Select
+                            size="large"
+                            options={[
+                                {
+                                    value: true,
+                                    label: "Hoạt động",
+                                },
+                                {
+                                    value: false,
+                                    label: "Không hoạt động",
                                 },
                             ]}
                         />
