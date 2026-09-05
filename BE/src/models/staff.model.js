@@ -59,11 +59,22 @@ const staffSchema = new mongoose.Schema(
             type: String,
             default: "",
         },
-        // ĐỔI SANG "Hoạt động" VÀ "Không hoạt động"
         trangThai: {
             type: String,
-            enum: ['hoạt động', 'không hoạt động'],
-            default: 'hoạt động',
+            enum: ["Hoạt động", "Không hoạt động"],
+            default: "Hoạt động",
+            // Tự động xử lý mọi định dạng gửi lên (boolean, chữ hoa, chữ thường)
+            set: (val) => {
+                if (typeof val === "boolean") {
+                    return val ? "Hoạt động" : "Không hoạt động";
+                }
+                if (typeof val === "string") {
+                    const normalized = val.trim().toLowerCase();
+                    if (normalized === "hoạt động" || normalized === "active") return "Hoạt động";
+                    if (normalized === "không hoạt động" || normalized === "inactive") return "Không hoạt động";
+                }
+                return val;
+            },
         },
     },
     {
