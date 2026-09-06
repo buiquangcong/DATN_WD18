@@ -41,6 +41,11 @@ export const navData = [
     icon: renderIcon('solar:map-arrow-square-bold-duotone'),
   },
   {
+    title: 'Cấu hình bến xe',
+    path: '/admin/station/list',
+    icon: renderIcon('solar:point-on-map-bold-duotone'),
+  },
+  {
     title: 'Danh sách tài khoản',
     path: '/admin/tk/list',
     icon: renderIcon('solar:shield-user-bold-duotone'),

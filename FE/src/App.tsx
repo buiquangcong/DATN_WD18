@@ -74,6 +74,7 @@ import ResetPasswordPage from "./pages/client/ResetPassword";
 import HolidayListPage from "./pages/admin/holiday/ListPage";
 import HolidayAddPage from "./pages/admin/holiday/AddPage";
 import HolidayEditPage from "./pages/admin/holiday/EditPage";
+import StationListPage from "./pages/admin/station/ListPage";
 
 
 
@@ -261,6 +262,8 @@ function App() {
               <Route path="journey/list" element={<JourneyListPage />} />
               <Route path="journey/add" element={<JourneyAddPage />} />
               <Route path="journey/edit/:id" element={<JourneyEditPage />} />
+              {/* Cấu hình bến xe */}
+              <Route path="station/list" element={<StationListPage />} />
               {/* <Route path="journey/detail/:id" element={<JourneyDetailPage />} /> */}
 
               <Route path="trip/list" element={<TripListPage />} />
