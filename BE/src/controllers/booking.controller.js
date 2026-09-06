@@ -185,10 +185,22 @@ export const createOne = asyncHandler(async (req, res) => {
     });
 });
 export const updateOne = asyncHandler(async (req, res) => {
+    const bookingObj = await Booking.findById(req.params.id);
+    if (!bookingObj) {
+        return res.status(404).json({ message: "Không tìm thấy đơn đặt vé" });
+    }
+
+    // Nếu đơn vé đã ở trạng thái Đã check-in, không cho phép sửa đổi trạng thái
+    const isCurrentCheckedIn = bookingObj.status === "Đã check-in" || bookingObj.status === "Đã checkin";
+    if (isCurrentCheckedIn && req.body.status && req.body.status !== bookingObj.status) {
+        return res.status(400).json({
+            message: "Đơn đặt vé đã ở trạng thái đã check-in, không thể sửa trạng thái!",
+        });
+    }
+
     // Nếu chuyển trạng thái sang Đã huỷ hoặc Yêu cầu hoàn tiền, tiến hành giải phóng ghế trong Trip
     if (req.body.status === "Đã huỷ" || req.body.status === "Yêu cầu hoàn tiền") {
-        const bookingObj = await Booking.findById(req.params.id);
-        if (bookingObj && bookingObj.status !== "Đã huỷ" && bookingObj.status !== "Yêu cầu hoàn tiền" && bookingObj.status !== "Đã hoàn tiền") {
+        if (bookingObj.status !== "Đã huỷ" && bookingObj.status !== "Yêu cầu hoàn tiền" && bookingObj.status !== "Đã hoàn tiền") {
             const trip = await Trip.findById(bookingObj.trip);
             if (trip) {
                 trip.seats.forEach((seat) => {
@@ -204,20 +216,17 @@ export const updateOne = asyncHandler(async (req, res) => {
     }
 
     // Nếu chuyển trạng thái sang Đã xác nhận, Đã checkin hoặc Hoàn thành, tiến hành đặt ghế chính thức (BOOKED) trong Trip
-    if (req.body.status === "Đã xác nhận" || req.body.status === "Đã checkin" || req.body.status === "Hoàn thành") {
-        const bookingObj = await Booking.findById(req.params.id);
-        if (bookingObj) {
-            const trip = await Trip.findById(bookingObj.trip);
-            if (trip) {
-                trip.seats.forEach((seat) => {
-                    if (bookingObj.seats.includes(seat.seatCode)) {
-                        seat.status = "BOOKED";
-                        seat.heldBy = null;
-                        seat.expiresAt = null;
-                    }
-                });
-                await trip.save();
-            }
+    if (req.body.status === "Đã xác nhận" || req.body.status === "Đã checkin" || req.body.status === "Đã check-in" || req.body.status === "Hoàn thành") {
+        const trip = await Trip.findById(bookingObj.trip);
+        if (trip) {
+            trip.seats.forEach((seat) => {
+                if (bookingObj.seats.includes(seat.seatCode)) {
+                    seat.status = "BOOKED";
+                    seat.heldBy = null;
+                    seat.expiresAt = null;
+                }
+            });
+            await trip.save();
         }
     }
 
@@ -226,10 +235,6 @@ export const updateOne = asyncHandler(async (req, res) => {
         req.body,
         { new: true }
     );
-
-    if (!booking) {
-        return res.status(404).json({ message: "Không tìm thấy đơn đặt vé" });
-    }
 
     return res.json({
         message: "Cập nhật thành công",

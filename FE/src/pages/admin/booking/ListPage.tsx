@@ -47,6 +47,8 @@ interface BookingType {
   status:
     | "Chờ xác nhận"
     | "Đã xác nhận"
+    | "Đã check-in"
+    | "Đã checkin"
     | "Đã huỷ"
     | "Hoàn thành";
 
@@ -236,6 +238,7 @@ function BookingListPage() {
                 { value: "All", label: "Tất cả trạng thái" },
                 { value: "Chờ xác nhận", label: "Chờ xác nhận" },
                 { value: "Đã xác nhận", label: "Đã xác nhận" },
+                { value: "Đã check-in", label: "Đã check-in" },
                 { value: "Hoàn thành", label: "Hoàn thành" },
                 { value: "Đã huỷ", label: "Đã huỷ" },
               ]}
