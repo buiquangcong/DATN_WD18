@@ -29,12 +29,12 @@ const busSchema = new mongoose.Schema({
     },
     driver: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Driver',
-        required: false
+        ref: "Staff",
+        required: false,
     },
     status: {
         type: String,
-        enum: ['hoạt động', 'bảo trì', 'ngừng hoạt động'],
+        enum: ['hoạt động', 'bảo trì', 'ngừng hoạt động', 'đang làm'],
         default: 'hoạt động'
     }
 }, {

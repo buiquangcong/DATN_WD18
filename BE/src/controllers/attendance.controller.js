@@ -1,6 +1,8 @@
 import asyncHandler from "../utils/asyncHandler.js";
 import Attendance from "../models/attendance.model.js";
 import Trip from "../models/trip.model.js";
+import Staff from "../models/staff.model.js";
+import Bus from "../models/bus.model.js";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -24,7 +26,10 @@ const storage = multer.diskStorage({
     const uniqueSuffix =
       Date.now() + "-" + Math.round(Math.random() * 1e9);
 
-    cb(null, uniqueSuffix + path.extname(file.originalname));
+    cb(
+      null,
+      uniqueSuffix + path.extname(file.originalname)
+    );
   },
 });
 
@@ -47,7 +52,11 @@ export const uploadProofImage = multer({
     if (extname && mimetype) {
       cb(null, true);
     } else {
-      cb(new Error("Chỉ chấp nhận file ảnh (jpg, png, webp)!"));
+      cb(
+        new Error(
+          "Chỉ chấp nhận file ảnh (jpg, png, webp)!"
+        )
+      );
     }
   },
 }).single("proofImage");
@@ -90,6 +99,19 @@ export const checkIn = asyncHandler(async (req, res) => {
   }
 
   // ===============================
+  // KIỂM TRA NHÂN VIÊN
+  // ===============================
+
+  const staff = await Staff.findById(staffId);
+
+  if (!staff) {
+    return res.status(404).json({
+      success: false,
+      message: "Không tìm thấy nhân viên",
+    });
+  }
+
+  // ===============================
   // KIỂM TRA CHUYẾN XE
   // ===============================
 
@@ -108,12 +130,12 @@ export const checkIn = asyncHandler(async (req, res) => {
   // KIỂM TRA NHÂN VIÊN ĐƯỢC PHÂN CÔNG
   // ===============================
 
-  // Tài xế (field "staff" trong trip model)
+  // Tài xế
   const isDriver =
     trip.staff &&
     trip.staff.toString() === staffId;
 
-  // Phụ xe (field "assistantDriver" trong trip model)
+  // Phụ xe
   const isAssistantDriver =
     trip.assistantDriver &&
     trip.assistantDriver.toString() === staffId;
@@ -121,7 +143,8 @@ export const checkIn = asyncHandler(async (req, res) => {
   if (!isDriver && !isAssistantDriver) {
     return res.status(403).json({
       success: false,
-      message: "Bạn không được phân công cho chuyến xe này",
+      message:
+        "Bạn không được phân công cho chuyến xe này",
     });
   }
 
@@ -142,10 +165,10 @@ export const checkIn = asyncHandler(async (req, res) => {
   // KIỂM TRA TRẠNG THÁI CHUYẾN
   // ===============================
 
-  if (isDriver && trip.status === "đang chạy") {
+  if (trip.status === "đang chạy") {
     return res.status(400).json({
       success: false,
-      message: "Xe đang chạy, không thể chấm công!",
+      message: "Chuyến xe đang chạy, không thể chấm công!",
     });
   }
 
@@ -246,27 +269,27 @@ export const checkIn = asyncHandler(async (req, res) => {
   const attendance = await Attendance.create({
     staff: staffId,
     trip: tripId,
-
     checkInTime: new Date(),
-
-    // Khi mới tạo => đã check-in
     status: "checked_in",
-
     proofImage,
   });
 
-  // ===============================
-  // CẬP NHẬT TRẠNG THÁI CHUYẾN XE
-  // SẮP CHẠY -> ĐANG CHẠY
-  // ===============================
-
-  if (isDriver && trip.status === "sắp chạy") {
-    await Trip.findByIdAndUpdate(tripId, { status: "đang chạy" });
-  }
+  // ==================================================
+  // QUAN TRỌNG:
+  // CHECK-IN KHÔNG ĐỔI TRẠNG THÁI NGƯỜI + XE NGAY
+  //
+  // Chỉ khi tới giờ xuất phát:
+  // - Staff -> đang làm
+  // - Bus -> đang làm
+  // - Trip -> đang chạy
+  //
+  // Cron sẽ xử lý phần này.
+  // ==================================================
 
   return res.status(201).json({
     success: true,
-    message: "Check-in thành công!",
+    message:
+      "Check-in thành công! Nhân viên và xe sẽ chuyển sang đang làm khi đến giờ xuất phát.",
     data: attendance,
   });
 });
@@ -282,7 +305,8 @@ export const checkOut = asyncHandler(async (req, res) => {
   if (!staffId || !tripId) {
     return res.status(400).json({
       success: false,
-      message: "Thiếu thông tin staffId hoặc tripId",
+      message:
+        "Thiếu thông tin staffId hoặc tripId",
     });
   }
 
@@ -290,10 +314,11 @@ export const checkOut = asyncHandler(async (req, res) => {
   // TÌM BẢN GHI CHẤM CÔNG
   // ===============================
 
-  const attendance = await Attendance.findOne({
-    staff: staffId,
-    trip: tripId,
-  });
+  const attendance =
+    await Attendance.findOne({
+      staff: staffId,
+      trip: tripId,
+    });
 
   if (!attendance) {
     return res.status(404).json({
@@ -303,12 +328,30 @@ export const checkOut = asyncHandler(async (req, res) => {
     });
   }
 
-  // Kiểm tra trip để xác định vai trò
+  // ===============================
+  // TÌM CHUYẾN XE
+  // ===============================
+
   const trip = await Trip.findById(tripId);
-  const isDriver = trip && trip.staff && trip.staff.toString() === staffId;
+
+  if (!trip) {
+    return res.status(404).json({
+      success: false,
+      message:
+        "Không tìm thấy chuyến xe",
+    });
+  }
 
   // ===============================
-  // CHƯA CHECK-IN
+  // XÁC ĐỊNH CÓ PHẢI TÀI XẾ KHÔNG
+  // ===============================
+
+  const isDriver =
+    trip.staff &&
+    trip.staff.toString() === staffId;
+
+  // ===============================
+  // KIỂM TRA TRẠNG THÁI CHẤM CÔNG
   // ===============================
 
   if (attendance.status !== "checked_in") {
@@ -330,17 +373,51 @@ export const checkOut = asyncHandler(async (req, res) => {
   await attendance.save();
 
   // ===============================
-  // CẬP NHẬT TRẠNG THÁI CHUYẺN XE
+  // NẾU LÀ TÀI XẾ
+  // CẬP NHẬT TRẠNG THÁI NHÂN VIÊN + XE
+  // ===============================
+
+  if (isDriver) {
+    // Tài xế -> Hoạt động
+    await Staff.findByIdAndUpdate(
+      staffId,
+      {
+        trangThai: "Hoạt động",
+      }
+    );
+
+    // Xe -> Hoạt động
+    if (trip.bus) {
+      await Bus.findByIdAndUpdate(
+        trip.bus,
+        {
+          status: "hoạt động",
+        }
+      );
+    }
+  }
+
+  // ===============================
+  // CẬP NHẬT TRẠNG THÁI CHUYẾN XE
   // ĐANG CHẠY -> HOÀN THÀNH
   // ===============================
 
-  if (isDriver && trip && trip.status === "đang chạy") {
-    await Trip.findByIdAndUpdate(tripId, { status: "hoàn thành" });
+  if (
+    isDriver &&
+    trip.status === "đang chạy"
+  ) {
+    await Trip.findByIdAndUpdate(
+      tripId,
+      {
+        status: "hoàn thành",
+      }
+    );
   }
 
   return res.json({
     success: true,
-    message: "Check-out thành công!",
+    message:
+      "Check-out thành công!",
     data: attendance,
   });
 });
@@ -349,73 +426,67 @@ export const checkOut = asyncHandler(async (req, res) => {
 // LẤY LỊCH SỬ CHẤM CÔNG THEO STAFF
 // ===============================
 
-export const getByStaff = asyncHandler(async (req, res) => {
-  const { staffId } = req.params;
+export const getByStaff = asyncHandler(
+  async (req, res) => {
+    const { staffId } = req.params;
 
-  const records = await Attendance.find({
-    staff: staffId,
-  })
-    .populate({
-      path: "trip",
-      populate: [
-        { path: "journey" },
-        { path: "bus" },
-      ],
-    })
-    .sort({ createdAt: -1 });
+    const records =
+      await Attendance.find({
+        staff: staffId,
+      })
+        .populate("trip")
+        .sort({
+          createdAt: -1,
+        });
 
-  return res.json({
-    success: true,
-    data: records,
-  });
-});
+    return res.json({
+      success: true,
+      data: records,
+    });
+  }
+);
 
 // ===============================
 // LẤY CHẤM CÔNG THEO CHUYẾN
 // ===============================
 
-export const getByTrip = asyncHandler(async (req, res) => {
-  const { tripId } = req.params;
+export const getByTrip = asyncHandler(
+  async (req, res) => {
+    const { tripId } = req.params;
 
-  const records = await Attendance.find({
-    trip: tripId,
-  })
-    .populate("staff")
-    .populate({
-      path: "trip",
-      populate: [
-        { path: "journey" },
-        { path: "bus" },
-      ],
+    const records =
+      await Attendance.find({
+        trip: tripId,
+      })
+        .populate("staff")
+        .populate({
+          path: "trip",
+          populate: [
+            { path: "journey" },
+            { path: "bus" },
+          ],
+        });
+
+    return res.json({
+      success: true,
+      data: records,
     });
-
-  return res.json({
-    success: true,
-    data: records,
-  });
-});
+  }
+);
 
 // ===============================
 // LẤY TRẠNG THÁI CHẤM CÔNG
 // CỦA 1 STAFF CHO NHIỀU CHUYẾN
 // ===============================
 
-export const getByStaffTrips = asyncHandler(
-  async (req, res) => {
+export const getByStaffTrips =
+  asyncHandler(async (req, res) => {
     const { staffId } = req.params;
 
-    const records = await Attendance.find({
-      staff: staffId,
-    });
-
-    // Dạng:
-    // {
-    //   tripId: {
-    //      status,
-    //      checkInTime,
-    //      checkOutTime
-    //   }
-    // }
+    const records =
+      await Attendance.find({
+        staff: staffId,
+      });
 
     const map = {};
 
@@ -423,7 +494,8 @@ export const getByStaffTrips = asyncHandler(
       map[r.trip.toString()] = {
         status: r.status,
         checkInTime: r.checkInTime,
-        checkOutTime: r.checkOutTime,
+        checkOutTime:
+          r.checkOutTime,
         proofImage: r.proofImage,
       };
     });
@@ -432,5 +504,4 @@ export const getByStaffTrips = asyncHandler(
       success: true,
       data: map,
     });
-  }
-);
+  });

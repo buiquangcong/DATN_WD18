@@ -1,9 +1,28 @@
 import Trip from "../models/trip.model.js";
+import Attendance from "../models/attendance.model.js";
 
-export const TURN_AROUND_MINUTES = 30;
+// ======================================================
+// CẤU HÌNH
+// ======================================================
 
-// Khoảng nghỉ <= 12 tiếng thì mới kiểm tra vị trí
+// Sau khi check-out phải chờ tối thiểu 10 phút
+export const CHECKOUT_GAP_MINUTES = 10;
+
+// Khoảng cách <= 12 tiếng thì kiểm tra vị trí
 export const LOCATION_CHECK_MAX_GAP_MINUTES = 12 * 60;
+
+
+// ======================================================
+// KIỂM TRA CÙNG NGÀY
+// ======================================================
+
+const isSameDay = (date1, date2) => {
+  return (
+    date1.getFullYear() === date2.getFullYear() &&
+    date1.getMonth() === date2.getMonth() &&
+    date1.getDate() === date2.getDate()
+  );
+};
 
 
 // ======================================================
@@ -14,10 +33,8 @@ const findPreviousTrip = (trips, newDeparture) => {
   let previous = null;
 
   for (const trip of trips) {
-    const departure = new Date(trip.departureTime);
     const arrival = new Date(trip.arrivalTime);
 
-    // Chỉ lấy chuyến đã kết thúc trước giờ xuất phát mới
     if (arrival <= newDeparture) {
       if (
         !previous ||
@@ -42,7 +59,6 @@ const findNextTrip = (trips, newArrival) => {
   for (const trip of trips) {
     const departure = new Date(trip.departureTime);
 
-    // Chỉ lấy chuyến bắt đầu sau khi chuyến mới kết thúc
     if (departure >= newArrival) {
       if (
         !next ||
@@ -58,6 +74,81 @@ const findNextTrip = (trips, newArrival) => {
 
 
 // ======================================================
+// CHECK KHOẢNG CÁCH SAU CHECK-OUT
+// ======================================================
+
+const checkCheckoutGap = async (
+  staffId,
+  tripId,
+  newDeparture,
+  messageType
+) => {
+  const attendance = await Attendance.findOne({
+    staff: staffId,
+    trip: tripId,
+  }).sort({
+    createdAt: -1,
+  });
+
+  // ----------------------------------------------
+  // CHƯA CÓ ATTENDANCE
+  // ----------------------------------------------
+
+  if (!attendance) {
+    return {
+      error: `${messageType} đã được phân công chuyến trước nhưng chưa nhận chuyến.`,
+    };
+  }
+
+  // ----------------------------------------------
+  // ĐÃ CHECK-IN NHƯNG CHƯA CHECK-OUT
+  // ----------------------------------------------
+
+  if (attendance.status === "checked_in") {
+    return {
+      error: `${messageType} vẫn đang thực hiện chuyến trước và chưa check-out.`,
+    };
+  }
+
+  // ----------------------------------------------
+  // ĐÃ CHECK-OUT
+  // ----------------------------------------------
+
+  if (attendance.status === "checked_out") {
+    if (!attendance.checkOutTime) {
+      return {
+        error: `${messageType} đã check-out nhưng không có thời gian check-out.`,
+      };
+    }
+
+    const checkOutTime = new Date(
+      attendance.checkOutTime
+    );
+
+    const gapFromCheckout =
+      (newDeparture - checkOutTime) / 60000;
+
+    // Chưa đủ 10 phút
+    if (gapFromCheckout < CHECKOUT_GAP_MINUTES) {
+      return {
+        error: `${messageType} cần nghỉ ít nhất ${CHECKOUT_GAP_MINUTES} phút sau khi check-out.`,
+      };
+    }
+
+    // Đủ 10 phút
+    return {
+      error: null,
+    };
+  }
+
+  // Trạng thái Attendance không hợp lệ
+  return {
+    error: `${messageType} có trạng thái chấm công không hợp lệ.`,
+  };
+};
+
+
+// ======================================================
 // CHECK XE
 // ======================================================
 
@@ -68,12 +159,11 @@ export const checkBusAvailability = async (
   newArrival,
   excludeTripId
 ) => {
-
   const query = {
     bus: busId,
   };
 
-  // Khi sửa chuyến thì bỏ qua chính nó
+  // Khi sửa chuyến -> bỏ qua chính chuyến đó
   if (excludeTripId) {
     query._id = {
       $ne: excludeTripId,
@@ -88,11 +178,10 @@ export const checkBusAvailability = async (
 
 
   // ====================================================
-  // 1. CHECK TRÙNG / ĐÈ GIỜ
+  // 1. KIỂM TRA TRÙNG / ĐÈ GIỜ
   // ====================================================
 
   for (const trip of busTrips) {
-
     const oldDeparture = new Date(
       trip.departureTime
     );
@@ -116,71 +205,94 @@ export const checkBusAvailability = async (
 
 
   // ====================================================
-  // 2. TÌM ĐÚNG CHUYẾN TRƯỚC GẦN NHẤT
+  // 2. CHỈ XÉT CHUYẾN CÙNG NGÀY
+  // ====================================================
+
+  const sameDayTrips = busTrips.filter((trip) => {
+    const oldDeparture = new Date(
+      trip.departureTime
+    );
+
+    return isSameDay(
+      oldDeparture,
+      newDeparture
+    );
+  });
+
+
+  // ====================================================
+  // 3. TÌM CHUYẾN TRƯỚC
   // ====================================================
 
   const previous = findPreviousTrip(
-    busTrips,
+    sameDayTrips,
     newDeparture
   );
 
 
   // ====================================================
-  // 3. TÌM ĐÚNG CHUYẾN SAU GẦN NHẤT
+  // 4. TÌM CHUYẾN SAU
   // ====================================================
 
   const next = findNextTrip(
-    busTrips,
+    sameDayTrips,
     newArrival
   );
 
 
   // ====================================================
-  // 4. CHECK CHUYẾN TRƯỚC
+  // 5. CHECK CHUYẾN TRƯỚC
   // ====================================================
 
   if (previous) {
-
     const previousArrival = new Date(
       previous.arrivalTime
     );
 
-    const gapMinutes =
-      (newDeparture - previousArrival) / 60000;
-
-
     // ----------------------------------------------
-    // Nghỉ tối thiểu 30 phút
+    // KIỂM TRA TÀI XẾ CỦA CHUYẾN TRƯỚC
     // ----------------------------------------------
 
-    if (gapMinutes < TURN_AROUND_MINUTES) {
-      return `Xe cần nghỉ tối thiểu ${TURN_AROUND_MINUTES} phút sau chuyến trước.`;
+    if (previous.staff) {
+      const checkoutResult =
+        await checkCheckoutGap(
+          previous.staff,
+          previous._id,
+          newDeparture,
+          "Tài xế"
+        );
+
+      if (checkoutResult.error) {
+        return `Xe: ${checkoutResult.error}`;
+      }
     }
 
 
     // ----------------------------------------------
-    // Nghỉ <= 12 tiếng
-    // -> phải ở đúng địa điểm
+    // KIỂM TRA VỊ TRÍ XE
     // ----------------------------------------------
 
+    const gapMinutes =
+      (newDeparture - previousArrival) / 60000;
+
     if (
-      gapMinutes <= LOCATION_CHECK_MAX_GAP_MINUTES &&
+      gapMinutes <=
+        LOCATION_CHECK_MAX_GAP_MINUTES &&
       previous.journey &&
       newJourney &&
-      previous.journey.diemDen !== newJourney.diemDi
+      previous.journey.diemDen !==
+        newJourney.diemDi
     ) {
-
       return `Xe đang ở ${previous.journey.diemDen} sau chuyến trước, không thể xuất phát từ ${newJourney.diemDi}.`;
     }
   }
 
 
   // ====================================================
-  // 5. CHECK CHUYẾN SAU
+  // 6. CHECK CHUYẾN SAU
   // ====================================================
 
   if (next) {
-
     const nextDeparture = new Date(
       next.departureTime
     );
@@ -190,28 +302,23 @@ export const checkBusAvailability = async (
 
 
     // ----------------------------------------------
-    // Phải còn ít nhất 30 phút
-    // ----------------------------------------------
-
-    if (gapMinutes < TURN_AROUND_MINUTES) {
-      return `Không đủ ${TURN_AROUND_MINUTES} phút chuẩn bị trước chuyến tiếp theo của xe.`;
-    }
-
-
-    // ----------------------------------------------
-    // Nghỉ <= 12 tiếng
-    // -> phải kết thúc đúng nơi chuyến sau xuất phát
+    // KIỂM TRA VỊ TRÍ
     // ----------------------------------------------
 
     if (
-      gapMinutes <= LOCATION_CHECK_MAX_GAP_MINUTES &&
+      gapMinutes <=
+        LOCATION_CHECK_MAX_GAP_MINUTES &&
       next.journey &&
       newJourney &&
-      newJourney.diemDen !== next.journey.diemDi
+      newJourney.diemDen !==
+        next.journey.diemDi
     ) {
-
       return `Chuyến này kết thúc tại ${newJourney.diemDen}, nhưng chuyến tiếp theo của xe lại xuất phát từ ${next.journey.diemDi}.`;
     }
+
+    // ----------------------------------------------
+    // KHÔNG CÒN CHECK 30 PHÚT
+    // ----------------------------------------------
   }
 
 
@@ -234,14 +341,18 @@ export const checkStaffAvailability = async (
   newArrival,
   excludeTripId
 ) => {
-
   const query = {
     $or: [
-      { staff: staffId },
-      { assistantDriver: staffId },
+      {
+        staff: staffId,
+      },
+      {
+        assistantDriver: staffId,
+      },
     ],
   };
 
+  // Khi sửa chuyến -> bỏ qua chính chuyến đó
   if (excludeTripId) {
     query._id = {
       $ne: excludeTripId,
@@ -254,17 +365,35 @@ export const checkStaffAvailability = async (
       departureTime: 1,
     });
 
-  // =========================================
-  // 1. CHECK TRÙNG GIỜ
-  // =========================================
 
-  for (const trip of staffTrips) {
+  // ====================================================
+  // 1. CHỈ XÉT CHUYẾN CÙNG NGÀY
+  // ====================================================
 
-    const oldDeparture =
-      new Date(trip.departureTime);
+  const sameDayTrips = staffTrips.filter((trip) => {
+    const oldDeparture = new Date(
+      trip.departureTime
+    );
 
-    const oldArrival =
-      new Date(trip.arrivalTime);
+    return isSameDay(
+      oldDeparture,
+      newDeparture
+    );
+  });
+
+
+  // ====================================================
+  // 2. KIỂM TRA TRÙNG / ĐÈ GIỜ
+  // ====================================================
+
+  for (const trip of sameDayTrips) {
+    const oldDeparture = new Date(
+      trip.departureTime
+    );
+
+    const oldArrival = new Date(
+      trip.arrivalTime
+    );
 
     const overlap =
       newDeparture < oldArrival &&
@@ -279,79 +408,188 @@ export const checkStaffAvailability = async (
     }
   }
 
-  // =========================================
-  // 2. CHUYẾN TRƯỚC
-  // =========================================
+
+  // ====================================================
+  // 3. TÌM CHUYẾN TRƯỚC
+  // ====================================================
 
   const previous = findPreviousTrip(
-    staffTrips,
+    sameDayTrips,
     newDeparture
   );
 
-  // =========================================
-  // 3. CHUYẾN SAU
-  // =========================================
+
+  // ====================================================
+  // 4. TÌM CHUYẾN SAU
+  // ====================================================
 
   const next = findNextTrip(
-    staffTrips,
+    sameDayTrips,
     newArrival
   );
 
-  // =========================================
-  // 4. CHECK CHUYẾN TRƯỚC
-  // =========================================
+
+  // ====================================================
+  // 5. CHECK CHUYẾN TRƯỚC
+  // ====================================================
 
   if (previous) {
+    const previousArrival = new Date(
+      previous.arrivalTime
+    );
 
-    const previousArrival =
-      new Date(previous.arrivalTime);
 
-    const gapMinutes =
-      (newDeparture - previousArrival) / 60000;
+    // ==================================================
+    // XÁC ĐỊNH NHÂN VIÊN LÀ TÀI XẾ HAY PHỤ XE
+    // ==================================================
 
-    // Nghỉ tối thiểu
-    if (gapMinutes < TURN_AROUND_MINUTES) {
-      return `Nhân viên cần nghỉ tối thiểu ${TURN_AROUND_MINUTES} phút sau chuyến trước.`;
+    const isDriver =
+      previous.staff &&
+      previous.staff.toString() ===
+        staffId.toString();
+
+    const isAssistant =
+      previous.assistantDriver &&
+      previous.assistantDriver.toString() ===
+        staffId.toString();
+
+
+    // ==================================================
+    // TÌM ATTENDANCE
+    // ==================================================
+
+    const attendance =
+      await Attendance.findOne({
+        staff: staffId,
+        trip: previous._id,
+      }).sort({
+        createdAt: -1,
+      });
+
+
+    // ==================================================
+    // CHƯA CHECK-IN
+    // ==================================================
+
+    if (!attendance) {
+      return `Nhân viên đã được phân công chuyến lúc ${new Date(
+        previous.departureTime
+      ).toLocaleString(
+        "vi-VN"
+      )} trong ngày hôm nay nhưng chưa nhận chuyến.`;
     }
 
-    // Kiểm tra vị trí
+
+    // ==================================================
+    // ĐÃ CHECK-IN NHƯNG CHƯA CHECK-OUT
+    // ==================================================
+
     if (
-      gapMinutes <= LOCATION_CHECK_MAX_GAP_MINUTES &&
+      attendance.status ===
+      "checked_in"
+    ) {
+      return "Nhân viên vẫn đang thực hiện chuyến trước và chưa check-out.";
+    }
+
+
+    // ==================================================
+    // ĐÃ CHECK-OUT
+    // ==================================================
+
+    if (
+      attendance.status ===
+      "checked_out"
+    ) {
+      if (!attendance.checkOutTime) {
+        return "Nhân viên đã check-out nhưng không có thời gian check-out.";
+      }
+
+      const checkOutTime =
+        new Date(
+          attendance.checkOutTime
+        );
+
+      const gapFromCheckout =
+        (newDeparture -
+          checkOutTime) /
+        60000;
+
+
+      // ----------------------------------------------
+      // CHỈ CẦN 10 PHÚT
+      // ----------------------------------------------
+
+      if (
+        gapFromCheckout <
+        CHECKOUT_GAP_MINUTES
+      ) {
+        return `Nhân viên cần nghỉ ít nhất ${CHECKOUT_GAP_MINUTES} phút sau khi check-out.`;
+      }
+    }
+
+
+    // ==================================================
+    // KIỂM TRA VỊ TRÍ NHÂN VIÊN
+    // ==================================================
+
+    const gapMinutes =
+      (newDeparture -
+        previousArrival) /
+      60000;
+
+    if (
+      gapMinutes <=
+        LOCATION_CHECK_MAX_GAP_MINUTES &&
       previous.journey &&
       newJourney &&
-      previous.journey.diemDen !== newJourney.diemDi
+      previous.journey.diemDen !==
+        newJourney.diemDi
     ) {
       return `Nhân viên đang ở ${previous.journey.diemDen} sau chuyến trước, không thể xuất phát từ ${newJourney.diemDi}.`;
     }
   }
 
-  // =========================================
-  // 5. CHECK CHUYẾN SAU
-  // =========================================
+
+  // ====================================================
+  // 6. CHECK CHUYẾN SAU
+  // ====================================================
 
   if (next) {
-
-    const nextDeparture =
-      new Date(next.departureTime);
+    const nextDeparture = new Date(
+      next.departureTime
+    );
 
     const gapMinutes =
-      (nextDeparture - newArrival) / 60000;
+      (nextDeparture -
+        newArrival) /
+      60000;
 
-    // Nghỉ tối thiểu
-    if (gapMinutes < TURN_AROUND_MINUTES) {
-      return `Không đủ ${TURN_AROUND_MINUTES} phút nghỉ trước chuyến tiếp theo.`;
-    }
 
-    // Kiểm tra vị trí
+    // ----------------------------------------------
+    // KIỂM TRA VỊ TRÍ
+    // ----------------------------------------------
+
     if (
-      gapMinutes <= LOCATION_CHECK_MAX_GAP_MINUTES &&
+      gapMinutes <=
+        LOCATION_CHECK_MAX_GAP_MINUTES &&
       next.journey &&
       newJourney &&
-      newJourney.diemDen !== next.journey.diemDi
+      newJourney.diemDen !==
+        next.journey.diemDi
     ) {
       return `Chuyến này kết thúc tại ${newJourney.diemDen}, nhưng chuyến tiếp theo lại xuất phát từ ${next.journey.diemDi}.`;
     }
+
+
+    // ----------------------------------------------
+    // KHÔNG CÒN CHECK 30 PHÚT
+    // ----------------------------------------------
   }
+
+
+  // ====================================================
+  // NHÂN VIÊN OK
+  // ====================================================
 
   return null;
 };
