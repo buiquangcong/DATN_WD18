@@ -46,6 +46,29 @@ type FareRule = {
 };
 
 // ======================================================
+// LẤY TÊN BẾN XE ĐIỂM ĐÓN & ĐIỂM TRẢ
+// ======================================================
+
+const getJourneyStationText = (item?: Journey | null): string => {
+  if (!item) return "";
+  const pickup = (item.diemDon || [])
+    .map((d: any) => d?.diaDiem || d?.dia_diem)
+    .filter(Boolean)
+    .join(", ");
+  const dropoff = (item.diemTra || [])
+    .map((d: any) => d?.diaDiem || d?.dia_diem)
+    .filter(Boolean)
+    .join(", ");
+
+  if (pickup && dropoff) {
+    return `${pickup} → ${dropoff}`;
+  }
+  if (pickup) return `Đón: ${pickup}`;
+  if (dropoff) return `Trả: ${dropoff}`;
+  return "";
+};
+
+// ======================================================
 // CỘNG PHÚT VÀO GIỜ
 // ======================================================
 
@@ -1109,29 +1132,38 @@ if (
             ]}
           >
             <Select
+              showSearch
+              optionLabelProp="label"
               placeholder="Chọn tuyến"
-              onChange={
-                handleJourneyChange
-              }
+              onChange={handleJourneyChange}
               allowClear
+              filterOption={(input, option) =>
+                String(option?.label || "")
+                  .toLowerCase()
+                  .includes(input.toLowerCase())
+              }
             >
-              {journeys.map(
-                (item) => (
+              {journeys.map((item) => {
+                const stationText = getJourneyStationText(item);
+                return (
                   <Select.Option
-                    key={
-                      item._id
-                    }
-                    value={
-                      item._id
-                    }
+                    key={item._id}
+                    value={item._id}
+                    label={`${item.diemDi} → ${item.diemDen}${stationText ? ` (${stationText})` : ""}`}
                   >
-                    {item.diemDi} →{" "}
-                    {
-                      item.diemDen
-                    }
+                    <div className="flex items-center gap-2 py-0.5 flex-wrap">
+                      <span className="font-medium text-gray-800">
+                        {item.diemDi} → {item.diemDen}
+                      </span>
+                      {stationText && (
+                        <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 font-normal">
+                          ({stationText})
+                        </span>
+                      )}
+                    </div>
                   </Select.Option>
-                )
-              )}
+                );
+              })}
             </Select>
           </Form.Item>
 

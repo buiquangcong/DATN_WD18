@@ -100,6 +100,25 @@ interface TripType {
   }[];
 }
 
+const getJourneyStationText = (item?: JourneyType | null): string => {
+  if (!item) return "";
+  const pickup = (item.diemDon || [])
+    .map((d: any) => d?.diaDiem || d?.dia_diem)
+    .filter(Boolean)
+    .join(", ");
+  const dropoff = (item.diemTra || [])
+    .map((d: any) => d?.diaDiem || d?.dia_diem)
+    .filter(Boolean)
+    .join(", ");
+
+  if (pickup && dropoff) {
+    return `${pickup} → ${dropoff}`;
+  }
+  if (pickup) return `Đón: ${pickup}`;
+  if (dropoff) return `Trả: ${dropoff}`;
+  return "";
+};
+
 function TripListPage() {
   const navigate = useNavigate();
   const { list, Delete } = useCRUD("trip");
@@ -670,11 +689,21 @@ function TripListPage() {
   const columns: ColumnsType<TripType> = [
     {
       title: "Tuyến đường",
-      render: (_, record) => (
-        <strong>
-          {record.journey?.diemDi} → {record.journey?.diemDen}
-        </strong>
-      ),
+      render: (_, record) => {
+        const stationText = getJourneyStationText(record.journey);
+        return (
+          <div className="flex flex-col gap-0.5">
+            <strong className="text-gray-800">
+              {record.journey?.diemDi} → {record.journey?.diemDen}
+            </strong>
+            {stationText && (
+              <span className="text-xs text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 w-fit">
+                {stationText}
+              </span>
+            )}
+          </div>
+        );
+      },
     },
     {
       title: "Xe",
@@ -1062,9 +1091,14 @@ function TripListPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-xs text-gray-400">Tuyến đường</p>
-                <p className="font-medium">
+                <p className="font-medium text-gray-800">
                   {trip.journey?.diemDi} → {trip.journey?.diemDen}
                 </p>
+                {getJourneyStationText(trip.journey) && (
+                  <p className="text-xs text-blue-600 mt-0.5 font-normal">
+                    ({getJourneyStationText(trip.journey)})
+                  </p>
+                )}
               </div>
 
               <div>

@@ -40,6 +40,23 @@ function FareRuleAddPage() {
     Add(values);
   };
 
+  const getJourneyStationText = (item: any): string => {
+    if (!item) return "";
+    const pickup = (item.diemDon || [])
+      .map((d: any) => d?.diaDiem || d?.dia_diem)
+      .filter(Boolean)
+      .join(", ");
+    const dropoff = (item.diemTra || [])
+      .map((d: any) => d?.diaDiem || d?.dia_diem)
+      .filter(Boolean)
+      .join(", ");
+
+    if (pickup && dropoff) return `${pickup} → ${dropoff}`;
+    if (pickup) return `Đón: ${pickup}`;
+    if (dropoff) return `Trả: ${dropoff}`;
+    return "";
+  };
+
   return (
     <div className="p-6">
       <Card>
@@ -57,17 +74,40 @@ function FareRuleAddPage() {
             ]}
           >
             <Select
+              showSearch
+              optionLabelProp="label"
               placeholder="Chọn tuyến"
+              filterOption={(input, option) =>
+                String(option?.label || "")
+                  .toLowerCase()
+                  .includes(input.toLowerCase())
+              }
               onChange={() => {
                 // Reset lại ô sức chứa khi người dùng đổi tuyến đường khác
                 form.setFieldsValue({ capacity: undefined });
               }}
             >
-              {journeys?.map((item: any) => (
-                <Select.Option key={item._id} value={item._id}>
-                  {item.diemDi} → {item.diemDen}
-                </Select.Option>
-              ))}
+              {journeys?.map((item: any) => {
+                const stationText = getJourneyStationText(item);
+                return (
+                  <Select.Option
+                    key={item._id}
+                    value={item._id}
+                    label={`${item.diemDi} → ${item.diemDen}${stationText ? ` (${stationText})` : ""}`}
+                  >
+                    <div className="flex items-center gap-2 py-0.5 flex-wrap">
+                      <span className="font-medium text-gray-800">
+                        {item.diemDi} → {item.diemDen}
+                      </span>
+                      {stationText && (
+                        <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 font-normal">
+                          ({stationText})
+                        </span>
+                      )}
+                    </div>
+                  </Select.Option>
+                );
+              })}
             </Select>
           </Form.Item>
 

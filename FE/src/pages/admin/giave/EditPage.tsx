@@ -46,10 +46,27 @@ function FareRuleEditPage() {
     });
   };
 
+  const getJourneyStationText = (item: any): string => {
+    if (!item) return "";
+    const pickup = (item.diemDon || [])
+      .map((d: any) => d?.diaDiem || d?.dia_diem)
+      .filter(Boolean)
+      .join(", ");
+    const dropoff = (item.diemTra || [])
+      .map((d: any) => d?.diaDiem || d?.dia_diem)
+      .filter(Boolean)
+      .join(", ");
+
+    if (pickup && dropoff) return `${pickup} → ${dropoff}`;
+    if (pickup) return `Đón: ${pickup}`;
+    if (dropoff) return `Trả: ${dropoff}`;
+    return "";
+  };
+
   return (
-    <div className="p-6 max-w-3xl">
+    <div className="p-6">
       <Card>
-        <h1 className="text-2xl font-semibold mb-6">Chỉnh Sửa Giá Vé</h1>
+        <h1 className="text-2xl font-semibold mb-6">Sửa giá vé</h1>
         <Form form={form} layout="vertical" onFinish={onFinish}>
           {/* Tuyến đường - khóa không cho sửa, vì đây là 1 phần khóa định danh
               bảng giá (journey + capacity), sửa sẽ làm sai lệch các chuyến cũ
@@ -65,12 +82,28 @@ function FareRuleEditPage() {
             ]}
           // extra="Không thể đổi tuyến đường của bảng giá đã tồn tại. Nếu cần áp dụng cho tuyến khác, hãy tạo bảng giá mới."
           >
-            <Select disabled placeholder="Chọn tuyến">
-              {journeys?.map((item: any) => (
-                <Select.Option key={item._id} value={item._id}>
-                  {item.diemDi} → {item.diemDen}
-                </Select.Option>
-              ))}
+            <Select disabled optionLabelProp="label" placeholder="Chọn tuyến">
+              {journeys?.map((item: any) => {
+                const stationText = getJourneyStationText(item);
+                return (
+                  <Select.Option
+                    key={item._id}
+                    value={item._id}
+                    label={`${item.diemDi} → ${item.diemDen}${stationText ? ` (${stationText})` : ""}`}
+                  >
+                    <div className="flex items-center gap-2 py-0.5 flex-wrap">
+                      <span className="font-medium text-gray-800">
+                        {item.diemDi} → {item.diemDen}
+                      </span>
+                      {stationText && (
+                        <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 font-normal">
+                          ({stationText})
+                        </span>
+                      )}
+                    </div>
+                  </Select.Option>
+                );
+              })}
             </Select>
           </Form.Item>
 
