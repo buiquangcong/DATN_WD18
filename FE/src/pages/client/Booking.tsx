@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { Card, Row, Col, Button, Space, Typography, message, Spin, Alert, Flex } from "antd";
+import { Card, Row, Col, Button, Space, Typography, message, Spin, Alert, Flex, Tooltip, Tag, Segmented } from "antd";
 import { ArrowLeftOutlined, CheckCircleOutlined } from "@ant-design/icons";
 import { ClientLayout } from "./layout";
 
@@ -49,6 +49,7 @@ export default function BookingSeats(): React.ReactElement {
     const [bookingLoading, setBookingLoading] = useState<boolean>(false); 
     const [chosenSeatCodes, setChosenSeatCodes] = useState<string[]>([]);
     const [activeFloor, setActiveFloor] = useState<number>(1);
+    const [viewFloorTab, setViewFloorTab] = useState<string>("all");
 
     useEffect(() => {
         const fetchTripDetails = async () => {
@@ -109,10 +110,11 @@ export default function BookingSeats(): React.ReactElement {
     const getGridColsCount = (): number => {
         if (!trip || !trip.bus) return 4;
         const { capacity, type } = trip.bus;
+        if (type === "Sleeper" || capacity === 38 || capacity === 34) return 5; // Xe giường nằm có 3 dãy giường + 2 lối đi
+        if (capacity <= 10 || type === "Limousine") return 3; // Limousine 3 cột (Ghế trái - Lối đi - Ghế phải)
         if (capacity === 16) return 4;
         if (capacity === 29) return 5;
         if (capacity === 45) return 5;
-        if (type === "Sleeper" || capacity === 38 || capacity === 34) return 5; // Xe giường nằm có 3 dãy giường + 2 lối đi
         return 4;
     };
 
@@ -244,430 +246,264 @@ export default function BookingSeats(): React.ReactElement {
     const isSleeper = trip.bus?.type === "Sleeper";
     const totalCols = getGridColsCount();
 
-    const LegendItem = ({ label, status, isSleeper }: { label: string; status: "AVAILABLE" | "SELECTED" | "HOLDING" | "BOOKED"; isSleeper: boolean }) => {
-        let seatColor = "#ffffff";
-        let borderColor = "#cbd5e1";
-        let pillowColor = "#f1f5f9";
-        let armColor = "#cbd5e1";
-        
-        if (status === "SELECTED") {
-            seatColor = "#eff6ff";
-            borderColor = "#2563eb";
-            pillowColor = "#dbeafe";
-            armColor = "#3b82f6";
-        } else if (status === "HOLDING") {
-            seatColor = "#fff1f2";
-            borderColor = "#f43f5e";
-            pillowColor = "#ffe4e6";
-            armColor = "#fda4af";
-        } else if (status === "BOOKED") {
-            seatColor = "#f1f5f9";
-            borderColor = "#cbd5e1";
-            pillowColor = "#e2e8f0";
-            armColor = "#e2e8f0";
+    const renderSeatItem = (seat: Seat, showCockpit: boolean) => {
+        const isSelected = chosenSeatCodes.includes(seat.seatCode);
+        const isAvailable = seat.status === "AVAILABLE";
+        const isHolding = seat.status === "HOLDING";
+        const isBooked = seat.status === "BOOKED";
+
+        const userString = localStorage.getItem("user");
+        const userObj = userString ? JSON.parse(userString) : null;
+        const isUserHeld = isHolding && seat.heldBy && 
+            (typeof seat.heldBy === "object" ? String((seat.heldBy as any)._id) : String(seat.heldBy)) === String(userObj?._id);
+
+        const canClick = isAvailable || isUserHeld;
+        const gridRow = showCockpit ? seat.rowIndex + 1 : seat.rowIndex;
+        const gridCol = getMappedColIndex(seat);
+
+        let statusText = "Còn trống";
+        if (isSelected) statusText = "Đang chọn";
+        else if (isHolding) statusText = isUserHeld ? "Bạn đang giữ chỗ" : "Đang có người giữ chỗ";
+        else if (isBooked) statusText = "Đã bán";
+
+        if (isSleeper) {
+            let containerClasses = "group relative h-[62px] w-full rounded-xl transition-all duration-200 transform";
+            let frameClasses = "absolute inset-0 rounded-xl border-2 transition-colors";
+            let pillowClasses = "absolute top-1.5 left-2 right-2 h-2.5 rounded-sm border transition-colors";
+            let footClasses = "absolute bottom-1.5 left-2 right-2 h-2 rounded-b-sm border-t border-dashed transition-colors";
+            let textClasses = "text-[12px] font-bold tracking-wide transition-colors";
+
+            if (isSelected) {
+                containerClasses += " ring-2 ring-emerald-500 scale-105 shadow-md z-10 cursor-pointer";
+                frameClasses += " bg-emerald-50/90 border-emerald-500";
+                pillowClasses += " bg-emerald-200 border-emerald-400";
+                footClasses += " bg-emerald-100 border-emerald-300";
+                textClasses += " text-emerald-700 font-extrabold";
+            } else if (isHolding && !isUserHeld) {
+                containerClasses += " cursor-not-allowed opacity-90";
+                frameClasses += " bg-rose-50/90 border-rose-400";
+                pillowClasses += " bg-rose-200 border-rose-300";
+                footClasses += " bg-rose-100 border-rose-200";
+                textClasses += " text-rose-700 font-bold";
+            } else if (isBooked) {
+                containerClasses += " cursor-not-allowed opacity-60";
+                frameClasses += " bg-slate-100 border-slate-200";
+                pillowClasses += " bg-slate-200 border-slate-300";
+                footClasses += " bg-slate-100 border-slate-200";
+                textClasses += " text-slate-400 font-medium";
+            } else {
+                // AVAILABLE
+                containerClasses += " hover:-translate-y-0.5 hover:shadow-sm cursor-pointer";
+                frameClasses += " bg-white border-slate-300 group-hover:border-emerald-400 group-hover:bg-slate-50";
+                pillowClasses += " bg-slate-100 border-slate-200 group-hover:bg-emerald-100/60";
+                footClasses += " bg-slate-50 border-slate-200";
+                textClasses += " text-slate-700 group-hover:text-emerald-700";
+            }
+
+            return (
+                <Tooltip
+                    key={seat.seatCode}
+                    title={
+                        <div className="text-xs">
+                            <p className="font-bold text-emerald-400">Giường: {seat.seatCode}</p>
+                            <p>Tầng: {seat.floor === 1 ? "Tầng 1 (Dưới)" : "Tầng 2 (Trên)"}</p>
+                            <p>Trạng thái: {statusText}</p>
+                        </div>
+                    }
+                >
+                    <div
+                        onClick={() => canClick && handleSeatClick(seat)}
+                        style={{
+                            gridColumnStart: gridCol,
+                            gridRowStart: gridRow,
+                        }}
+                        className={containerClasses}
+                    >
+                        {/* Khung giường */}
+                        <div className={frameClasses} />
+                        {/* Gối đầu */}
+                        <div className={pillowClasses} />
+                        {/* Tấm ga đệm chân */}
+                        <div className={footClasses} />
+                        {/* Mã số giường */}
+                        <div className="relative z-10 h-full flex flex-col items-center justify-center pt-2">
+                            <span className={textClasses}>
+                                {seat.seatCode}
+                            </span>
+                        </div>
+                    </div>
+                </Tooltip>
+            );
         }
-        
+
+        // Xe ghế ngồi (Seater)
+        let containerClasses = "group relative h-[52px] w-full rounded-lg transition-all duration-200 transform";
+        let headrestClasses = "absolute top-0.5 left-1/4 right-1/4 h-2 rounded-t border-t-2 border-x-2 transition-colors";
+        let cushionClasses = "absolute top-2.5 bottom-0 inset-x-1 rounded-lg border-2 transition-colors";
+        let armLeftClasses = "absolute top-4 bottom-1.5 left-0 w-1 rounded-full transition-colors";
+        let armRightClasses = "absolute top-4 bottom-1.5 right-0 w-1 rounded-full transition-colors";
+        let textClasses = "text-[12px] font-bold tracking-wide transition-colors";
+
+        if (isSelected) {
+            containerClasses += " ring-2 ring-emerald-500 scale-105 shadow-md z-10 cursor-pointer";
+            headrestClasses += " bg-emerald-100 border-emerald-500";
+            cushionClasses += " bg-emerald-50/90 border-emerald-500";
+            armLeftClasses += " bg-emerald-400";
+            armRightClasses += " bg-emerald-400";
+            textClasses += " text-emerald-700 font-extrabold";
+        } else if (isHolding && !isUserHeld) {
+            containerClasses += " cursor-not-allowed opacity-90";
+            headrestClasses += " bg-rose-100 border-rose-400";
+            cushionClasses += " bg-rose-50/90 border-rose-400";
+            armLeftClasses += " bg-rose-300";
+            armRightClasses += " bg-rose-300";
+            textClasses += " text-rose-700 font-bold";
+        } else if (isBooked) {
+            containerClasses += " cursor-not-allowed opacity-60";
+            headrestClasses += " bg-slate-200 border-slate-300";
+            cushionClasses += " bg-slate-100 border-slate-200";
+            armLeftClasses += " bg-slate-200";
+            armRightClasses += " bg-slate-200";
+            textClasses += " text-slate-400 font-medium";
+        } else {
+            // AVAILABLE
+            containerClasses += " hover:-translate-y-0.5 hover:shadow-sm cursor-pointer";
+            headrestClasses += " bg-slate-100 border-slate-300 group-hover:border-emerald-400";
+            cushionClasses += " bg-white border-slate-300 group-hover:border-emerald-400 group-hover:bg-slate-50";
+            armLeftClasses += " bg-slate-300 group-hover:bg-emerald-400";
+            armRightClasses += " bg-slate-300 group-hover:bg-emerald-400";
+            textClasses += " text-slate-700 group-hover:text-emerald-700";
+        }
+
         return (
-            <Space size="small" style={{ margin: "4px 12px" }}>
-                <div style={{ position: "relative", width: 22, height: isSleeper ? 26 : 22 }}>
-                    {isSleeper ? (
-                        <>
-                            <div style={{ position: "absolute", inset: 0, backgroundColor: seatColor, border: `1.5px solid ${borderColor}`, borderRadius: 4 }} />
-                            <div style={{ position: "absolute", top: 2, left: 3, right: 3, height: 5, backgroundColor: pillowColor, border: `1px solid ${borderColor}`, borderRadius: 1.5 }} />
-                            <div style={{ position: "absolute", bottom: 2, left: 3, right: 3, height: 8, backgroundColor: status === "SELECTED" ? "#bfdbfe" : status === "HOLDING" ? "#fecdd3" : status === "BOOKED" ? "#cbd5e1" : "#fafafa", borderTop: `1px dashed ${borderColor}`, borderRadius: "0 0 2px 2px" }} />
-                        </>
-                    ) : (
-                        <>
-                            <div style={{ position: "absolute", top: 3, bottom: 0, left: 2, right: 2, backgroundColor: seatColor, border: `1.5px solid ${borderColor}`, borderRadius: "3px 3px 4px 4px" }} />
-                            <div style={{ position: "absolute", top: 0, left: "25%", right: "25%", height: 3, backgroundColor: seatColor, border: `1.5px solid ${borderColor}`, borderBottom: "none", borderRadius: "2px 2px 0 0" }} />
-                            <div style={{ position: "absolute", top: 5, bottom: 2, left: 0, width: 2, backgroundColor: armColor, borderRadius: 0.5 }} />
-                            <div style={{ position: "absolute", top: 5, bottom: 2, right: 0, width: 2, backgroundColor: armColor, borderRadius: 0.5 }} />
-                        </>
-                    )}
+            <Tooltip
+                key={seat.seatCode}
+                title={
+                    <div className="text-xs">
+                        <p className="font-bold text-emerald-400">Ghế: {seat.seatCode}</p>
+                        <p>Trạng thái: {statusText}</p>
+                    </div>
+                }
+            >
+                <div
+                    onClick={() => canClick && handleSeatClick(seat)}
+                    style={{
+                        gridColumnStart: gridCol,
+                        gridRowStart: gridRow,
+                    }}
+                    className={containerClasses}
+                >
+                    {/* Tựa đầu ghế */}
+                    <div className={headrestClasses} />
+                    {/* Thân đệm ghế */}
+                    <div className={cushionClasses} />
+                    {/* Tay vịn 2 bên */}
+                    <div className={armLeftClasses} />
+                    <div className={armRightClasses} />
+                    {/* Mã số ghế */}
+                    <div className="relative z-10 h-full flex flex-col items-center justify-center pt-2">
+                        <span className={textClasses}>
+                            {seat.seatCode}
+                        </span>
+                    </div>
                 </div>
-                <Text style={{ fontSize: "13px", fontWeight: 500, color: "#475569" }}>{label}</Text>
-            </Space>
+            </Tooltip>
         );
     };
 
     const renderBus = (floorNum: number) => {
-        const isSleeperBus = trip.bus?.type === "Sleeper";
-        const seatsInFloor = trip.seats?.filter((s: Seat) => s.floor === floorNum) || [];
+        const seatsInFloor = trip.seats?.filter((s: Seat) => (s.floor || 1) === floorNum) || [];
         const showCockpit = floorNum === 1;
 
-        const userString = localStorage.getItem("user");
-        const userObj = userString ? JSON.parse(userString) : null;
-
         return (
-            <div className="bus-shell" style={{
-                position: "relative",
-                background: "#f8fafc",
-                border: "4px solid #cbd5e1",
-                borderRadius: "32px 32px 16px 16px",
-                padding: "24px 16px",
-                boxShadow: "0 10px 30px rgba(0, 0, 0, 0.05)",
-                marginTop: 10,
-            }}>
-                <style>{`
-                    .seat-btn:hover:not(:disabled) .seat-base {
-                        transform: translateY(-1.5px);
-                        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
-                    }
-                    .sleeper-btn:hover:not(:disabled) .sleeper-base {
-                        transform: translateY(-1.5px);
-                        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
-                    }
-                `}</style>
+            <div
+                className="relative w-full max-w-[270px] bg-white border-[3px] border-slate-300 rounded-t-[36px] rounded-b-[20px] p-4 shadow-sm hover:shadow-md transition-shadow"
+                style={{ minHeight: isSleeper ? "460px" : "380px" }}
+            >
+                {/* Gương chiếu hậu 2 bên */}
+                <div className="absolute top-6 -left-2 w-2 h-5 bg-slate-700 rounded-l-md" />
+                <div className="absolute top-6 -right-2 w-2 h-5 bg-slate-700 rounded-r-md" />
 
-                {/* Windshield */}
-                <div style={{
-                    height: 16,
-                    background: "linear-gradient(to bottom, #475569, #1e293b)",
-                    borderRadius: "12px 12px 2px 2px",
-                    marginBottom: 16,
-                    position: "relative",
-                }}>
-                    <div style={{
-                        position: "absolute",
-                        top: 4,
-                        left: "50%",
-                        transform: "translateX(-50%)",
-                        width: 40,
-                        height: 2,
-                        backgroundColor: "#94a3b8",
-                        borderRadius: 1,
-                    }} />
+                {/* Kính chắn gió phía trước */}
+                <div className="relative h-4 bg-gradient-to-b from-slate-700 to-slate-900 rounded-t-xl rounded-b-xs mb-4 flex items-center justify-center">
+                    <div className="w-10 h-0.5 bg-slate-400 rounded-full" />
                 </div>
 
-                {/* Side Mirrors */}
-                <div className="mirror-left" style={{ position: "absolute", top: 24, left: -6, width: 6, height: 18, background: "#334155", borderRadius: "3px 0 0 3px" }} />
-                <div className="mirror-right" style={{ position: "absolute", top: 24, right: -6, width: 6, height: 18, background: "#334155", borderRadius: "0 3px 3px 0" }} />
-
-                {/* Grid container */}
-                <div style={{
-                    display: "grid",
-                    gridTemplateColumns: `repeat(${totalCols}, 1fr)`,
-                    gap: "12px 10px",
-                }}>
-                    {/* Row 1: Cockpit Area (only for Floor 1) */}
+                {/* Grid sơ đồ ghế / giường */}
+                <div
+                    style={{
+                        display: "grid",
+                        gridTemplateColumns: `repeat(${totalCols}, 1fr)`,
+                        gap: isSleeper ? "12px 8px" : "10px 6px",
+                    }}
+                >
+                    {/* Hàng 1: Khoang lái & Cửa lên xuống (Chỉ tầng 1) */}
                     {showCockpit && (
                         <>
-                            {/* Driver steering wheel */}
-                            <div style={{
-                                gridColumnStart: 1,
-                                gridRowStart: 1,
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                height: 44,
-                            }}>
-                                <div style={{
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    alignItems: "center",
-                                    color: "#64748b",
-                                }}>
-                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform: "rotate(-45deg)" }}>
+                            {/* Vị trí Tài xế */}
+                            <div
+                                style={{ gridColumnStart: 1, gridRowStart: 1 }}
+                                className="flex items-center justify-center h-10"
+                            >
+                                <div className="flex flex-col items-center text-slate-500">
+                                    <svg
+                                        width="20"
+                                        height="20"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="2.5"
+                                        style={{ transform: "rotate(-45deg)" }}
+                                    >
                                         <circle cx="12" cy="12" r="10" />
                                         <line x1="12" y1="2" x2="12" y2="22" />
                                         <line x1="2" y1="12" x2="22" y2="12" />
                                         <circle cx="12" cy="12" r="3" fill="currentColor" />
                                     </svg>
-                                    <span style={{ fontSize: "8px", marginTop: 2, fontWeight: 700, letterSpacing: 0.5 }}>LÁI XE</span>
+                                    <span className="text-[8px] font-bold mt-0.5 tracking-wider">TÀI XẾ</span>
                                 </div>
                             </div>
 
-                            {/* Cockpit Empty space / console */}
-                            {Array.from({ length: totalCols - 2 }).map((_, idx) => (
-                                <div key={`empty-cockpit-${idx}`} style={{ gridColumnStart: idx + 2, gridRowStart: 1 }} />
-                            ))}
+                            {/* Khoảng trống táp-lô (chỉ vẽ nếu vị trí đó không có ghế A1) */}
+                            {Array.from({ length: totalCols - 2 }).map((_, idx) => {
+                                const col = idx + 2;
+                                const hasSeatHere = seatsInFloor.some(
+                                    (s: Seat) => s.colIndex === col && s.rowIndex === 0
+                                );
+                                if (hasSeatHere) return null;
+                                return (
+                                    <div
+                                        key={`cockpit-blank-${idx}`}
+                                        style={{ gridColumnStart: col, gridRowStart: 1 }}
+                                    />
+                                );
+                            })}
 
-                            {/* Entrance Door */}
-                            <div style={{
-                                gridColumnStart: totalCols,
-                                gridRowStart: 1,
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                height: 44,
-                            }}>
-                                <div style={{
-                                    border: "1.5px dashed #cbd5e1",
-                                    borderRadius: 6,
-                                    padding: "4px 8px",
-                                    fontSize: "8px",
-                                    color: "#64748b",
-                                    fontWeight: 700,
-                                    textAlign: "center",
-                                    lineHeight: "1.2",
-                                    backgroundColor: "#f1f5f9",
-                                }}>
-                                    CỬA<br />LÊN
+                            {/* Cửa lên xe (chỉ vẽ nếu cột cuối chưa bị ghế A2 chiếm) */}
+                            {!seatsInFloor.some((s: Seat) => s.colIndex === totalCols && s.rowIndex === 0) && (
+                                <div
+                                    style={{ gridColumnStart: totalCols, gridRowStart: 1 }}
+                                    className="flex items-center justify-center h-10"
+                                >
+                                    <div className="border border-dashed border-emerald-400 bg-emerald-50/60 text-emerald-700 text-[8px] p-1 text-center font-bold rounded-md leading-tight">
+                                        CỬA
+                                        <br />
+                                        LÊN
+                                    </div>
                                 </div>
-                            </div>
+                            )}
                         </>
                     )}
 
-                    {/* Seats */}
-                    {seatsInFloor.map((seat: Seat) => {
-                        const isSelected = chosenSeatCodes.includes(seat.seatCode);
-                        const isAvailable = seat.status === "AVAILABLE";
-                        const isHolding = seat.status === "HOLDING";
-                        const isBooked = seat.status === "BOOKED";
-                        const isUserHeld = isHolding && seat.heldBy && 
-                            (typeof seat.heldBy === "object" ? String((seat.heldBy as any)._id) : String(seat.heldBy)) === String(userObj?._id);
+                    {/* Các vị trí ghế thực tế */}
+                    {seatsInFloor.map((seat: Seat) => renderSeatItem(seat, showCockpit))}
+                </div>
 
-                        const canClick = isAvailable || isUserHeld;
-                        const gridRow = showCockpit ? seat.rowIndex + 1 : seat.rowIndex;
-                        const gridCol = getMappedColIndex(seat);
-
-                        if (isSleeperBus) {
-                            let baseBg = "#ffffff";
-                            let borderCol = "#cbd5e1";
-                            let txtCol = "#334155";
-                            let pillowBg = "#f1f5f9";
-                            let blanketBg = "#f8fafc";
-                            let shd = "0 2px 4px rgba(0, 0, 0, 0.04)";
-
-                            if (isSelected) {
-                                baseBg = "#eff6ff";
-                                borderCol = "#2563eb";
-                                txtCol = "#1d4ed8";
-                                pillowBg = "#dbeafe";
-                                blanketBg = "#bfdbfe";
-                                shd = "0 4px 12px rgba(37, 99, 235, 0.15)";
-                            } else if (isHolding && !isUserHeld) {
-                                baseBg = "#fff1f2";
-                                borderCol = "#f43f5e";
-                                txtCol = "#be123c";
-                                pillowBg = "#ffe4e6";
-                                blanketBg = "#fecdd3";
-                            } else if (isBooked) {
-                                baseBg = "#f1f5f9";
-                                borderCol = "#e2e8f0";
-                                txtCol = "#94a3b8";
-                                pillowBg = "#cbd5e1";
-                                blanketBg = "#e2e8f0";
-                                shd = "none";
-                            }
-
-                            return (
-                                <button
-                                    key={seat.seatCode}
-                                    disabled={!canClick}
-                                    onClick={() => handleSeatClick(seat)}
-                                    style={{
-                                        gridColumnStart: gridCol,
-                                        gridRowStart: gridRow,
-                                        position: "relative",
-                                        height: 62,
-                                        width: "100%",
-                                        background: "transparent",
-                                        border: "none",
-                                        padding: 0,
-                                        cursor: canClick ? "pointer" : "not-allowed",
-                                        outline: "none",
-                                        transition: "all 0.2s",
-                                    }}
-                                    className="sleeper-btn"
-                                >
-                                    <div style={{
-                                        position: "relative",
-                                        width: "100%",
-                                        height: "100%",
-                                        display: "flex",
-                                        flexDirection: "column",
-                                        alignItems: "center",
-                                        color: txtCol,
-                                    }}>
-                                        {/* Bed Body */}
-                                        <div className="sleeper-base" style={{
-                                            position: "absolute",
-                                            top: 2,
-                                            bottom: 2,
-                                            left: 2,
-                                            right: 2,
-                                            backgroundColor: baseBg,
-                                            border: `2px solid ${borderCol}`,
-                                            borderRadius: 8,
-                                            boxShadow: shd,
-                                            transition: "all 0.2s",
-                                        }} />
-                                        {/* Pillow */}
-                                        <div style={{
-                                            position: "absolute",
-                                            top: 6,
-                                            left: 6,
-                                            right: 6,
-                                            height: 10,
-                                            backgroundColor: pillowBg,
-                                            border: `1px solid ${borderCol}`,
-                                            borderRadius: 3,
-                                            zIndex: 1,
-                                            transition: "all 0.2s",
-                                        }} />
-                                        {/* Blanket */}
-                                        <div style={{
-                                            position: "absolute",
-                                            bottom: 6,
-                                            left: 6,
-                                            right: 6,
-                                            height: 16,
-                                            backgroundColor: blanketBg,
-                                            borderTop: `1px dashed ${borderCol}`,
-                                            borderRadius: "0 0 4px 4px",
-                                            opacity: 0.8,
-                                        }} />
-                                        {/* Seat Code Text */}
-                                        <span style={{
-                                            position: "relative",
-                                            zIndex: 2,
-                                            fontSize: "11px",
-                                            fontWeight: isSelected ? 700 : 500,
-                                            marginTop: "22px",
-                                        }}>
-                                            {seat.seatCode}
-                                        </span>
-                                    </div>
-                                </button>
-                            );
-                        } else {
-                            let baseBg = "#ffffff";
-                            let borderCol = "#cbd5e1";
-                            let txtCol = "#334155";
-                            let armBg = "#cbd5e1";
-                            let shd = "0 2px 4px rgba(0, 0, 0, 0.04)";
-
-                            if (isSelected) {
-                                baseBg = "#eff6ff";
-                                borderCol = "#2563eb";
-                                txtCol = "#1d4ed8";
-                                armBg = "#3b82f6";
-                                shd = "0 4px 12px rgba(37, 99, 235, 0.15)";
-                            } else if (isHolding && !isUserHeld) {
-                                baseBg = "#fff1f2";
-                                borderCol = "#f43f5e";
-                                txtCol = "#be123c";
-                                armBg = "#fda4af";
-                            } else if (isBooked) {
-                                baseBg = "#f1f5f9";
-                                borderCol = "#e2e8f0";
-                                txtCol = "#94a3b8";
-                                armBg = "#cbd5e1";
-                                shd = "none";
-                            }
-
-                            return (
-                                <button
-                                    key={seat.seatCode}
-                                    disabled={!canClick}
-                                    onClick={() => handleSeatClick(seat)}
-                                    style={{
-                                        gridColumnStart: gridCol,
-                                        gridRowStart: gridRow,
-                                        position: "relative",
-                                        height: 50,
-                                        width: "100%",
-                                        background: "transparent",
-                                        border: "none",
-                                        padding: 0,
-                                        cursor: canClick ? "pointer" : "not-allowed",
-                                        outline: "none",
-                                        transition: "all 0.2s",
-                                    }}
-                                    className="seat-btn"
-                                >
-                                    <div style={{
-                                        position: "relative",
-                                        width: "100%",
-                                        height: "100%",
-                                        display: "flex",
-                                        flexDirection: "column",
-                                        alignItems: "center",
-                                        color: txtCol,
-                                    }}>
-                                        {/* Cushion Base */}
-                                        <div className="seat-base" style={{
-                                            position: "absolute",
-                                            top: 8,
-                                            bottom: 2,
-                                            left: 4,
-                                            right: 4,
-                                            backgroundColor: baseBg,
-                                            border: `2px solid ${borderCol}`,
-                                            borderRadius: "6px 6px 8px 8px",
-                                            boxShadow: shd,
-                                            transition: "all 0.2s",
-                                        }} />
-                                        {/* Headrest */}
-                                        <div style={{
-                                            position: "absolute",
-                                            top: 2,
-                                            width: "50%",
-                                            height: 8,
-                                            backgroundColor: baseBg,
-                                            border: `2px solid ${borderCol}`,
-                                            borderBottom: "none",
-                                            borderRadius: "3px 3px 0 0",
-                                            zIndex: 1,
-                                            transition: "all 0.2s",
-                                        }} />
-                                        {/* Armrests */}
-                                        <div style={{
-                                            position: "absolute",
-                                            top: 14,
-                                            bottom: 6,
-                                            left: 1,
-                                            width: 4,
-                                            backgroundColor: armBg,
-                                            borderRadius: "2px",
-                                            opacity: 0.8,
-                                        }} />
-                                        <div style={{
-                                            position: "absolute",
-                                            top: 14,
-                                            bottom: 6,
-                                            right: 1,
-                                            width: 4,
-                                            backgroundColor: armBg,
-                                            borderRadius: "2px",
-                                            opacity: 0.8,
-                                        }} />
-                                        {/* Seat Code Text */}
-                                        <span style={{
-                                            position: "relative",
-                                            zIndex: 2,
-                                            fontSize: "11px",
-                                            fontWeight: isSelected ? 700 : 500,
-                                            marginTop: "6px",
-                                        }}>
-                                            {seat.seatCode}
-                                        </span>
-                                    </div>
-                                </button>
-                            );
-                        }
-                    })}
-
-                    {/* WC Box (only for 34 capacity) */}
-                    {trip.bus?.capacity === 34 && (
-                        <div style={{
-                            gridColumnStart: 5,
-                            gridRowStart: showCockpit ? 7 : 6,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            background: "#cbd5e1",
-                            border: "2px solid #94a3b8",
-                            borderRadius: 8,
-                            color: "#475569",
-                            fontSize: "12px",
-                            fontWeight: 700,
-                            height: 62,
-                        }}>
-                            WC
-                        </div>
-                    )}
+                {/* Đuôi xe */}
+                <div className="mt-5 pt-3 border-t border-dashed border-slate-200 flex justify-between items-center text-[10px] text-slate-400 font-medium px-1">
+                    <span>Đuôi xe</span>
+                    {isSleeper && <span>WC / Lối thoát</span>}
+                    <span>Hàng sau</span>
                 </div>
             </div>
         );
@@ -687,89 +523,105 @@ export default function BookingSeats(): React.ReactElement {
                             <Card title={`Chọn vị trí ${isSleeper ? "giường nằm" : "ghế ngồi"}`}>
                                 
                                 {/* Mô tả chú thích màu sắc trạng thái ghế */}
-                                <Flex gap="small" justify="center" style={{ marginBottom: 24, flexWrap: "wrap", borderBottom: "1px solid #f0f0f0", paddingBottom: 16 }}>
-                                    <LegendItem label="Trống" status="AVAILABLE" isSleeper={isSleeper} />
-                                    <LegendItem label="Đang chọn" status="SELECTED" isSleeper={isSleeper} />
-                                    <LegendItem label="Đang giữ chỗ" status="HOLDING" isSleeper={isSleeper} />
-                                    <LegendItem label="Đã bán" status="BOOKED" isSleeper={isSleeper} />
-                                </Flex>
-
-                                {/* Responsive floor switcher for Sleeper bus */}
-                                {isSleeper && (
-                                    <Flex justify="center" style={{ marginBottom: 20 }} className="md:hidden">
-                                        <div style={{
-                                            display: "inline-flex",
-                                            padding: 4,
-                                            background: "#f1f5f9",
-                                            borderRadius: 10,
-                                            border: "1px solid #e2e8f0"
-                                        }}>
-                                            <button
-                                                onClick={() => setActiveFloor(1)}
-                                                style={{
-                                                    padding: "6px 16px",
-                                                    fontSize: "13px",
-                                                    fontWeight: 600,
-                                                    borderRadius: 8,
-                                                    border: "none",
-                                                    cursor: "pointer",
-                                                    background: activeFloor === 1 ? "#ffffff" : "transparent",
-                                                    color: activeFloor === 1 ? "#2563eb" : "#64748b",
-                                                    boxShadow: activeFloor === 1 ? "0 2px 4px rgba(0,0,0,0.05)" : "none",
-                                                    transition: "all 0.2s"
-                                                }}
-                                            >
-                                                Tầng dưới (Tầng 1)
-                                            </button>
-                                            <button
-                                                onClick={() => setActiveFloor(2)}
-                                                style={{
-                                                    padding: "6px 16px",
-                                                    fontSize: "13px",
-                                                    fontWeight: 600,
-                                                    borderRadius: 8,
-                                                    border: "none",
-                                                    cursor: "pointer",
-                                                    background: activeFloor === 2 ? "#ffffff" : "transparent",
-                                                    color: activeFloor === 2 ? "#2563eb" : "#64748b",
-                                                    boxShadow: activeFloor === 2 ? "0 2px 4px rgba(0,0,0,0.05)" : "none",
-                                                    transition: "all 0.2s"
-                                                }}
-                                            >
-                                                Tầng trên (Tầng 2)
-                                            </button>
+                                <div className="flex flex-wrap items-center justify-center gap-3 md:gap-4 py-2 px-3 mb-4 text-xs text-gray-600 bg-white border border-gray-100 rounded-lg shadow-2xs">
+                                    <div className="flex items-center gap-1.5">
+                                        <div className="w-5 h-5 rounded border-2 border-slate-300 bg-white flex items-center justify-center text-[9px] font-bold text-slate-700">
+                                            A1
                                         </div>
-                                    </Flex>
+                                        <span>{isSleeper ? "Giường trống" : "Ghế trống"}</span>
+                                    </div>
+
+                                    <div className="flex items-center gap-1.5">
+                                        <div className="w-5 h-5 rounded border-2 border-emerald-500 bg-emerald-50 flex items-center justify-center text-[9px] font-bold text-emerald-700">
+                                            ✓
+                                        </div>
+                                        <span>Đang chọn</span>
+                                    </div>
+
+                                    <div className="flex items-center gap-1.5">
+                                        <div className="w-5 h-5 rounded border-2 border-rose-400 bg-rose-50 flex items-center justify-center text-[9px] font-bold text-rose-600">
+                                            ⌛
+                                        </div>
+                                        <span>Đang giữ chỗ</span>
+                                    </div>
+
+                                    <div className="flex items-center gap-1.5">
+                                        <div className="w-5 h-5 rounded border-2 border-slate-200 bg-slate-100 flex items-center justify-center text-[9px] font-bold text-slate-400">
+                                            ✕
+                                        </div>
+                                        <span>Đã bán</span>
+                                    </div>
+
+                                    <div className="flex items-center gap-1.5">
+                                        <div className="w-5 h-5 rounded border border-dashed border-emerald-400 bg-emerald-50/60 flex items-center justify-center text-[7px] font-bold text-emerald-700">
+                                            CỬA
+                                        </div>
+                                        <span>Cửa lên</span>
+                                    </div>
+
+                                    <div className="flex items-center gap-1.5">
+                                        <div className="w-5 h-5 rounded bg-slate-100 text-slate-600 flex items-center justify-center text-[9px]">
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                                <circle cx="12" cy="12" r="10" />
+                                                <line x1="12" y1="2" x2="12" y2="22" />
+                                                <line x1="2" y1="12" x2="22" y2="12" />
+                                            </svg>
+                                        </div>
+                                        <span>Khoang tài xế</span>
+                                    </div>
+                                </div>
+
+                                {/* Bộ chuyển đổi tầng cho xe giường nằm nếu muốn xem riêng */}
+                                {isSleeper && (
+                                    <div className="flex justify-center mb-4">
+                                        <Segmented
+                                            options={[
+                                                { label: "Cả 2 tầng (Song song)", value: "all" },
+                                                { label: "Tầng 1 (Tầng dưới - Dãy A)", value: "1" },
+                                                { label: "Tầng 2 (Tầng trên - Dãy B)", value: "2" },
+                                            ]}
+                                            value={viewFloorTab}
+                                            onChange={(val) => setViewFloorTab(val as string)}
+                                            className="bg-slate-100 p-1 font-medium text-xs"
+                                        />
+                                    </div>
                                 )}
 
-                                <Row gutter={[24, 24]} justify="center">
+                                <div className="pt-2">
                                     {isSleeper ? (
-                                        <>
-                                            {/* TẦNG DƯỚI / TẦNG 1 */}
-                                            <Col span={24} md={12} className={activeFloor === 1 ? "block" : "hidden md:block"}>
-                                                <div style={{ textAlign: "center", marginBottom: 12, fontWeight: 700, color: "#1e3a8a", fontSize: "14px" }}>
-                                                    TẦNG DƯỚI (TẦNG 1)
+                                        <div className="flex flex-col md:flex-row justify-center items-start gap-8">
+                                            {(viewFloorTab === "all" || viewFloorTab === "1") && (
+                                                <div className="flex-1 w-full flex flex-col items-center">
+                                                    <div className="mb-2 text-center">
+                                                        <Tag color="green" className="font-semibold px-3 py-0.5 text-xs rounded-full">
+                                                            TẦNG 1 (TẦNG DƯỚI) ({trip.seats?.filter((s: Seat) => (s.floor || 1) === 1).length || 0} giường)
+                                                        </Tag>
+                                                    </div>
+                                                    {renderBus(1)}
                                                 </div>
-                                                {renderBus(1)}
-                                            </Col>
-
-                                            {/* TẦNG TRÊN / TẦNG 2 */}
-                                            <Col span={24} md={12} className={activeFloor === 2 ? "block" : "hidden md:block"}>
-                                                <div style={{ textAlign: "center", marginBottom: 12, fontWeight: 700, color: "#1e3a8a", fontSize: "14px" }}>
-                                                    TẦNG TRÊN (TẦNG 2)
+                                            )}
+                                            {(viewFloorTab === "all" || viewFloorTab === "2") && (
+                                                <div className="flex-1 w-full flex flex-col items-center">
+                                                    <div className="mb-2 text-center">
+                                                        <Tag color="green" className="font-semibold px-3 py-0.5 text-xs rounded-full">
+                                                            TẦNG 2 (TẦNG TRÊN) ({trip.seats?.filter((s: Seat) => (s.floor || 1) === 2).length || 0} giường)
+                                                        </Tag>
+                                                    </div>
+                                                    {renderBus(2)}
                                                 </div>
-                                                {renderBus(2)}
-                                            </Col>
-                                        </>
+                                            )}
+                                        </div>
                                     ) : (
-                                        <Col span={24} sm={16} md={14}>
-                                            <div style={{ textAlign: "center", marginBottom: 12, fontWeight: 700, color: "#1e3a8a", fontSize: "14px" }}>
-                                                SƠ ĐỒ VỊ TRÍ GHẾ
+                                        <div className="flex flex-col items-center">
+                                            <div className="mb-2 text-center">
+                                                <Tag color="green" className="font-semibold px-3 py-0.5 text-xs rounded-full">
+                                                    SƠ ĐỒ BỐ TRÍ ({trip.seats?.length || 0} ghế)
+                                                </Tag>
                                             </div>
                                             {renderBus(1)}
-                                        </Col>
+                                        </div>
                                     )}
-                                </Row>
+                                </div>
                             </Card>
                         </Col>
 
