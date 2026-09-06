@@ -805,78 +805,99 @@ useEffect(() => {
   // TÌM BẢNG GIÁ
   // ====================================================
 
-  const handleBusChange = (
-    busId: string
-  ) => {
-    const journeyId =
-      form.getFieldValue(
-        "journey"
-      );
+ const handleBusChange = (
+  busId: string
+) => {
+  const journeyId =
+    form.getFieldValue(
+      "journey"
+    );
 
-    if (
-      !journeyId ||
-      !busId
-    ) {
-      setSelectedFareRule(null);
+  if (
+    !journeyId ||
+    !busId
+  ) {
+    setSelectedFareRule(null);
 
-      form.setFieldValue(
-        "fareRule",
-        undefined
-      );
+    form.setFieldValue(
+      "fareRule",
+      undefined
+    );
 
-      return;
-    }
+    form.setFieldValue(
+      "assistant",
+      undefined
+    );
 
-    const bus =
-      availableBuses.find(
-        (item) =>
-          item._id === busId
-      );
+    return;
+  }
 
-    if (!bus) {
-      setSelectedFareRule(null);
+  const bus =
+    availableBuses.find(
+      (item) =>
+        item._id === busId
+    );
 
-      form.setFieldValue(
-        "fareRule",
-        undefined
-      );
+  if (!bus) {
+    setSelectedFareRule(null);
 
-      return;
-    }
+    form.setFieldValue(
+      "fareRule",
+      undefined
+    );
 
-    const rule =
-      fareRules.find(
-        (item) =>
-          item.journey?._id ===
+    form.setFieldValue(
+      "assistant",
+      undefined
+    );
+
+    return;
+  }
+
+  // ==========================================
+  // XE <= 16 CHỖ -> KHÔNG CẦN PHỤ XE
+  // ==========================================
+
+  if (bus.capacity <= 16) {
+    form.setFieldValue(
+      "assistant",
+      undefined
+    );
+  }
+
+  const rule =
+    fareRules.find(
+      (item) =>
+        item.journey?._id ===
           journeyId &&
-          item.capacity ===
+        item.capacity ===
           bus.capacity
-      );
+    );
 
-    if (rule) {
-      setSelectedFareRule(
-        rule
-      );
+  if (rule) {
+    setSelectedFareRule(
+      rule
+    );
 
-      form.setFieldValue(
-        "fareRule",
-        rule._id
-      );
-    } else {
-      setSelectedFareRule(
-        null
-      );
+    form.setFieldValue(
+      "fareRule",
+      rule._id
+    );
+  } else {
+    setSelectedFareRule(
+      null
+    );
 
-      form.setFieldValue(
-        "fareRule",
-        undefined
-      );
+    form.setFieldValue(
+      "fareRule",
+      undefined
+    );
 
-      message.warning(
-        "Không tìm thấy bảng giá phù hợp với tuyến và số chỗ của xe"
-      );
-    }
-  };
+    message.warning(
+      "Không tìm thấy bảng giá phù hợp với tuyến và số chỗ của xe"
+    );
+  }
+};
 
   // ====================================================
   // SUBMIT
@@ -960,7 +981,7 @@ const selectedBus = availableBuses.find(
 
 if (
   selectedBus &&
-  selectedBus.capacity !== 16 &&
+  selectedBus.capacity > 16 &&
   !values.assistant
 ) {
   message.error(
@@ -982,22 +1003,38 @@ if (
     }
 
     try {
-      const payload = {
+  const payload = {
   journey: values.journey,
   bus: values.bus,
   staff: values.staff,
-  assistantDriver: values.assistant,
+
+  // Xe <= 16 chỗ không có phụ xe -> gửi null
+  assistantDriver:
+    selectedBus &&
+    selectedBus.capacity <= 16
+      ? null
+      : values.assistant,
+
   fareRule: values.fareRule,
 
-  departureHour: values.departureHour,
-  arrivalHour: values.arrivalHour,
-  weekdays: values.weekdays,
+  departureHour:
+    values.departureHour,
+
+  arrivalHour:
+    values.arrivalHour,
+
+  weekdays:
+    values.weekdays,
 
   startDate:
-    values.startDate?.format("YYYY-MM-DD"),
+    values.startDate?.format(
+      "YYYY-MM-DD"
+    ),
 
   endDate:
-    values.endDate?.format("YYYY-MM-DD"),
+    values.endDate?.format(
+      "YYYY-MM-DD"
+    ),
 
   status: values.status,
 };
@@ -1727,67 +1764,105 @@ if (
     PHỤ XE
 ================================================== */}
 
+{/* ==================================================
+    PHỤ XE
+================================================== */}
+
 <Form.Item
   label="Phụ xe"
   name="assistant"
+  dependencies={["bus"]}
   rules={[
-  ({ getFieldValue }) => ({
-    validator(_, value) {
-      const busId = getFieldValue("bus");
+    ({ getFieldValue }) => ({
+      validator(_, value) {
+        const busId = getFieldValue("bus");
 
-      const bus = availableBuses.find(
-        (item) => item._id === busId
-      );
-
-      // Xe 16 chỗ -> không cần phụ xe
-      if (bus?.capacity === 16) {
-        return Promise.resolve();
-      }
-
-      // Xe khác 16 chỗ -> bắt buộc phụ xe
-      if (!value) {
-        return Promise.reject(
-          new Error("Xe này bắt buộc phải có phụ xe")
+        const bus = availableBuses.find(
+          (item) => item._id === busId
         );
-      }
 
-      return Promise.resolve();
-    },
-  }),
-]}
+        // Chưa chọn xe
+        if (!bus) {
+          return Promise.resolve();
+        }
+
+        // Xe từ 16 chỗ trở xuống -> KHÔNG bắt buộc phụ xe
+        if (bus.capacity <= 16) {
+          return Promise.resolve();
+        }
+
+        // Xe trên 16 chỗ -> BẮT BUỘC phụ xe
+        if (!value) {
+          return Promise.reject(
+            new Error(
+              "Xe này bắt buộc phải có phụ xe"
+            )
+          );
+        }
+
+        return Promise.resolve();
+      },
+    }),
+  ]}
   extra={
     !readyToCheckSchedule
       ? "Chọn đủ tuyến đường, ngày chạy, khoảng ngày và giờ khởi hành/đến để xem phụ xe đang rảnh"
       : undefined
   }
 >
-  {loadingAssistants ? (
-    <div className="flex items-center gap-2">
-      <Spin size="small" />
+  {(() => {
+    const busId = form.getFieldValue("bus");
 
-      <span className="text-gray-500 text-sm">
-        Đang kiểm tra phụ xe rảnh...
-      </span>
-    </div>
-  ) : (
-    <Select
-      placeholder="Chọn phụ xe đang rảnh"
-      disabled={
-        !readyToCheckSchedule ||
-        availableAssistants.length === 0
-      }
-      notFoundContent="Không có phụ xe nào rảnh trong khoảng lịch này"
-    >
-      {availableAssistants.map((item) => (
-        <Select.Option
-          key={item._id}
-          value={item._id}
-        >
-          {item.ten}
-        </Select.Option>
-      ))}
-    </Select>
-  )}
+    const selectedBus = availableBuses.find(
+      (item) => item._id === busId
+    );
+
+    // Xe <= 16 chỗ
+    const noNeedAssistant =
+      selectedBus &&
+      selectedBus.capacity <= 16;
+
+    return loadingAssistants ? (
+      <div className="flex items-center gap-2">
+        <Spin size="small" />
+
+        <span className="text-gray-500 text-sm">
+          Đang kiểm tra phụ xe rảnh...
+        </span>
+      </div>
+    ) : (
+      <Select
+        placeholder={
+          noNeedAssistant
+            ? "Xe này không cần phụ xe"
+            : "Chọn phụ xe đang rảnh"
+        }
+        disabled={
+          !readyToCheckSchedule ||
+          availableAssistants.length === 0 ||
+          noNeedAssistant
+        }
+        notFoundContent="Không có phụ xe nào rảnh trong khoảng lịch này"
+        onChange={(value) => {
+          form.setFieldValue(
+            "assistant",
+            value
+          );
+        }}
+      >
+        {availableAssistants.map(
+          (item) => (
+            <Select.Option
+              key={item._id}
+              value={item._id}
+            >
+              {item.ten}
+            </Select.Option>
+          )
+        )}
+      </Select>
+    );
+  })()}
 </Form.Item>
           {/* ==================================================
               TRẠNG THÁI
