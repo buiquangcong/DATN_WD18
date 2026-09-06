@@ -16,6 +16,7 @@ import {
   Modal,
   Divider,
   Table,
+  Tooltip,
 } from "antd";
 import {
   CreditCardOutlined,
@@ -51,7 +52,7 @@ interface TripType {
   bus: {
     _id: string;
     name: string;
-    type: "Sleeper" | "Seat";
+    type: "Sleeper" | "Seat" | "Seater" | "Limousine" | string;
     capacity: number;
     licensePlates: string;
   };
@@ -208,10 +209,11 @@ function OfflineBookingPage() {
   const getGridColsCount = (): number => {
     if (!selectedTrip || !selectedTrip.bus) return 4;
     const { capacity, type } = selectedTrip.bus;
+    if (type === "Sleeper" || capacity === 38 || capacity === 34) return 5;
+    if (capacity <= 10 || type === "Limousine") return 3; // Limousine 3 cột
     if (capacity === 16) return 4;
     if (capacity === 29) return 5;
     if (capacity === 45) return 5;
-    if (type === "Sleeper" || capacity === 38 || capacity === 34) return 5;
     return 4;
   };
 
@@ -406,162 +408,154 @@ function OfflineBookingPage() {
     const gridRow = showCockpit ? seat.rowIndex + 1 : seat.rowIndex;
     const gridCol = getMappedColIndex(seat);
 
-    let baseBg = "#ffffff";
-    let borderCol = "#cbd5e1";
-    let txtCol = "#334155";
-    let pillowBg = "#f1f5f9";
-    let armBg = "#cbd5e1";
-
-    if (isSelected) {
-      baseBg = "#eff6ff";
-      borderCol = "#2563eb";
-      txtCol = "#1d4ed8";
-      pillowBg = "#dbeafe";
-      armBg = "#3b82f6";
-    } else if (isHolding) {
-      baseBg = "#fff1f2";
-      borderCol = "#f43f5e";
-      txtCol = "#be123c";
-      pillowBg = "#ffe4e6";
-      armBg = "#fda4af";
-    } else if (isBooked) {
-      baseBg = "#f1f5f9";
-      borderCol = "#cbd5e1";
-      txtCol = "#94a3b8";
-      pillowBg = "#cbd5e1";
-      armBg = "#cbd5e1";
-    }
+    let statusText = "Còn trống";
+    if (isSelected) statusText = "Đang chọn";
+    else if (isHolding) statusText = "Đang giữ chỗ";
+    else if (isBooked) statusText = "Đã bán";
 
     if (isSleeperBus) {
+      let containerClasses = "group relative h-[62px] w-full rounded-xl transition-all duration-200 transform";
+      let frameClasses = "absolute inset-0 rounded-xl border-2 transition-colors";
+      let pillowClasses = "absolute top-1.5 left-2 right-2 h-2.5 rounded-sm border transition-colors";
+      let footClasses = "absolute bottom-1.5 left-2 right-2 h-2 rounded-b-sm border-t border-dashed transition-colors";
+      let textClasses = "text-[12px] font-bold tracking-wide transition-colors";
+
+      if (isSelected) {
+        containerClasses += " ring-2 ring-emerald-500 scale-105 shadow-md z-10 cursor-pointer";
+        frameClasses += " bg-emerald-50/90 border-emerald-500";
+        pillowClasses += " bg-emerald-200 border-emerald-400";
+        footClasses += " bg-emerald-100 border-emerald-300";
+        textClasses += " text-emerald-700 font-extrabold";
+      } else if (isHolding) {
+        containerClasses += " cursor-not-allowed opacity-90";
+        frameClasses += " bg-rose-50/90 border-rose-400";
+        pillowClasses += " bg-rose-200 border-rose-300";
+        footClasses += " bg-rose-100 border-rose-200";
+        textClasses += " text-rose-700 font-bold";
+      } else if (isBooked) {
+        containerClasses += " cursor-not-allowed opacity-60";
+        frameClasses += " bg-slate-100 border-slate-200";
+        pillowClasses += " bg-slate-200 border-slate-300";
+        footClasses += " bg-slate-100 border-slate-200";
+        textClasses += " text-slate-400 font-medium";
+      } else {
+        // AVAILABLE
+        containerClasses += " hover:-translate-y-0.5 hover:shadow-sm cursor-pointer";
+        frameClasses += " bg-white border-slate-300 group-hover:border-emerald-400 group-hover:bg-slate-50";
+        pillowClasses += " bg-slate-100 border-slate-200 group-hover:bg-emerald-100/60";
+        footClasses += " bg-slate-50 border-slate-200";
+        textClasses += " text-slate-700 group-hover:text-emerald-700";
+      }
+
       return (
-        <button
+        <Tooltip
           key={seat.seatCode}
-          type="button"
-          disabled={isBooked}
-          onClick={() => handleSeatClick(seat.seatCode, seat.status)}
-          style={{
-            gridColumnStart: gridCol,
-            gridRowStart: gridRow,
-            position: "relative",
-            height: 58,
-            width: "100%",
-            background: "transparent",
-            border: "none",
-            cursor: isBooked ? "not-allowed" : "pointer",
-            outline: "none",
-          }}
+          title={
+            <div className="text-xs">
+              <p className="font-bold text-emerald-400">Giường: {seat.seatCode}</p>
+              <p>Tầng: {seat.floor === 1 ? "Tầng 1 (Dưới)" : "Tầng 2 (Trên)"}</p>
+              <p>Trạng thái: {statusText}</p>
+            </div>
+          }
         >
-          <div className="relative w-full h-full flex flex-col items-center justify-center">
-            {/* Bed Body */}
-            <div
-              style={{
-                position: "absolute",
-                inset: "2px",
-                backgroundColor: baseBg,
-                border: `2px solid ${borderCol}`,
-                borderRadius: 8,
-                boxShadow: isSelected ? "0 4px 12px rgba(37, 99, 235, 0.15)" : "none",
-                transition: "all 0.2s",
-              }}
-            />
-            {/* Pillow */}
-            <div
-              style={{
-                position: "absolute",
-                top: 6,
-                left: 6,
-                right: 6,
-                height: 10,
-                backgroundColor: pillowBg,
-                border: `1px solid ${borderCol}`,
-                borderRadius: 1.5,
-              }}
-            />
-            {/* Text */}
-            <span
-              style={{
-                position: "relative",
-                zIndex: 2,
-                fontSize: "11px",
-                fontWeight: isSelected ? 700 : 500,
-                color: txtCol,
-                marginTop: 10,
-              }}
-            >
-              {seat.seatCode}
-            </span>
+          <div
+            onClick={() => !isBooked && handleSeatClick(seat.seatCode, seat.status)}
+            style={{
+              gridColumnStart: gridCol,
+              gridRowStart: gridRow,
+            }}
+            className={containerClasses}
+          >
+            {/* Khung giường */}
+            <div className={frameClasses} />
+            {/* Gối đầu */}
+            <div className={pillowClasses} />
+            {/* Tấm ga đệm chân */}
+            <div className={footClasses} />
+            {/* Mã số giường */}
+            <div className="relative z-10 h-full flex flex-col items-center justify-center pt-2">
+              <span className={textClasses}>
+                {seat.seatCode}
+              </span>
+            </div>
           </div>
-        </button>
-      );
-    } else {
-      // Standard Seat Bus
-      return (
-        <button
-          key={seat.seatCode}
-          type="button"
-          disabled={isBooked}
-          onClick={() => handleSeatClick(seat.seatCode, seat.status)}
-          style={{
-            gridColumnStart: gridCol,
-            gridRowStart: gridRow,
-            position: "relative",
-            height: 48,
-            width: "100%",
-            background: "transparent",
-            border: "none",
-            cursor: isBooked ? "not-allowed" : "pointer",
-            outline: "none",
-          }}
-        >
-          <div className="relative w-full h-full flex flex-col items-center justify-center">
-            {/* Seat Body */}
-            <div
-              style={{
-                position: "absolute",
-                top: 6,
-                bottom: 0,
-                left: 3,
-                right: 3,
-                backgroundColor: baseBg,
-                border: `2.0px solid ${borderCol}`,
-                borderRadius: "6px 6px 8px 8px",
-                boxShadow: isSelected ? "0 4px 8px rgba(37, 99, 235, 0.12)" : "none",
-              }}
-            />
-            {/* Headrest */}
-            <div
-              style={{
-                position: "absolute",
-                top: 1,
-                width: "45%",
-                height: 8,
-                backgroundColor: baseBg,
-                border: `2px solid ${borderCol}`,
-                borderBottom: "none",
-                borderRadius: "3px 3px 0 0",
-              }}
-            />
-            {/* Armrests */}
-            <div style={{ position: "absolute", top: 12, bottom: 4, left: 1, width: 3, backgroundColor: armBg, borderRadius: 1 }} />
-            <div style={{ position: "absolute", top: 12, bottom: 4, right: 1, width: 3, backgroundColor: armBg, borderRadius: 1 }} />
-            
-            {/* Text */}
-            <span
-              style={{
-                position: "relative",
-                zIndex: 2,
-                fontSize: "11px",
-                fontWeight: isSelected ? 700 : 500,
-                color: txtCol,
-                marginTop: 4,
-              }}
-            >
-              {seat.seatCode}
-            </span>
-          </div>
-        </button>
+        </Tooltip>
       );
     }
+
+    // Seater (Ghế ngồi)
+    let containerClasses = "group relative h-[52px] w-full rounded-lg transition-all duration-200 transform";
+    let headrestClasses = "absolute top-0.5 left-1/4 right-1/4 h-2 rounded-t border-t-2 border-x-2 transition-colors";
+    let cushionClasses = "absolute top-2.5 bottom-0 inset-x-1 rounded-lg border-2 transition-colors";
+    let armLeftClasses = "absolute top-4 bottom-1.5 left-0 w-1 rounded-full transition-colors";
+    let armRightClasses = "absolute top-4 bottom-1.5 right-0 w-1 rounded-full transition-colors";
+    let textClasses = "text-[12px] font-bold tracking-wide transition-colors";
+
+    if (isSelected) {
+      containerClasses += " ring-2 ring-emerald-500 scale-105 shadow-md z-10 cursor-pointer";
+      headrestClasses += " bg-emerald-100 border-emerald-500";
+      cushionClasses += " bg-emerald-50/90 border-emerald-500";
+      armLeftClasses += " bg-emerald-400";
+      armRightClasses += " bg-emerald-400";
+      textClasses += " text-emerald-700 font-extrabold";
+    } else if (isHolding) {
+      containerClasses += " cursor-not-allowed opacity-90";
+      headrestClasses += " bg-rose-100 border-rose-400";
+      cushionClasses += " bg-rose-50/90 border-rose-400";
+      armLeftClasses += " bg-rose-300";
+      armRightClasses += " bg-rose-300";
+      textClasses += " text-rose-700 font-bold";
+    } else if (isBooked) {
+      containerClasses += " cursor-not-allowed opacity-60";
+      headrestClasses += " bg-slate-200 border-slate-300";
+      cushionClasses += " bg-slate-100 border-slate-200";
+      armLeftClasses += " bg-slate-200";
+      armRightClasses += " bg-slate-200";
+      textClasses += " text-slate-400 font-medium";
+    } else {
+      // AVAILABLE
+      containerClasses += " hover:-translate-y-0.5 hover:shadow-sm cursor-pointer";
+      headrestClasses += " bg-slate-100 border-slate-300 group-hover:border-emerald-400";
+      cushionClasses += " bg-white border-slate-300 group-hover:border-emerald-400 group-hover:bg-slate-50";
+      armLeftClasses += " bg-slate-300 group-hover:bg-emerald-400";
+      armRightClasses += " bg-slate-300 group-hover:bg-emerald-400";
+      textClasses += " text-slate-700 group-hover:text-emerald-700";
+    }
+
+    return (
+      <Tooltip
+        key={seat.seatCode}
+        title={
+          <div className="text-xs">
+            <p className="font-bold text-emerald-400">Ghế: {seat.seatCode}</p>
+            <p>Trạng thái: {statusText}</p>
+          </div>
+        }
+      >
+        <div
+          onClick={() => !isBooked && handleSeatClick(seat.seatCode, seat.status)}
+          style={{
+            gridColumnStart: gridCol,
+            gridRowStart: gridRow,
+          }}
+          className={containerClasses}
+        >
+          {/* Tựa đầu ghế */}
+          <div className={headrestClasses} />
+          {/* Thân đệm ghế */}
+          <div className={cushionClasses} />
+          {/* Tay vịn 2 bên */}
+          <div className={armLeftClasses} />
+          <div className={armRightClasses} />
+          {/* Mã số ghế */}
+          <div className="relative z-10 h-full flex flex-col items-center justify-center pt-2">
+            <span className={textClasses}>
+              {seat.seatCode}
+            </span>
+          </div>
+        </div>
+      </Tooltip>
+    );
   };
 
   const renderBusLayout = (floorNum: number) => {
@@ -573,80 +567,93 @@ function OfflineBookingPage() {
 
     return (
       <div
-        className="mx-auto max-w-[280px]"
-        style={{
-          position: "relative",
-          background: "#ffffff",
-          border: "4px solid #cbd5e1",
-          borderRadius: "32px 32px 16px 16px",
-          padding: "24px 16px 16px 16px",
-          boxShadow: "0 10px 30px rgba(0, 0, 0, 0.04)",
-          marginTop: 10,
-        }}
+        className="relative w-full max-w-[270px] mx-auto bg-white border-[3px] border-slate-300 rounded-t-[36px] rounded-b-[20px] p-4 shadow-sm hover:shadow-md transition-shadow"
+        style={{ minHeight: isSleeperBus ? "460px" : "380px" }}
       >
-        {/* Windshield */}
-        <div
-          style={{
-            height: 14,
-            background: "linear-gradient(to bottom, #475569, #1e293b)",
-            borderRadius: "10px 10px 2px 2px",
-            marginBottom: 16,
-            position: "relative",
-          }}
-        >
-          <div
-            style={{
-              position: "absolute",
-              top: 4,
-              left: "50%",
-              transform: "translateX(-50%)",
-              width: 30,
-              height: 2,
-              backgroundColor: "#94a3b8",
-              borderRadius: 1,
-            }}
-          />
+        {/* Gương chiếu hậu 2 bên */}
+        <div className="absolute top-6 -left-2 w-2 h-5 bg-slate-700 rounded-l-md" />
+        <div className="absolute top-6 -right-2 w-2 h-5 bg-slate-700 rounded-r-md" />
+
+        {/* Kính chắn gió phía trước */}
+        <div className="relative h-4 bg-gradient-to-b from-slate-700 to-slate-900 rounded-t-xl rounded-b-xs mb-4 flex items-center justify-center">
+          <div className="w-10 h-0.5 bg-slate-400 rounded-full" />
         </div>
 
-        {/* Side mirrors */}
-        <div style={{ position: "absolute", top: 20, left: -6, width: 6, height: 16, background: "#334155", borderRadius: "3px 0 0 3px" }} />
-        <div style={{ position: "absolute", top: 20, right: -6, width: 6, height: 16, background: "#334155", borderRadius: "0 3px 3px 0" }} />
-
-        {/* Grid Seats */}
+        {/* Grid sơ đồ ghế / giường */}
         <div
           style={{
             display: "grid",
             gridTemplateColumns: `repeat(${totalCols}, 1fr)`,
-            gap: "12px 10px",
+            gap: isSleeperBus ? "12px 8px" : "10px 6px",
           }}
         >
-          {/* Driver Cockpit */}
+          {/* Hàng 1: Khoang lái & Cửa lên xuống (Chỉ tầng 1) */}
           {showCockpit && (
             <>
-              <div className="flex items-center justify-center h-10" style={{ gridColumnStart: 1, gridRowStart: 1 }}>
-                <div className="flex flex-col items-center text-gray-400">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ transform: "rotate(-45deg)" }}>
+              {/* Vị trí Tài xế */}
+              <div
+                style={{ gridColumnStart: 1, gridRowStart: 1 }}
+                className="flex items-center justify-center h-10"
+              >
+                <div className="flex flex-col items-center text-slate-500">
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    style={{ transform: "rotate(-45deg)" }}
+                  >
                     <circle cx="12" cy="12" r="10" />
                     <line x1="12" y1="2" x2="12" y2="22" />
                     <line x1="2" y1="12" x2="22" y2="12" />
                     <circle cx="12" cy="12" r="3" fill="currentColor" />
                   </svg>
-                  <span className="text-[7px] mt-0.5 font-bold tracking-wider">LÁI XE</span>
+                  <span className="text-[8px] font-bold mt-0.5 tracking-wider">TÀI XẾ</span>
                 </div>
               </div>
-              {Array.from({ length: totalCols - 2 }).map((_, idx) => (
-                <div key={`empty-cockpit-${idx}`} style={{ gridColumnStart: idx + 2, gridRowStart: 1 }} />
-              ))}
-              <div className="flex items-center justify-center h-10" style={{ gridColumnStart: totalCols, gridRowStart: 1 }}>
-                <div className="border border-dashed border-gray-300 bg-slate-50 text-gray-400 text-[7px] p-1 text-center font-bold rounded">
-                  CỬA LÊN
+
+              {/* Khoảng trống táp-lô (chỉ vẽ nếu vị trí đó không có ghế A1) */}
+              {Array.from({ length: totalCols - 2 }).map((_, idx) => {
+                const col = idx + 2;
+                const hasSeatHere = seatsInFloor.some(
+                  (s: any) => s.colIndex === col && s.rowIndex === 0
+                );
+                if (hasSeatHere) return null;
+                return (
+                  <div
+                    key={`cockpit-blank-${idx}`}
+                    style={{ gridColumnStart: col, gridRowStart: 1 }}
+                  />
+                );
+              })}
+
+              {/* Cửa lên xe (chỉ vẽ nếu cột cuối chưa bị ghế A2 chiếm) */}
+              {!seatsInFloor.some((s: any) => s.colIndex === totalCols && s.rowIndex === 0) && (
+                <div
+                  style={{ gridColumnStart: totalCols, gridRowStart: 1 }}
+                  className="flex items-center justify-center h-10"
+                >
+                  <div className="border border-dashed border-emerald-400 bg-emerald-50/60 text-emerald-700 text-[8px] p-1 text-center font-bold rounded-md leading-tight">
+                    CỬA
+                    <br />
+                    LÊN
+                  </div>
                 </div>
-              </div>
+              )}
             </>
           )}
 
-          {/* Render real seats */}
+          {/* Các vị trí ghế thực tế */}
           {seatsInFloor.map((seat) => renderSeatElement(seat, totalCols, isSleeperBus, showCockpit))}
+        </div>
+
+        {/* Đuôi xe */}
+        <div className="mt-5 pt-3 border-t border-dashed border-slate-200 flex justify-between items-center text-[10px] text-slate-400 font-medium px-1">
+          <span>Đuôi xe</span>
+          {isSleeperBus && <span>WC / Lối thoát</span>}
+          <span>Hàng sau</span>
         </div>
       </div>
     );
@@ -883,12 +890,53 @@ function OfflineBookingPage() {
           ) : (
             <div className="space-y-4">
               {/* Legend items */}
-              <Flex gap="small" justify="center" wrap="wrap" className="border-b pb-4 mb-2 text-xs">
-                <Space><div className="w-4 h-4 bg-white border border-gray-300 rounded" /><span>Trống</span></Space>
-                <Space><div className="w-4 h-4 bg-blue-100 border border-blue-600 rounded" /><span>Đang chọn</span></Space>
-                <Space><div className="w-4 h-4 bg-red-100 border border-red-400 rounded" /><span>Đang giữ</span></Space>
-                <Space><div className="w-4 h-4 bg-slate-100 border border-gray-300 rounded" /><span>Đã bán</span></Space>
-              </Flex>
+              <div className="flex flex-wrap items-center justify-center gap-3 md:gap-4 py-2 px-3 mb-2 text-xs text-gray-600 bg-white border border-gray-100 rounded-lg shadow-2xs">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-5 h-5 rounded border-2 border-slate-300 bg-white flex items-center justify-center text-[9px] font-bold text-slate-700">
+                    A1
+                  </div>
+                  <span>{selectedTrip.bus?.type === "Sleeper" ? "Giường trống" : "Ghế trống"}</span>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <div className="w-5 h-5 rounded border-2 border-emerald-500 bg-emerald-50 flex items-center justify-center text-[9px] font-bold text-emerald-700">
+                    ✓
+                  </div>
+                  <span>Đang chọn</span>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <div className="w-5 h-5 rounded border-2 border-rose-400 bg-rose-50 flex items-center justify-center text-[9px] font-bold text-rose-600">
+                    ⌛
+                  </div>
+                  <span>Đang giữ</span>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <div className="w-5 h-5 rounded border-2 border-slate-200 bg-slate-100 flex items-center justify-center text-[9px] font-bold text-slate-400">
+                    ✕
+                  </div>
+                  <span>Đã bán</span>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <div className="w-5 h-5 rounded border border-dashed border-emerald-400 bg-emerald-50/60 flex items-center justify-center text-[7px] font-bold text-emerald-700">
+                    CỬA
+                  </div>
+                  <span>Cửa lên</span>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <div className="w-5 h-5 rounded bg-slate-100 text-slate-600 flex items-center justify-center text-[9px]">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="12" y1="2" x2="12" y2="22" />
+                      <line x1="2" y1="12" x2="22" y2="12" />
+                    </svg>
+                  </div>
+                  <span>Khoang tài xế</span>
+                </div>
+              </div>
 
               {/* Sleeper bus floors switch tab */}
               {selectedTrip.bus?.type === "Sleeper" ? (
