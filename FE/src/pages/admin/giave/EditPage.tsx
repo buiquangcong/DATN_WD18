@@ -34,6 +34,9 @@ function FareRuleEditPage() {
     { label: "29 chỗ", value: 29 },
     { label: "38 chỗ", value: 38 },
     { label: "45 chỗ", value: 45 },
+    { label: "7 chỗ", value: 7 },
+    { label: "8 chỗ", value: 8 },
+    { label: "9 chỗ", value: 9 },
   ];
 
   const onFinish = (values: any) => {
@@ -60,7 +63,7 @@ function FareRuleEditPage() {
                 message: "Vui lòng chọn tuyến đường",
               },
             ]}
-              // extra="Không thể đổi tuyến đường của bảng giá đã tồn tại. Nếu cần áp dụng cho tuyến khác, hãy tạo bảng giá mới."
+          // extra="Không thể đổi tuyến đường của bảng giá đã tồn tại. Nếu cần áp dụng cho tuyến khác, hãy tạo bảng giá mới."
           >
             <Select disabled placeholder="Chọn tuyến">
               {journeys?.map((item: any) => (
@@ -81,7 +84,7 @@ function FareRuleEditPage() {
                 message: "Vui lòng chọn sức chứa",
               },
             ]}
-            // extra="Không thể đổi sức chứa của bảng giá đã tồn tại. Nếu cần áp dụng cho loại xe khác, hãy tạo bảng giá mới."
+          // extra="Không thể đổi sức chứa của bảng giá đã tồn tại. Nếu cần áp dụng cho loại xe khác, hãy tạo bảng giá mới."
           >
             <Select disabled placeholder="Chọn sức chứa">
               {capacityOptions.map((item) => (
