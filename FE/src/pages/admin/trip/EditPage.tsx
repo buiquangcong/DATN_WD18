@@ -84,10 +84,18 @@ function TripEditPage() {
   const { id } = useParams();
 
   const { Edit } = useCRUD("trip");
-  const { data: trip, isLoading } = useDetail("trip", id);
+  const { data: trip, isLoading } = useDetail(
+    "trip",
+    id
+  );
 
-  const [journeys, setJourneys] = useState<Journey[]>([]);
-  const [fareRules, setFareRules] = useState<FareRule[]>([]);
+  const [journeys, setJourneys] = useState<Journey[]>(
+    []
+  );
+
+  const [fareRules, setFareRules] = useState<FareRule[]>(
+    []
+  );
 
   const [selectedJourney, setSelectedJourney] =
     useState<Journey | null>(null);
@@ -101,9 +109,9 @@ function TripEditPage() {
   const [arrivalTime, setArrivalTime] =
     useState<Dayjs | null>(null);
 
-  // =========================
+  // =========================================================
   // XE
-  // =========================
+  // =========================================================
 
   const [availableBuses, setAvailableBuses] =
     useState<Bus[]>([]);
@@ -111,9 +119,12 @@ function TripEditPage() {
   const [loadingBuses, setLoadingBuses] =
     useState(false);
 
-  // =========================
+  const [selectedBus, setSelectedBus] =
+    useState<Bus | null>(null);
+
+  // =========================================================
   // TÀI XẾ
-  // =========================
+  // =========================================================
 
   const [availableDrivers, setAvailableDrivers] =
     useState<Driver[]>([]);
@@ -121,15 +132,19 @@ function TripEditPage() {
   const [loadingDrivers, setLoadingDrivers] =
     useState(false);
 
-  // =========================
+  // =========================================================
   // PHỤ XE
-  // =========================
+  // =========================================================
 
-  const [availableAssistantDrivers, setAvailableAssistantDrivers] =
-    useState<Driver[]>([]);
+  const [
+    availableAssistantDrivers,
+    setAvailableAssistantDrivers,
+  ] = useState<Driver[]>([]);
 
-  const [loadingAssistantDrivers, setLoadingAssistantDrivers] =
-    useState(false);
+  const [
+    loadingAssistantDrivers,
+    setLoadingAssistantDrivers,
+  ] = useState(false);
 
   // =========================================================
   // TRẠNG THÁI
@@ -189,10 +204,30 @@ function TripEditPage() {
     ];
   }, [trip]);
 
-  // Xe + tài xế + phụ xe chỉ sửa khi chuyến chưa chạy
+  // =========================================================
+  // QUYỀN SỬA
+  // =========================================================
+
+  // Xe + phụ xe:
+  // sắp chạy hoặc đang chạy thì được sửa
   const isEditable =
     trip?.status === "sắp chạy" ||
     trip?.status === "đang chạy";
+
+  // Tài xế:
+  // CHỈ được sửa khi chuyến sắp chạy
+  const isDriverEditable =
+    trip?.status === "sắp chạy";
+
+  // =========================================================
+  // LOGIC PHỤ XE
+  // =========================================================
+
+  // Xe <= 16 chỗ -> không cần phụ xe
+  // Xe > 16 chỗ -> bắt buộc phụ xe
+  const isAssistantRequired =
+    selectedBus !== null &&
+    selectedBus.capacity > 16;
 
   // =========================================================
   // LOAD JOURNEY + FARE RULE
@@ -213,7 +248,9 @@ function TripEditPage() {
         setJourneys(j.data);
         setFareRules(f.data);
       } catch {
-        message.error("Load dữ liệu thất bại");
+        message.error(
+          "Load dữ liệu thất bại"
+        );
       }
     };
 
@@ -234,8 +271,9 @@ function TripEditPage() {
 
       staff: trip.staff?._id,
 
-      // PHỤ XE
-      assistantDriver: trip.assistantDriver?._id || undefined,
+      assistantDriver:
+        trip.assistantDriver?._id ||
+        undefined,
 
       fareRule: trip.fareRule?._id,
 
@@ -250,6 +288,11 @@ function TripEditPage() {
         : undefined,
     });
 
+    // Lưu xe hiện tại
+    if (trip.bus) {
+      setSelectedBus(trip.bus);
+    }
+
     if (trip.departureTime) {
       setDepartureTime(
         dayjs(trip.departureTime)
@@ -263,7 +306,9 @@ function TripEditPage() {
     }
 
     if (trip.fareRule) {
-      setSelectedFareRule(trip.fareRule);
+      setSelectedFareRule(
+        trip.fareRule
+      );
     }
   }, [trip, form]);
 
@@ -281,7 +326,9 @@ function TripEditPage() {
 
     const journey =
       journeys.find(
-        (j) => j._id === trip.journey._id
+        (j) =>
+          j._id ===
+          trip.journey._id
       ) || null;
 
     setSelectedJourney(journey);
@@ -302,84 +349,97 @@ function TripEditPage() {
       return;
     }
 
-    const fetchAvailableBuses = async () => {
-      setLoadingBuses(true);
+    const fetchAvailableBuses =
+      async () => {
+        setLoadingBuses(true);
 
-      try {
-        const dateStr =
-          departureTime.format("YYYY-MM-DD");
+        try {
+          const dateStr =
+            departureTime.format(
+              "YYYY-MM-DD"
+            );
 
-        const weekday =
-          departureTime.day();
+          const weekday =
+            departureTime.day();
 
-        const res = await axios.get(
-          "http://localhost:3000/api/trip/available-buses",
-          {
-            params: {
-              weekdays: String(weekday),
+          const res = await axios.get(
+            "http://localhost:3000/api/trip/available-buses",
+            {
+              params: {
+                weekdays:
+                  String(weekday),
 
-              startDate: dateStr,
+                startDate:
+                  dateStr,
 
-              endDate: dateStr,
+                endDate:
+                  dateStr,
 
-              departureHour:
-                departureTime.format("HH:mm"),
+                departureHour:
+                  departureTime.format(
+                    "HH:mm"
+                  ),
 
-              arrivalHour:
-                arrivalTime.format("HH:mm"),
+                arrivalHour:
+                  arrivalTime.format(
+                    "HH:mm"
+                  ),
 
-              journey: selectedJourney._id,
+                journey:
+                  selectedJourney._id,
 
-              excludeTripId: id,
-            },
-          }
-        );
-
-        const originalCapacity =
-          trip?.bus?.capacity;
-
-        const filteredBuses =
-          originalCapacity
-            ? res.data.filter(
-                (b: Bus) =>
-                  b.capacity ===
-                  originalCapacity
-              )
-            : res.data;
-
-        setAvailableBuses(
-          filteredBuses
-        );
-
-        // Giữ xe hiện tại nếu API không trả về
-        const currentBusId =
-          trip?.bus?._id;
-
-        if (
-          currentBusId &&
-          !filteredBuses.some(
-            (b: Bus) =>
-              b._id === currentBusId
-          ) &&
-          trip?.bus
-        ) {
-          setAvailableBuses(
-            (prev) => [
-              trip.bus,
-              ...prev,
-            ]
+                excludeTripId:
+                  id,
+              },
+            }
           );
-        }
-      } catch {
-        message.error(
-          "Không thể kiểm tra xe rảnh"
-        );
 
-        setAvailableBuses([]);
-      } finally {
-        setLoadingBuses(false);
-      }
-    };
+          const originalCapacity =
+            trip?.bus?.capacity;
+
+          const filteredBuses =
+            originalCapacity
+              ? res.data.filter(
+                  (b: Bus) =>
+                    b.capacity ===
+                    originalCapacity
+                )
+              : res.data;
+
+          setAvailableBuses(
+            filteredBuses
+          );
+
+          // Giữ xe hiện tại
+          const currentBusId =
+            trip?.bus?._id;
+
+          if (
+            currentBusId &&
+            !filteredBuses.some(
+              (b: Bus) =>
+                b._id ===
+                currentBusId
+            ) &&
+            trip?.bus
+          ) {
+            setAvailableBuses(
+              (prev) => [
+                trip.bus,
+                ...prev,
+              ]
+            );
+          }
+        } catch {
+          message.error(
+            "Không thể kiểm tra xe rảnh"
+          );
+
+          setAvailableBuses([]);
+        } finally {
+          setLoadingBuses(false);
+        }
+      };
 
     fetchAvailableBuses();
   }, [
@@ -391,30 +451,32 @@ function TripEditPage() {
   ]);
 
   // =========================================================
-  // TÌM BẢNG GIÁ THEO XE
+  // TỰ ĐỘNG TÌM BẢNG GIÁ
   // =========================================================
 
-useEffect(() => {
-  if (isLoading) return;
+  useEffect(() => {
+    if (isLoading) return;
 
-  const currentBusId =
-    form.getFieldValue("bus");
+    const currentBusId =
+      form.getFieldValue("bus");
 
-  if (
-    !currentBusId ||
-    availableBuses.length === 0 ||
-    !selectedJourney
-  ) {
-    return;
-  }
+    if (
+      !currentBusId ||
+      availableBuses.length === 0 ||
+      !selectedJourney
+    ) {
+      return;
+    }
 
-  handleFindFareRule(currentBusId);
-}, [
-  isLoading,
-  availableBuses,
-  selectedJourney,
-  fareRules,
-]);
+    handleFindFareRule(
+      currentBusId
+    );
+  }, [
+    isLoading,
+    availableBuses,
+    selectedJourney,
+    fareRules,
+  ]);
 
   // =========================================================
   // CHECK TÀI XẾ RẢNH
@@ -451,9 +513,11 @@ useEffect(() => {
                 weekdays:
                   String(weekday),
 
-                startDate: dateStr,
+                startDate:
+                  dateStr,
 
-                endDate: dateStr,
+                endDate:
+                  dateStr,
 
                 departureHour:
                   departureTime.format(
@@ -468,7 +532,8 @@ useEffect(() => {
                 journey:
                   selectedJourney._id,
 
-                excludeTripId: id,
+                excludeTripId:
+                  id,
               },
             }
           );
@@ -522,6 +587,15 @@ useEffect(() => {
   // =========================================================
 
   useEffect(() => {
+    // Xe <= 16 chỗ thì không cần phụ xe
+    if (!isAssistantRequired) {
+      setAvailableAssistantDrivers(
+        []
+      );
+
+      return;
+    }
+
     if (
       !departureTime ||
       !arrivalTime ||
@@ -557,9 +631,11 @@ useEffect(() => {
                 weekdays:
                   String(weekday),
 
-                startDate: dateStr,
+                startDate:
+                  dateStr,
 
-                endDate: dateStr,
+                endDate:
+                  dateStr,
 
                 departureHour:
                   departureTime.format(
@@ -574,7 +650,8 @@ useEffect(() => {
                 journey:
                   selectedJourney._id,
 
-                excludeTripId: id,
+                excludeTripId:
+                  id,
               },
             }
           );
@@ -582,7 +659,7 @@ useEffect(() => {
           let assistantList =
             res.data;
 
-          // Không cho phụ xe trùng với tài xế hiện tại
+          // Không cho phụ xe trùng tài xế
           const currentStaffId =
             form.getFieldValue(
               "staff"
@@ -596,7 +673,6 @@ useEffect(() => {
             );
 
           // Giữ phụ xe hiện tại
-          // nếu API không trả về vì đang là chuyến hiện tại
           const currentAssistantId =
             trip?.assistantDriver?._id;
 
@@ -646,6 +722,7 @@ useEffect(() => {
     trip,
     selectedJourney,
     form,
+    isAssistantRequired,
   ]);
 
   // =========================================================
@@ -657,7 +734,8 @@ useEffect(() => {
   ) => {
     const bus =
       availableBuses.find(
-        (x) => x._id === busId
+        (x) =>
+          x._id === busId
       );
 
     if (
@@ -666,6 +744,25 @@ useEffect(() => {
     ) {
       return;
     }
+
+    // Lưu xe đang chọn
+    setSelectedBus(bus);
+
+    // =====================================================
+    // XE <= 16 CHỖ
+    // -> XOÁ PHỤ XE
+    // =====================================================
+
+    if (bus.capacity <= 16) {
+      form.setFieldValue(
+        "assistantDriver",
+        null
+      );
+    }
+
+    // =====================================================
+    // TÌM BẢNG GIÁ
+    // =====================================================
 
     const rule =
       fareRules.find(
@@ -818,6 +915,44 @@ useEffect(() => {
       return;
     }
 
+    // =====================================================
+    // XE <= 16 CHỖ
+    // -> KHÔNG CÓ PHỤ XE
+    // =====================================================
+
+    const assistantDriver =
+      selectedBus &&
+      selectedBus.capacity <= 16
+        ? null
+        : values.assistantDriver ||
+          null;
+
+    // =====================================================
+    // XE > 16 CHỖ
+    // -> BẮT BUỘC PHỤ XE
+    // =====================================================
+
+    if (
+      selectedBus &&
+      selectedBus.capacity > 16 &&
+      !assistantDriver
+    ) {
+      message.error(
+        "Xe trên 16 chỗ bắt buộc phải có phụ xe"
+      );
+
+      return;
+    }
+
+    // =====================================================
+    // KHÔNG CHO ĐỔI TÀI XẾ KHI ĐANG CHẠY
+    // =====================================================
+
+    const staff =
+      !isDriverEditable
+        ? trip?.staff?._id
+        : values.staff;
+
     Edit({
       _id: id,
 
@@ -827,13 +962,9 @@ useEffect(() => {
       bus:
         values.bus,
 
-      staff:
-        values.staff,
+      staff,
 
-      // PHỤ XE
-      assistantDriver:
-        values.assistantDriver ||
-        null,
+      assistantDriver,
 
       fareRule:
         values.fareRule,
@@ -964,9 +1095,8 @@ useEffect(() => {
               </p>
 
               {selectedJourney.diemDon &&
-                selectedJourney
-                  .diemDon.length >
-                  0 && (
+                selectedJourney.diemDon
+                  .length > 0 && (
                   <>
                     <p className="text-sm text-gray-500 mb-1">
                       Điểm đón
@@ -1009,9 +1139,8 @@ useEffect(() => {
                 )}
 
               {selectedJourney.diemTra &&
-                selectedJourney
-                  .diemTra.length >
-                  0 && (
+                selectedJourney.diemTra
+                  .length > 0 && (
                   <>
                     <Divider className="my-2" />
 
@@ -1162,8 +1291,8 @@ useEffect(() => {
             },
           ]}
           extra={
-            !isEditable
-              ? "Chuyến đã hoàn thành hoặc huỷ, không thể đổi tài xế"
+            !isDriverEditable
+              ? "Chuyến đang chạy, hoàn thành hoặc huỷ, không thể đổi tài xế"
               : undefined
           }
         >
@@ -1180,7 +1309,7 @@ useEffect(() => {
             <Select
               placeholder="Chọn tài xế đang rảnh"
               disabled={
-                !isEditable ||
+                !isDriverEditable ||
                 availableDrivers.length ===
                   0
               }
@@ -1205,59 +1334,62 @@ useEffect(() => {
 
         {/* ================================================= */}
         {/* PHỤ XE */}
+        {/* XE <= 16 CHỖ -> KHÔNG HIỆN */}
         {/* ================================================= */}
 
-        <Form.Item
-          name="assistantDriver"
-          label="Phụ xe"
-          rules={[
-            {
-              required: true,
-              message:
-                "Chọn phụ xe",
-            },
-          ]}
-          extra={
-            !isEditable
-              ? "Chuyến đã hoàn thành hoặc huỷ, không thể đổi phụ xe"
-              : "Chỉ hiện phụ xe đang rảnh trong khung giờ của chuyến"
-          }
-        >
-          {loadingAssistantDrivers ? (
-            <div className="flex items-center gap-2">
-              <Spin size="small" />
+        {isAssistantRequired && (
+          <Form.Item
+            name="assistantDriver"
+            label="Phụ xe"
+            rules={[
+              {
+                required: true,
+                message:
+                  "Chọn phụ xe",
+              },
+            ]}
+            extra={
+              !isEditable
+                ? "Chuyến đã hoàn thành hoặc huỷ, không thể đổi phụ xe"
+                : "Chỉ hiện phụ xe đang rảnh trong khung giờ của chuyến"
+            }
+          >
+            {loadingAssistantDrivers ? (
+              <div className="flex items-center gap-2">
+                <Spin size="small" />
 
-              <span className="text-gray-500 text-sm">
-                Đang kiểm tra phụ
-                xe rảnh...
-              </span>
-            </div>
-          ) : (
-            <Select
-              placeholder="Chọn phụ xe đang rảnh"
-              disabled={
-                !isEditable ||
-                availableAssistantDrivers.length ===
-                  0
-              }
-              notFoundContent="Không có phụ xe nào rảnh vào khung giờ này"
-              onChange={
-                handleAssistantDriverChange
-              }
-            >
-              {availableAssistantDrivers.map(
-                (d) => (
-                  <Select.Option
-                    key={d._id}
-                    value={d._id}
-                  >
-                    {d.ten}
-                  </Select.Option>
-                )
-              )}
-            </Select>
-          )}
-        </Form.Item>
+                <span className="text-gray-500 text-sm">
+                  Đang kiểm tra phụ
+                  xe rảnh...
+                </span>
+              </div>
+            ) : (
+              <Select
+                placeholder="Chọn phụ xe đang rảnh"
+                disabled={
+                  !isEditable ||
+                  availableAssistantDrivers.length ===
+                    0
+                }
+                notFoundContent="Không có phụ xe nào rảnh vào khung giờ này"
+                onChange={
+                  handleAssistantDriverChange
+                }
+              >
+                {availableAssistantDrivers.map(
+                  (d) => (
+                    <Select.Option
+                      key={d._id}
+                      value={d._id}
+                    >
+                      {d.ten}
+                    </Select.Option>
+                  )
+                )}
+              </Select>
+            )}
+          </Form.Item>
+        )}
 
         {/* ================================================= */}
         {/* TRẠNG THÁI */}
