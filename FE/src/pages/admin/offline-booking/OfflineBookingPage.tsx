@@ -46,8 +46,10 @@ interface TripType {
     _id: string;
     diemDi: string;
     diemDen: string;
-    price: number;
+    price?: number;
     name?: string;
+    diemDon?: { diaDiem: string; offsetMinutes: number }[];
+    diemTra?: { diaDiem: string; offsetMinutes: number }[];
   };
   bus: {
     _id: string;
@@ -695,10 +697,15 @@ function OfflineBookingPage() {
                   filterOption={(input, option) =>
                     (option?.label ?? "").toLowerCase().includes(input.toLowerCase())
                   }
-                  options={trips.map((t) => ({
-                    value: t._id,
-                    label: `${t.journey?.diemDi} → ${t.journey?.diemDen} | Khởi hành: ${new Date(t.departureTime).toLocaleString("vi-VN")} | Xe: ${t.bus?.name} (${t.bus?.licensePlates}) | ${t.ticketPrice.toLocaleString("vi-VN")} đ`,
-                  }))}
+                  options={trips.map((t) => {
+                    const pickup = t.journey?.diemDon?.map((d: any) => d.diaDiem || d.dia_diem).filter(Boolean).join(", ");
+                    const dropoff = t.journey?.diemTra?.map((d: any) => d.diaDiem || d.dia_diem).filter(Boolean).join(", ");
+                    const stations = pickup && dropoff ? ` (${pickup} → ${dropoff})` : (pickup ? ` (Đón: ${pickup})` : (dropoff ? ` (Trả: ${dropoff})` : ""));
+                    return {
+                      value: t._id,
+                      label: `${t.journey?.diemDi} → ${t.journey?.diemDen}${stations} | Khởi hành: ${new Date(t.departureTime).toLocaleString("vi-VN")} | Xe: ${t.bus?.name} (${t.bus?.licensePlates}) | ${t.ticketPrice.toLocaleString("vi-VN")} đ`,
+                    };
+                  })}
                 />
               </Form.Item>
 
@@ -707,7 +714,14 @@ function OfflineBookingPage() {
                 <div className="p-4 bg-slate-50 border rounded-xl space-y-2 text-xs text-gray-600 mb-5">
                   <div className="flex justify-between">
                     <span>Hành trình:</span>
-                    <strong className="text-blue-600 text-sm">{selectedTrip.journey?.diemDi} → {selectedTrip.journey?.diemDen}</strong>
+                    <strong className="text-blue-600 text-sm">
+                      {selectedTrip.journey?.diemDi} → {selectedTrip.journey?.diemDen}
+                      {(() => {
+                        const pickup = selectedTrip.journey?.diemDon?.map((d: any) => d.diaDiem || d.dia_diem).filter(Boolean).join(", ");
+                        const dropoff = selectedTrip.journey?.diemTra?.map((d: any) => d.diaDiem || d.dia_diem).filter(Boolean).join(", ");
+                        return pickup && dropoff ? ` (${pickup} → ${dropoff})` : "";
+                      })()}
+                    </strong>
                   </div>
                   <div className="flex justify-between">
                     <span>Thời gian đi:</span>
