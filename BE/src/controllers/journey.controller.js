@@ -27,20 +27,46 @@ export const getOne = asyncHandler(async (req, res) => {
 });
 
 // =======================
+// =======================
 // Thêm tuyến
 // =======================
 export const createOne = asyncHandler(async (req, res) => {
-  const { diemDi, diemDen } = req.body;
+  const { diemDi, diemDen, diemTra } = req.body;
 
-  const existed = await Journey.findOne({
+  const existingJourneys = await Journey.find({
     diemDi: diemDi.trim(),
     diemDen: diemDen.trim(),
   });
 
-  if (existed) {
-    return res.status(400).json({
-      message: "Tuyến đường này đã tồn tại",
-    });
+  if (existingJourneys.length > 0) {
+    const newDropoffStations = (diemTra || [])
+      .map((d) => (d.diaDiem || d.dia_diem || "").trim().toLowerCase())
+      .filter(Boolean);
+
+    if (newDropoffStations.length === 0) {
+      return res.status(400).json({
+        message: `Tuyến đường từ ${diemDi} đến ${diemDen} đã tồn tại! Vui lòng chọn bến xe trả cụ thể.`,
+      });
+    }
+
+    // Kiểm tra xem có bến xe trả nào đã được dùng trong tuyến cũ từ cùng điểm đi không
+    for (const ej of existingJourneys) {
+      const existingDropoffs = (ej.diemTra || [])
+        .map((d) => (d.diaDiem || d.dia_diem || "").trim().toLowerCase())
+        .filter(Boolean);
+
+      const duplicateStation = (diemTra || []).find((d) => {
+        const name = (d.diaDiem || d.dia_diem || "").trim().toLowerCase();
+        return existingDropoffs.includes(name);
+      });
+
+      if (duplicateStation) {
+        const stationName = duplicateStation.diaDiem || duplicateStation.dia_diem;
+        return res.status(400).json({
+          message: `Bến xe trả "${stationName}" đã có tuyến từ ${diemDi}! Mỗi bến xe chỉ áp dụng cho một tuyến.`,
+        });
+      }
+    }
   }
 
   const newJourney = await Journey.create(req.body);
@@ -55,7 +81,7 @@ export const createOne = asyncHandler(async (req, res) => {
 // Cập nhật tuyến
 // =======================
 export const updateOne = asyncHandler(async (req, res) => {
-  const { diemDi, diemDen } = req.body;
+  const { diemDi, diemDen, diemTra } = req.body;
 
   const currentJourney = await Journey.findById(req.params.id);
 
@@ -65,16 +91,40 @@ export const updateOne = asyncHandler(async (req, res) => {
     });
   }
 
-  const existed = await Journey.findOne({
+  const existingJourneys = await Journey.find({
     diemDi: diemDi.trim(),
     diemDen: diemDen.trim(),
     _id: { $ne: req.params.id },
   });
 
-  if (existed) {
-    return res.status(400).json({
-      message: "Tuyến đường này đã tồn tại",
-    });
+  if (existingJourneys.length > 0) {
+    const newDropoffStations = (diemTra || [])
+      .map((d) => (d.diaDiem || d.dia_diem || "").trim().toLowerCase())
+      .filter(Boolean);
+
+    if (newDropoffStations.length === 0) {
+      return res.status(400).json({
+        message: `Tuyến đường từ ${diemDi} đến ${diemDen} đã tồn tại! Vui lòng chọn bến xe trả cụ thể.`,
+      });
+    }
+
+    for (const ej of existingJourneys) {
+      const existingDropoffs = (ej.diemTra || [])
+        .map((d) => (d.diaDiem || d.dia_diem || "").trim().toLowerCase())
+        .filter(Boolean);
+
+      const duplicateStation = (diemTra || []).find((d) => {
+        const name = (d.diaDiem || d.dia_diem || "").trim().toLowerCase();
+        return existingDropoffs.includes(name);
+      });
+
+      if (duplicateStation) {
+        const stationName = duplicateStation.diaDiem || duplicateStation.dia_diem;
+        return res.status(400).json({
+          message: `Bến xe trả "${stationName}" đã có tuyến từ ${diemDi}! Mỗi bến xe chỉ áp dụng cho một tuyến.`,
+        });
+      }
+    }
   }
 
   const updatedJourney = await Journey.findByIdAndUpdate(
