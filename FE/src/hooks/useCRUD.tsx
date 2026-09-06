@@ -7,7 +7,7 @@ import { error } from "src/theme/core/palette"
 
 const BASE_URL = "http://localhost:3000/api"
 
-type ResourceType = "staff" | "bus" | "route" | "journey"|"trip"|"tk"|"booking"|"giave"|"news"|"holiday"|"refund"
+type ResourceType = "staff" | "bus" | "route" | "journey"|"trip"|"tk"|"booking"|"giave"|"news"|"holiday"|"refund" | "station"
 
 export const useDetail = (resource: ResourceType, id: string | undefined) => {
     const API = `${BASE_URL}/${resource}`

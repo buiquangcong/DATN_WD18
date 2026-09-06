@@ -1,39 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { Button, Form, Input, InputNumber, Select, Space, message, Spin, Card } from "antd";
 import { MinusCircleOutlined, PlusOutlined } from "@ant-design/icons";
 import { useCRUD } from "../../../hooks/useCRUD";
-import { useParams } from "react-router-dom";
-
-// Tọa độ Lat/Lng trung tâm chuẩn của 25 tỉnh Miền Bắc
-const NORTHERN_PROVINCES_COORDS: Record<string, { lat: number; lng: number }> = {
-  "Thành phố Hà Nội": { lat: 21.0285, lng: 105.8542 },
-  "Thành phố Hải Phòng": { lat: 20.8651, lng: 106.6838 },
-  "Tỉnh Vĩnh Phúc": { lat: 21.3088, lng: 105.6049 },
-  "Tỉnh Bắc Ninh": { lat: 21.1860, lng: 106.0763 },
-  "Tỉnh Hải Dương": { lat: 20.9364, lng: 106.3164 },
-  "Tỉnh Hưng Yên": { lat: 20.6463, lng: 106.0511 },
-  "Tỉnh Hà Nam": { lat: 20.5452, lng: 105.9123 },
-  "Tỉnh Nam Định": { lat: 20.4388, lng: 106.1782 },
-  "Tỉnh Ninh Bình": { lat: 20.2506, lng: 105.9745 },
-  "Tỉnh Thái Bình": { lat: 20.4464, lng: 106.3365 },
-  "Tỉnh Phú Thọ": { lat: 21.3227, lng: 105.2280 },
-  "Tỉnh Thái Nguyên": { lat: 21.5928, lng: 105.8442 },
-  "Tỉnh Bắc Giang": { lat: 21.2731, lng: 106.1946 },
-  "Tỉnh Quảng Ninh": { lat: 21.0069, lng: 107.2925 },
-  "Tỉnh Lạng Sơn": { lat: 21.8537, lng: 106.7610 },
-  "Tỉnh Cao Bằng": { lat: 22.6657, lng: 106.2579 },
-  "Tỉnh Bắc Kạn": { lat: 22.1472, lng: 105.8348 },
-  "Tỉnh Tuyên Quang": { lat: 21.8236, lng: 105.2181 },
-  "Tỉnh Hà Giang": { lat: 22.8233, lng: 104.9839 },
-  "Tỉnh Hòa Bình": { lat: 20.8153, lng: 105.3382 },
-  "Tỉnh Sơn La": { lat: 21.3257, lng: 103.9188 },
-  "Tỉnh Điện Biên": { lat: 21.3860, lng: 103.0230 },
-  "Tỉnh Lai Châu": { lat: 22.3963, lng: 103.4580 },
-  "Tỉnh Lào Cai": { lat: 22.4809, lng: 103.9754 },
-  "Tỉnh Yên Bái": { lat: 21.7168, lng: 104.8986 },
-};
-
-const NORTHERN_PROVINCES = Object.keys(NORTHERN_PROVINCES_COORDS);
+import { useParams, Link } from "react-router-dom";
+import { NORTHERN_PROVINCES, NORTHERN_PROVINCES_COORDS } from "../../../constants/provinces";
 
 function JourneyEditPage() {
   const { id } = useParams();
@@ -41,6 +11,7 @@ function JourneyEditPage() {
 
   // 1. Lấy hàm Edit và danh sách journeys từ custom hook
   const { Edit, list: journeysList } = useCRUD("journey");
+  const { list: stations = [] } = useCRUD("station");
   const [loadingRoute, setLoadingRoute] = useState(false);
 
   // 2. Lắng nghe điểm đi và điểm đến từ Form
@@ -49,6 +20,56 @@ function JourneyEditPage() {
 
   // 3. Tìm bản ghi hành trình hiện tại đang chỉnh sửa
   const currentRecord = (journeysList || []).find((item: any) => (item._id || item.id) === id);
+
+  // Danh sách bến xe thuộc Điểm Đi dùng cho Điểm Đón (kèm điểm đón hiện tại nếu có)
+  const pickupStationOptions = useMemo(() => {
+    if (!diemDi || !Array.isArray(stations)) return [];
+    const options = stations
+      .filter((s: any) => s.tinh === diemDi && s.trangThai !== false)
+      .map((s: any) => ({
+        label: s.diaChi ? `${s.tenBenXe} - ${s.diaChi}` : s.tenBenXe,
+        value: s.tenBenXe,
+      }));
+
+    // Đảm bảo các điểm đón cũ đã lưu trong bản ghi vẫn hiển thị được nếu chưa có trong options
+    const currentDiemDon = currentRecord?.diemDon || currentRecord?.diem_don || [];
+    currentDiemDon.forEach((item: any) => {
+      const name = item?.diaDiem || item?.dia_diem;
+      if (name && !options.some((opt) => opt.value === name)) {
+        options.unshift({
+          label: `${name} (Hiện tại)`,
+          value: name,
+        });
+      }
+    });
+
+    return options;
+  }, [stations, diemDi, currentRecord]);
+
+  // Danh sách bến xe thuộc Điểm Đến dùng cho Điểm Trả (kèm điểm trả hiện tại nếu có)
+  const dropoffStationOptions = useMemo(() => {
+    if (!diemDen || !Array.isArray(stations)) return [];
+    const options = stations
+      .filter((s: any) => s.tinh === diemDen && s.trangThai !== false)
+      .map((s: any) => ({
+        label: s.diaChi ? `${s.tenBenXe} - ${s.diaChi}` : s.tenBenXe,
+        value: s.tenBenXe,
+      }));
+
+    // Đảm bảo các điểm trả cũ đã lưu trong bản ghi vẫn hiển thị được nếu chưa có trong options
+    const currentDiemTra = currentRecord?.diemTra || currentRecord?.diem_tra || [];
+    currentDiemTra.forEach((item: any) => {
+      const name = item?.diaDiem || item?.dia_diem;
+      if (name && !options.some((opt) => opt.value === name)) {
+        options.unshift({
+          label: `${name} (Hiện tại)`,
+          value: name,
+        });
+      }
+    });
+
+    return options;
+  }, [stations, diemDen, currentRecord]);
 
   // 4. Fill dữ liệu cũ vào Form khi vừa tải trang
   useEffect(() => {
@@ -222,63 +243,106 @@ function JourneyEditPage() {
               </Form.Item>
             </div>
 
-            {/* Điểm Đón */}
-            <div className="mb-4">
-              <p className="font-medium mb-2">Điểm Đón</p>
-              <p className="text-gray-500 text-sm mb-2">
-                Số phút tính từ lúc xe khởi hành (VD: 0 = đón ngay tại bến xuất phát, 15 = đón sau 15 phút)
-              </p>
-
-              <Form.List name="diemDon">
-                {(fields, { add, remove }) => (
-                  <>
-                    {fields.map(({ key, name, ...restField }) => (
-                      <Space key={key} className="flex mb-2" align="baseline">
-                        <Form.Item
-                          {...restField}
-                          name={[name, "offsetMinutes"]}
-                          rules={[{ required: true, message: "Nhập số phút" }]}
-                        >
-                          <InputNumber
-                            placeholder="Số phút"
-                            min={0}
-                            style={{ width: 130 }}
-                            addonAfter="phút"
-                          />
-                        </Form.Item>
-
-                        <Form.Item
-                          {...restField}
-                          name={[name, "diaDiem"]}
-                          rules={[
-                            { required: true, message: "Nhập địa điểm đón" },
-                            { min: 3, message: "Địa điểm quá ngắn" },
-                          ]}
-                        >
-                          <Input placeholder="Bến xe Mỹ Đình" style={{ width: 340 }} />
-                        </Form.Item>
-
-                        <MinusCircleOutlined
-                          onClick={() => remove(name)}
-                          className="text-red-500"
-                        />
-                      </Space>
-                    ))}
-
-                    <Button type="dashed" onClick={() => add()} icon={<PlusOutlined />}>
-                      Thêm điểm đón
-                    </Button>
-                  </>
-                )}
-              </Form.List>
+          {/* Điểm Đón */}
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="font-medium">Điểm Đón</p>
+              <Link
+                to="/admin/station/list"
+                target="_blank"
+                className="text-xs text-blue-600 hover:underline"
+              >
+                + Quản lý bến xe
+              </Link>
             </div>
+            <p className="text-gray-500 text-sm mb-2">
+              Số phút tính từ lúc xe khởi hành (VD: 0 = đón ngay tại bến xuất phát, 15 = đón sau 15 phút)
+            </p>
 
-            {/* Điểm Trả */}
-            <div className="mb-4">
-              <p className="font-medium mb-2">Điểm Trả</p>
-              <p className="text-gray-500 text-sm mb-2">
-                Số phút tính trước khi xe đến bến cuối (VD: 0 = trả ngay tại bến cuối, 20 = trả trước khi đến 20 phút)
-              </p>
+            <Form.List name="diemDon">
+              {(fields, { add, remove }) => (
+                <>
+                  {fields.map(({ key, name, ...restField }) => (
+                    <Space key={key} className="flex mb-2" align="baseline">
+                      <Form.Item
+                        {...restField}
+                        name={[name, "offsetMinutes"]}
+                        rules={[{ required: true, message: "Nhập số phút" }]}
+                      >
+                        <InputNumber
+                          placeholder="Số phút"
+                          min={0}
+                          style={{ width: 130 }}
+                          addonAfter="phút"
+                        />
+                      </Form.Item>
+
+                      <Form.Item
+                        {...restField}
+                        name={[name, "diaDiem"]}
+                        rules={[{ required: true, message: "Vui lòng chọn bến xe đón" }]}
+                      >
+                        <Select
+                          showSearch
+                          placeholder={
+                            diemDi
+                              ? `Chọn bến xe đón (${diemDi})`
+                              : "Vui lòng chọn Điểm Đi trước"
+                          }
+                          disabled={!diemDi}
+                          options={pickupStationOptions}
+                          notFoundContent={
+                            <div className="p-2 text-center text-gray-500 text-xs">
+                              {diemDi ? (
+                                <>
+                                  Chưa có bến xe nào tại {diemDi}.{" "}
+                                  <Link
+                                    to="/admin/station/list"
+                                    target="_blank"
+                                    className="text-blue-600 underline font-medium"
+                                  >
+                                    Cấu hình ngay
+                                  </Link>
+                                </>
+                              ) : (
+                                "Vui lòng chọn Điểm Đi trước"
+                              )}
+                            </div>
+                          }
+                          style={{ width: 340 }}
+                        />
+                      </Form.Item>
+
+                      <MinusCircleOutlined
+                        onClick={() => remove(name)}
+                        className="text-red-500"
+                      />
+                    </Space>
+                  ))}
+
+                  <Button type="dashed" onClick={() => add()} icon={<PlusOutlined />}>
+                    Thêm điểm đón
+                  </Button>
+                </>
+              )}
+            </Form.List>
+          </div>
+
+          {/* Điểm Trả */}
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="font-medium">Điểm Trả</p>
+              <Link
+                to="/admin/station/list"
+                target="_blank"
+                className="text-xs text-blue-600 hover:underline"
+              >
+                + Quản lý bến xe
+              </Link>
+            </div>
+            <p className="text-gray-500 text-sm mb-2">
+              Số phút tính trước khi xe đến bến cuối (VD: 0 = trả ngay tại bến cuối, 20 = trả trước khi đến 20 phút)
+            </p>
 
             <Form.List name="diemTra">
                 {(fields, { add, remove }) => (
@@ -301,12 +365,37 @@ function JourneyEditPage() {
                         <Form.Item
                           {...restField}
                           name={[name, "diaDiem"]}
-                          rules={[
-                            { required: true, message: "Nhập địa điểm trả" },
-                            { min: 3, message: "Địa điểm quá ngắn" },
-                          ]}
+                          rules={[{ required: true, message: "Vui lòng chọn bến xe trả" }]}
                         >
-                          <Input placeholder="Bến xe Thượng Lý" style={{ width: 340 }} />
+                          <Select
+                            showSearch
+                            placeholder={
+                              diemDen
+                                ? `Chọn bến xe trả (${diemDen})`
+                                : "Vui lòng chọn Điểm Đến trước"
+                            }
+                            disabled={!diemDen}
+                            options={dropoffStationOptions}
+                            notFoundContent={
+                              <div className="p-2 text-center text-gray-500 text-xs">
+                                {diemDen ? (
+                                  <>
+                                    Chưa có bến xe nào tại {diemDen}.{" "}
+                                    <Link
+                                      to="/admin/station/list"
+                                      target="_blank"
+                                      className="text-blue-600 underline font-medium"
+                                    >
+                                      Cấu hình ngay
+                                    </Link>
+                                  </>
+                                ) : (
+                                  "Vui lòng chọn Điểm Đến trước"
+                                )}
+                              </div>
+                            }
+                            style={{ width: 340 }}
+                          />
                         </Form.Item>
 
                         <MinusCircleOutlined
