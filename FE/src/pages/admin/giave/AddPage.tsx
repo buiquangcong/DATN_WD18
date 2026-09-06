@@ -32,6 +32,8 @@ function FareRuleAddPage() {
     { label: "34 chỗ", value: 34 },
     { label: "45 chỗ", value: 45 },
     { label: "7 chỗ", value: 7 },
+    { label: "8 chỗ", value: 8 },
+    { label: "9 chỗ", value: 9 },
   ];
 
   const onFinish = (values: any) => {
