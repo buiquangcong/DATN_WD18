@@ -26,42 +26,123 @@ function JourneyAddPage() {
       }));
   }, [stations, diemDi]);
 
-  // Danh sách bến xe thuộc Điểm Đến dùng cho Điểm Trả
-  const dropoffStationOptions = useMemo(() => {
-    if (!diemDen || !Array.isArray(stations)) return [];
-    return stations
-      .filter((s: any) => s.tinh === diemDen && s.trangThai !== false)
-      .map((s: any) => ({
-        label: s.diaChi ? `${s.tenBenXe} - ${s.diaChi}` : s.tenBenXe,
-        value: s.tenBenXe,
-      }));
-  }, [stations, diemDen]);
+  // Tập hợp các bến xe trả đã có chuyến đi từ điểm đi hiện tại đến từng điểm đến
+  const getUsedDropoffStations = (startPoint?: string, endPoint?: string) => {
+    if (!startPoint || !endPoint || !Array.isArray(journeys)) return new Set<string>();
+    const existing = journeys.filter(
+      (j: any) => (j.diemDi || j.diem_di) === startPoint && (j.diemDen || j.diem_den) === endPoint
+    );
+    const set = new Set<string>();
+    existing.forEach((j: any) => {
+      (j.diemTra || j.diem_tra || []).forEach((dt: any) => {
+        const name = (dt.diaDiem || dt.dia_diem || "").trim().toLowerCase();
+        if (name) set.add(name);
+      });
+    });
+    return set;
+  };
 
-  const existingDestinations =
-    journeys
-      ?.filter((j: any) => j.diemDi === diemDi)
-      .map((j: any) => j.diemDen) || [];
+  // Kiểm tra trạng thái của Điểm Đến: Chỉ khóa khi đã có chuyến và chọn hết toàn bộ bến xe của tỉnh đó
+  const getDestinationStatus = (destProvince: string) => {
+    if (!diemDi) {
+      return { isFullyBooked: false, label: destProvince, disabled: false };
+    }
 
-  // 2. Tạo danh sách Options cho ô Điểm Đến (Tự động disable nếu trùng điểm hoặc đã có chuyến)
-  const destinationOptions = NORTHERN_PROVINCES.map((p) => {
-    const isSelectedAsStart = p === diemDi;
-    const isAlreadyExists = existingDestinations.includes(p);
+    if (destProvince === diemDi) {
+      return { isFullyBooked: false, label: destProvince, disabled: true };
+    }
+
+    const stationsInDest = (stations || []).filter(
+      (s: any) => s.tinh === destProvince && s.trangThai !== false
+    );
+
+    const existingJourneys = (journeys || []).filter(
+      (j: any) => (j.diemDi || j.diem_di) === diemDi && (j.diemDen || j.diem_den) === destProvince
+    );
+
+    // Chưa có chuyến nào giữa 2 tỉnh này
+    if (existingJourneys.length === 0) {
+      return { isFullyBooked: false, label: destProvince, disabled: false };
+    }
+
+    // Nếu tỉnh chưa cấu hình bến xe nào trong hệ thống nhưng đã có chuyến -> Khóa lại
+    if (stationsInDest.length === 0) {
+      return {
+        isFullyBooked: true,
+        label: `${destProvince} (Đã có chuyến)`,
+        disabled: true,
+      };
+    }
+
+    const usedDropoffs = getUsedDropoffStations(diemDi, destProvince);
+
+    // Đã chọn hết tất cả bến xe của tỉnh này chưa?
+    const allStationsUsed = stationsInDest.every((s: any) =>
+      usedDropoffs.has((s.tenBenXe || "").trim().toLowerCase())
+    );
+
+    if (allStationsUsed) {
+      return {
+        isFullyBooked: true,
+        label: `${destProvince} (Đã chọn hết bến xe)`,
+        disabled: true,
+      };
+    }
+
+    // Vẫn còn bến xe chưa có chuyến từ diemDi -> Vẫn mở cho chọn
+    const remainingCount = stationsInDest.filter(
+      (s: any) => !usedDropoffs.has((s.tenBenXe || "").trim().toLowerCase())
+    ).length;
 
     return {
-      label: isAlreadyExists ? `${p} (Đã có chuyến)` : p,
+      isFullyBooked: false,
+      label: `${destProvince} (Còn ${remainingCount} bến xe)`,
+      disabled: false,
+    };
+  };
+
+  // Danh sách bến xe thuộc Điểm Đến dùng cho Điểm Trả (Disable bến xe đã có chuyến từ diemDi)
+  const dropoffStationOptions = useMemo(() => {
+    if (!diemDen || !Array.isArray(stations)) return [];
+    const usedDropoffs = getUsedDropoffStations(diemDi, diemDen);
+
+    return stations
+      .filter((s: any) => s.tinh === diemDen && s.trangThai !== false)
+      .map((s: any) => {
+        const isUsed = usedDropoffs.has((s.tenBenXe || "").trim().toLowerCase());
+        return {
+          label: isUsed
+            ? `${s.tenBenXe} (Đã có tuyến từ ${diemDi})`
+            : s.diaChi
+            ? `${s.tenBenXe} - ${s.diaChi}`
+            : s.tenBenXe,
+          value: s.tenBenXe,
+          disabled: isUsed,
+        };
+      });
+  }, [stations, diemDen, diemDi, journeys]);
+
+  // Danh sách Options cho ô Điểm Đến
+  const destinationOptions = NORTHERN_PROVINCES.map((p) => {
+    const status = getDestinationStatus(p);
+    return {
+      label: status.label,
       value: p,
-      disabled: isSelectedAsStart || isAlreadyExists,
+      disabled: status.disabled,
     };
   });
 
-  // Tự động xoá điểm đến hiện tại nếu nó vô tình bị trúng vào điểm bị disable
+  // Tự động xoá điểm đến hiện tại nếu nó bị trùng điểm đi hoặc đã chọn hết bến xe
   useEffect(() => {
-    if (diemDen && (diemDen === diemDi || existingDestinations.includes(diemDen))) {
-      form.setFieldsValue({
-        diemDen: undefined,
-        quangDuong: undefined,
-        thoiGianDiChuyen: "",
-      });
+    if (diemDen) {
+      const status = getDestinationStatus(diemDen);
+      if (diemDen === diemDi || status.isFullyBooked) {
+        form.setFieldsValue({
+          diemDen: undefined,
+          quangDuong: undefined,
+          thoiGianDiChuyen: "",
+        });
+      }
     }
   }, [diemDi]);
 
@@ -120,9 +201,20 @@ function JourneyAddPage() {
       return;
     }
 
-    // Kiểm tra chặn lại ở nút submit
-    if (existingDestinations.includes(values.diemDen)) {
-      message.error(`Hành trình ${values.diemDi} - ${values.diemDen} đã tồn tại!`);
+    const destStatus = getDestinationStatus(values.diemDen);
+    if (destStatus.isFullyBooked) {
+      message.error(`Hành trình ${values.diemDi} - ${values.diemDen} đã có chuyến và chọn hết toàn bộ bến xe!`);
+      return;
+    }
+
+    // Kiểm tra các bến xe trả đã chọn
+    const usedDropoffs = getUsedDropoffStations(values.diemDi, values.diemDen);
+    const duplicateStation = (values.diemTra || []).find((d: any) =>
+      usedDropoffs.has((d.diaDiem || "").trim().toLowerCase())
+    );
+
+    if (duplicateStation) {
+      message.error(`Bến xe trả "${duplicateStation.diaDiem}" đã có tuyến từ ${values.diemDi}! Vui lòng chọn bến xe khác.`);
       return;
     }
 
