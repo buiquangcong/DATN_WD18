@@ -1,52 +1,18 @@
-import React, { useState } from "react";
-import { Row, Col, Card, Form, Input, Button, Checkbox, Typography, Modal } from "antd";
-import {
-  UserOutlined,
-  LockOutlined,
-  EyeInvisibleOutlined,
-  EyeTwoTone,
-  ArrowRightOutlined,
-} from "@ant-design/icons";
+import React from "react";
+import { Row, Col, Card, Form, Input, Button, Checkbox, Typography, } from "antd";
+import { UserOutlined, LockOutlined, EyeInvisibleOutlined, EyeTwoTone, ArrowRightOutlined, } from "@ant-design/icons";
 import { useMutation } from "@tanstack/react-query";
 import axios from "axios";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 
-const { Title, Text, Link, Paragraph } = Typography;
+const { Title, Text, Link } = Typography;
 
-export default function LoginClientPage() {
+export default function AssistantLogin() {
   const navigate = useNavigate();
-  
-  const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
-  const [forgotForm] = Form.useForm();
-  const [isSendingForgot, setIsSendingForgot] = useState(false);
 
-  const handleForgotSubmit = async (values: any) => {
-    setIsSendingForgot(true);
-    try {
-      const response = await axios.post("http://localhost:3000/api/auth/forgot-password", {
-        email: values.forgotEmail,
-      });
-      if (response.data?.success) {
-        toast.success("Đã gửi link khôi phục mật khẩu! Vui lòng kiểm tra email.");
-        setIsForgotModalOpen(false);
-        forgotForm.resetFields();
-      } else {
-        toast.error(response.data?.message || "Có lỗi xảy ra!");
-      }
-    } catch (error: any) {
-      const errMsg = error.response?.data?.message || "Gửi email khôi phục thất bại!";
-      toast.error(errMsg);
-    } finally {
-      setIsSendingForgot(false);
-    }
-  };
-
-  // Cấu hình React Query Mutation xử lý gọi API login thực tế
   const { mutate, isPending } = useMutation({
     mutationFn: async (value: any) => {
-      // Đổi payload nếu API backend yêu cầu "email" thay vì "staffId"
-      // Ví dụ: return await axios.post("http://localhost:3000/api/auth/signin", { email: value.staffId, password: value.password });
       return await axios.post("http://localhost:3000/api/auth/signin", value);
     },
     onSuccess: (res) => {
@@ -54,28 +20,16 @@ export default function LoginClientPage() {
       const staff = res.data.staff;
       const token = res.data.token;
 
-      const userData = {
-        ...user,
-        displayName: staff?.ten || user?.username || "Người dùng",
-        staffId: staff?._id
-      };
+      if (user?.role !== "assistant_driver") {
+        toast.error("Tài khoản không có quyền truy cập trang phụ xe!");
+        return;
+      }
 
-      // Lưu trữ thông tin định danh vào localStorage
+      const userData = { ...user, displayName: staff?.ten || user?.username || "Phụ xe", staffId: staff?._id, avatar: staff?.image || user?.avatar || "" };
       localStorage.setItem("user", JSON.stringify(userData));
       localStorage.setItem("token", token);
-      
       toast.success("Đăng nhập thành công!");
-
-      // Tự động phân luồng chuyển hướng dựa trên quyền hạn trả về
-      if (userData?.role === "admin") {
-        navigate("/admin");
-      } else if (userData?.role === "driver") {
-        navigate("/taixe");
-      } else if (userData?.role === "assistant_driver") {
-        navigate("/phuxe");
-      } else {
-        navigate("/khachhang/trip"); // Đưa client về đúng luồng tuyến đường
-      }
+      navigate("/phuxe");
     },
     onError: (error: any) => {
       const errMsg = error.response?.data?.message || "Đăng nhập thất bại!";
@@ -84,7 +38,6 @@ export default function LoginClientPage() {
   });
 
   const onFinish = (values: any) => {
-    // Kích hoạt gửi dữ liệu lên server backend
     mutate(values);
   };
 
@@ -117,7 +70,7 @@ export default function LoginClientPage() {
             </h1>
 
             <p className="text-lg text-white/90">
-              Chào mừng đội ngũ nhân viên và tài xế NETBUS.
+              Chào mừng đội ngũ nhân viên và phụ xe NETBUS.
               Cùng nhau kiến tạo mạng lưới vận tải thông minh
               và thân thiện với môi trường.
             </p>
@@ -132,11 +85,11 @@ export default function LoginClientPage() {
         >
           <div className="w-full max-w-md">
             <Title level={2} className="!mb-2">
-              Đăng nhập
+              Đăng nhập Phụ xe
             </Title>
 
             <Text type="secondary">
-              Truy cập vào cổng thông tin nội bộ NETBUS
+              Truy cập vào cổng thông tin nội bộ NETBUS dành cho phụ xe
             </Text>
 
             <Card
@@ -147,14 +100,13 @@ export default function LoginClientPage() {
                 layout="vertical"
                 onFinish={onFinish}
               >
-                {/* Đổi name="staffId" thành name="email" nếu schema database của bạn dùng Email để đăng nhập */}
                 <Form.Item
-                  label="Mã nhân viên"
+                  label="Email/Tên đăng nhập"
                   name="email"
                   rules={[
                     {
                       required: true,
-                      message: "Vui lòng nhập mã nhân viên",
+                      message: "Vui lòng nhập email/tên đăng nhập",
                     },
                   ]}
                 >
@@ -190,12 +142,9 @@ export default function LoginClientPage() {
                 </Form.Item>
 
                 <div className="flex justify-between items-center mb-6">
-                  {/* Quản lý lưu trạng thái checkbox nếu cần gửi lên backend */}
-                  <Form.Item name="remember" valuePropName="checked" noStyle>
-                    <Checkbox>Ghi nhớ đăng nhập</Checkbox>
-                  </Form.Item>
+                  <Checkbox>Ghi nhớ đăng nhập</Checkbox>
 
-                  <Link onClick={() => setIsForgotModalOpen(true)} className="cursor-pointer text-emerald-600 hover:text-emerald-500 font-medium">
+                  <Link href="#">
                     Quên mật khẩu?
                   </Link>
                 </div>
@@ -205,7 +154,7 @@ export default function LoginClientPage() {
                   type="primary"
                   size="large"
                   block
-                  loading={isPending} // Thay thế loading state thủ công bằng trạng thái của React Query
+                  loading={isPending}
                   icon={<ArrowRightOutlined />}
                 >
                   Đăng nhập
@@ -239,54 +188,6 @@ export default function LoginClientPage() {
           </div>
         </Col>
       </Row>
-
-      <Modal
-        title="Quên mật khẩu"
-        open={isForgotModalOpen}
-        onCancel={() => {
-          if (!isSendingForgot) {
-            setIsForgotModalOpen(false);
-            forgotForm.resetFields();
-          }
-        }}
-        footer={null}
-        destroyOnClose
-        centered
-      >
-        <Form
-          form={forgotForm}
-          layout="vertical"
-          onFinish={handleForgotSubmit}
-          className="mt-4"
-        >
-          <Paragraph className="text-gray-600 mb-4">
-            Nhập email tài khoản của bạn để nhận liên kết đặt lại mật khẩu mới qua Nodemailer:
-          </Paragraph>
-          <Form.Item
-            name="forgotEmail"
-            label="Địa chỉ Email"
-            rules={[
-              { required: true, message: "Vui lòng nhập email" },
-              { type: "email", message: "Email không đúng định dạng" },
-            ]}
-          >
-            <Input size="large" placeholder="example@gmail.com" />
-          </Form.Item>
-          <div className="flex justify-end gap-3 mt-6">
-            <Button disabled={isSendingForgot} onClick={() => setIsForgotModalOpen(false)}>
-              Hủy
-            </Button>
-            <Button
-              type="primary"
-              htmlType="submit"
-              loading={isSendingForgot}
-              className="bg-emerald-600 border-none hover:bg-emerald-500 font-bold"
-            >
-              Gửi yêu cầu
-            </Button>
-          </div>
-        </Form>
-      </Modal>
     </div>
   );
 }
