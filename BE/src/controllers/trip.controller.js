@@ -6,7 +6,14 @@ import Staff from "../models/staff.model.js";
 import FareRule from "../models/giave.model.js";
 import Booking from "../models/booking.model.js";
 import Journey from "../models/journey.model.js";
-import {TURN_AROUND_MINUTES,LOCATION_CHECK_MAX_GAP_MINUTES,checkBusAvailability,checkStaffAvailability,} from "../services/Tripavailability.service.js";
+import {
+  LOCATION_CHECK_MAX_GAP_MINUTES,
+  checkBusAvailability,
+  checkStaffAvailability,
+  getDepartureLocation,
+  getArrivalLocation,
+  isLocationMatch,
+} from "../services/Tripavailability.service.js";
 import { calculateTicketPrice } from "../services/tripPricing.service.js";
 const updateTripStatus = async () => {
   const now = new Date();
@@ -1227,60 +1234,40 @@ export const createSchedule = asyncHandler(async (req, res) => {
       let busConflict = null;
 
       if (predecessor) {
-        const gapMinutes =
-          (departureTime -
-            new Date(
-              predecessor.arrivalTime
-            )) /
-          60000;
-
         if (
-          gapMinutes <
-          TURN_AROUND_MINUTES
+          predecessor.journey &&
+          journeyInfo &&
+          !isLocationMatch(predecessor.journey, journeyInfo)
         ) {
+          const prevLoc =
+            getArrivalLocation(predecessor.journey) ||
+            predecessor.journey.diemDen;
+          const newLoc =
+            getDepartureLocation(journeyInfo) ||
+            journeyInfo.diemDi;
           busConflict =
-            `Xe chưa nghỉ đủ ${TURN_AROUND_MINUTES} phút: ${departureTime.toLocaleString(
-              "vi-VN"
-            )}`;
-        } else if (
-          gapMinutes <=
-            LOCATION_CHECK_MAX_GAP_MINUTES &&
-          predecessor.journey.diemDen !==
-            journeyInfo.diemDi
-        ) {
-          busConflict =
-            `Xe đang ở ${predecessor.journey.diemDen} sau chuyến trước, không thể xuất phát từ ${journeyInfo.diemDi} lúc ${departureTime.toLocaleString(
+            `Xe đang ở ${prevLoc} sau chuyến trước, không thể xuất phát từ ${newLoc} lúc ${departureTime.toLocaleString(
               "vi-VN"
             )}`;
         }
       }
 
       if (!busConflict && successor) {
-        const gapMinutes =
-          (new Date(
-            successor.departureTime
-          ) -
-            arrivalTime) /
-          60000;
-
         if (
-          gapMinutes <
-          TURN_AROUND_MINUTES
+          successor.journey &&
+          journeyInfo &&
+          !isLocationMatch(journeyInfo, successor.journey)
         ) {
-          busConflict =
-            `Không đủ ${TURN_AROUND_MINUTES} phút chuẩn bị trước chuyến tiếp theo: ${departureTime.toLocaleString(
-              "vi-VN"
-            )}`;
-        } else if (
-          gapMinutes <=
-            LOCATION_CHECK_MAX_GAP_MINUTES &&
-          journeyInfo.diemDen !==
-            successor.journey.diemDi
-        ) {
+          const newArrivalLoc =
+            getArrivalLocation(journeyInfo) ||
+            journeyInfo.diemDen;
+          const nextDepLoc =
+            getDepartureLocation(successor.journey) ||
+            successor.journey.diemDi;
           busConflict =
             `Chuyến ${departureTime.toLocaleString(
               "vi-VN"
-            )} kết thúc tại ${journeyInfo.diemDen}, nhưng chuyến tiếp theo của xe lại xuất phát từ ${successor.journey.diemDi}`;
+            )} kết thúc tại ${newArrivalLoc}, nhưng chuyến tiếp theo của xe lại xuất phát từ ${nextDepLoc}`;
         }
       }
 
