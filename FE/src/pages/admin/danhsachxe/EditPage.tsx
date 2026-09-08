@@ -16,7 +16,7 @@ function EditPage() {
             const statusLower = bus.status?.toLowerCase();
 
             if (statusLower === "active" || statusLower === "hoạt động") {
-                normalizedStatus = "Hoạt động";
+                normalizedStatus = "hoạt động";
             } else if (statusLower === "maintenance" || statusLower === "bảo trì") {
                 normalizedStatus = "Bảo trì";
             } else if (statusLower === "inactive" || statusLower === "ngừng hoạt động") {
@@ -106,7 +106,7 @@ function EditPage() {
                     <Select
                         placeholder="Chọn trạng thái"
                         options={[
-                            { value: "Hoạt động", label: "Hoạt động" },
+                            { value: "hoạt động", label: "hoạt động" },
                             { value: "Bảo trì", label: "Bảo trì" },
                             { value: "Ngừng hoạt động", label: "Ngừng hoạt động" },
                         ]}
