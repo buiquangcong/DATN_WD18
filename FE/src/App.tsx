@@ -51,6 +51,14 @@ import TripDetailPage from "./pages/driver/trip-detail";
 import TinTucPage from "./pages/client/tintuc"
 import ChiTietTinTucPage from "./pages/client/chitiettintuc"
 
+// Assistant (Phụ xe) pages
+import AssistantDashboard from "./pages/assistant/dashboard";
+import AssistantFeedback from "./pages/assistant/feedback";
+import ListAssistantPage from "./pages/assistant/list";
+import AssistantLogin from "./pages/assistant/login";
+import ProfileAssistantPage from "./pages/assistant/profile";
+import AssistantTripDetailPage from "./pages/assistant/trip-detail";
+
 import BookingListPage from "./pages/admin/booking/ListPage";
 import BookingEditPage from "./pages/admin/booking/EditPage";
 import BookingAddPage from "./pages/admin/booking/AddPage";
@@ -124,7 +132,7 @@ function PortalPage() {
         </p>
       </div>
 
-      <div className="z-10 grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl w-full">
+      <div className="z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-6xl w-full">
         {/* Customer Card */}
         <div className="bg-slate-900/40 border border-slate-800 hover:border-emerald-500/30 rounded-3xl p-6 transition-all hover:scale-[1.02] flex flex-col justify-between h-96 group shadow-xl">
           <div className="space-y-4">
@@ -160,6 +168,25 @@ function PortalPage() {
             className="mt-6 w-full py-3 rounded-xl bg-slate-950 border border-slate-800 hover:bg-amber-500 hover:text-slate-950 hover:border-amber-500 text-xs font-bold text-amber-400 text-center transition-all cursor-pointer block"
           >
             Đăng nhập Tài xế
+          </Link>
+        </div>
+
+        {/* Assistant Driver Card */}
+        <div className="bg-slate-900/40 border border-slate-800 hover:border-cyan-500/30 rounded-3xl p-6 transition-all hover:scale-[1.02] flex flex-col justify-between h-96 group shadow-xl">
+          <div className="space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 text-2xl group-hover:bg-cyan-500 group-hover:text-slate-950 transition-all duration-300">
+              <Iconify icon="solar:user-hand-up-bold-duotone" />
+            </div>
+            <h2 className="text-xl font-bold text-slate-100">Cổng Phụ xe</h2>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Quản lý ca làm việc phụ xe, hỗ trợ tài xế, check-in hành khách, theo dõi chuyến xe được phân công và chấm công hàng ngày.
+            </p>
+          </div>
+          <Link
+            to="/phuxe"
+            className="mt-6 w-full py-3 rounded-xl bg-slate-950 border border-slate-800 hover:bg-cyan-500 hover:text-slate-950 hover:border-cyan-500 text-xs font-bold text-cyan-400 text-center transition-all cursor-pointer block"
+          >
+            Đăng nhập Phụ xe
           </Link>
         </div>
 
@@ -235,6 +262,24 @@ function App() {
             </Route>
             <Route path="/taixe/profile" element={<ProfileDriverPage />} />
             <Route path="/taixe/login" element={<Login />} />
+
+            {/* Assistant (Phụ xe) Route with ProtectedRoute */}
+            <Route
+              path="/phuxe"
+              element={
+                <ProtectedRoute allowedRoles={["assistant_driver"]} redirectTo="/phuxe/login">
+                  <Outlet />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<AssistantDashboard />} />
+              <Route path="feedback" element={<AssistantFeedback />} />
+              <Route path="list" element={<ListAssistantPage />} />
+              <Route path="profile" element={<ProfileAssistantPage />} />
+              <Route path="trip/:tripId" element={<AssistantTripDetailPage />} />
+            </Route>
+            <Route path="/phuxe/profile" element={<ProfileAssistantPage />} />
+            <Route path="/phuxe/login" element={<AssistantLogin />} />
 
             {/* Admin Routes with Dashboard Layout */}
             <Route
