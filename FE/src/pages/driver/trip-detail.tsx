@@ -988,6 +988,26 @@ export default function TripDetailPage() {
                   <PhoneOutlined style={{ marginRight: 4 }} />
                   {trip.staff?.sdt || "N/A"}
                 </Descriptions.Item>
+                <Descriptions.Item label="Phụ xe">
+                  <UserOutlined style={{ marginRight: 4 }} />
+                  {trip.assistantDriver?.ten || "N/A"}
+                </Descriptions.Item>
+                <Descriptions.Item label="SĐT phụ xe">
+                  <PhoneOutlined style={{ marginRight: 4 }} />
+                  {trip.assistantDriver?.sdt || "N/A"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Điểm đón" span={2}>
+                  <EnvironmentOutlined style={{ marginRight: 4, color: "#52c41a" }} />
+                  {trip.journey?.diemDon && trip.journey.diemDon.length > 0
+                    ? trip.journey.diemDon.map((d: any) => d.diaDiem).join(", ")
+                    : "N/A"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Điểm trả" span={2}>
+                  <EnvironmentOutlined style={{ marginRight: 4, color: "#fa8c16" }} />
+                  {trip.journey?.diemTra && trip.journey.diemTra.length > 0
+                    ? trip.journey.diemTra.map((d: any) => d.diaDiem).join(", ")
+                    : "N/A"}
+                </Descriptions.Item>
               </Descriptions>
             </Card>
           </Col>
