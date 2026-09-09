@@ -34,8 +34,57 @@ export const signup = asyncHandler(async (req, res) => {
         data: user
     });
 });
+// export const signin = asyncHandler(async (req, res) => {
+//     const { email, password } = req.body;
+
+//     const user = await User.findOne({ email });
+
+//     if (!user) {
+//         return res.status(401).json({
+//             message: "Email hoặc mật khẩu không đúng",
+//         });
+//     }
+
+//     const matchPassword = await bscrypt.compare(password, user.password);
+
+//     // Hỗ trợ cả mật khẩu đã hash bằng bcrypt và mật khẩu nhập tay trực tiếp vào MongoDB
+//     if (!matchPassword && password !== user.password) {
+//         return res.status(401).json({
+//             message: "Email hoặc mật khẩu không đúng",
+//         });
+//     }
+
+   
+//     const staff = await Staff.findOne({
+//         userId: user._id,
+//     });
+
+//     const token = jwt.sign(
+//         {
+//             id: user._id,
+//             role: user.role,
+//         },
+//         "123456",
+//         {
+//             expiresIn: "1h",
+//         }
+//     );
+
+//     user.password = undefined;
+
+//     return res.status(200).json({
+//         message: "Đăng nhập thành công",
+//         token,
+//         user,
+//         staff,
+//     });
+// });
 export const signin = asyncHandler(async (req, res) => {
     const { email, password } = req.body;
+
+    // ==============================
+    // TÌM TÀI KHOẢN
+    // ==============================
 
     const user = await User.findOne({ email });
 
@@ -45,19 +94,48 @@ export const signin = asyncHandler(async (req, res) => {
         });
     }
 
-    const matchPassword = await bscrypt.compare(password, user.password);
+    // ==============================
+    // KIỂM TRA TÀI KHOẢN CÓ ĐƯỢC PHÉP ĐĂNG NHẬP KHÔNG
+    // ==============================
+    // User.status = true  -> được đăng nhập
+    // User.status = false -> bị khóa / không được đăng nhập
 
-    // Hỗ trợ cả mật khẩu đã hash bằng bcrypt và mật khẩu nhập tay trực tiếp vào MongoDB
+    if (user.status !== true) {
+        return res.status(403).json({
+            message: "Tài khoản hiện không hoạt động, không thể đăng nhập!",
+        });
+    }
+
+    // ==============================
+    // KIỂM TRA MẬT KHẨU
+    // ==============================
+
+    const matchPassword = await bscrypt.compare(
+        password,
+        user.password
+    );
+
+    // Hỗ trợ cả:
+    // 1. Mật khẩu đã hash bằng bcrypt
+    // 2. Mật khẩu nhập trực tiếp vào MongoDB
+
     if (!matchPassword && password !== user.password) {
         return res.status(401).json({
             message: "Email hoặc mật khẩu không đúng",
         });
     }
 
-   
+    // ==============================
+    // TÌM THÔNG TIN STAFF
+    // ==============================
+
     const staff = await Staff.findOne({
         userId: user._id,
     });
+
+    // ==============================
+    // TẠO TOKEN
+    // ==============================
 
     const token = jwt.sign(
         {
@@ -70,7 +148,12 @@ export const signin = asyncHandler(async (req, res) => {
         }
     );
 
+    // Không trả password về client
     user.password = undefined;
+
+    // ==============================
+    // TRẢ KẾT QUẢ
+    // ==============================
 
     return res.status(200).json({
         message: "Đăng nhập thành công",
@@ -79,7 +162,6 @@ export const signin = asyncHandler(async (req, res) => {
         staff,
     });
 });
-
 export const forgotPassword = asyncHandler(async (req, res) => {
     const { email } = req.body;
 

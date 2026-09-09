@@ -292,7 +292,40 @@ export const checkIn = asyncHandler(async (req, res) => {
   // → Chuyến đang chạy
   // ==================================================
 
-  if (isDriver) {
+  // if (isDriver) {
+  //   // Tài xế -> Đang làm
+  //   await Staff.findByIdAndUpdate(
+  //     staffId,
+  //     {
+  //       trangThai: "Đang làm",
+  //     }
+  //   );
+
+  //   // Xe -> Đang làm
+  //   if (trip.bus) {
+  //     await Bus.findByIdAndUpdate(
+  //       trip.bus,
+  //       {
+  //         status: "đang làm",
+  //       }
+  //     );
+  //   }
+
+  //   // Chuyến -> Đang chạy
+  //   await Trip.findByIdAndUpdate(
+  //     tripId,
+  //     {
+  //       status: "đang chạy",
+  //     }
+  //   );
+  // }
+  
+if (isDriver) {
+  const now = new Date();
+  const departureTime = new Date(trip.departureTime);
+
+  // Chỉ chuyển sang đang chạy khi ĐÃ ĐẾN giờ khởi hành
+  if (now >= departureTime) {
     // Tài xế -> Đang làm
     await Staff.findByIdAndUpdate(
       staffId,
@@ -319,6 +352,8 @@ export const checkIn = asyncHandler(async (req, res) => {
       }
     );
   }
+}
+
 
   // ==================================================
   // NẾU LÀ PHỤ XE

@@ -60,22 +60,39 @@ type FareRule = {
 // LẤY TÊN BẾN XE ĐIỂM ĐÓN & ĐIỂM TRẢ
 // ======================================================
 
-const getJourneyStationText = (item?: Journey | null): string => {
+const getJourneyStationText = (
+  item?: Journey | null
+): string => {
   if (!item) return "";
+
   const pickup = (item.diemDon || [])
-    .map((d: any) => d?.diaDiem || d?.dia_diem)
+    .map(
+      (d: any) =>
+        d?.diaDiem || d?.dia_diem
+    )
     .filter(Boolean)
     .join(", ");
+
   const dropoff = (item.diemTra || [])
-    .map((d: any) => d?.diaDiem || d?.dia_diem)
+    .map(
+      (d: any) =>
+        d?.diaDiem || d?.dia_diem
+    )
     .filter(Boolean)
     .join(", ");
 
   if (pickup && dropoff) {
     return `${pickup} → ${dropoff}`;
   }
-  if (pickup) return `Đón: ${pickup}`;
-  if (dropoff) return `Trả: ${dropoff}`;
+
+  if (pickup) {
+    return `Đón: ${pickup}`;
+  }
+
+  if (dropoff) {
+    return `Trả: ${dropoff}`;
+  }
+
   return "";
 };
 
@@ -84,18 +101,17 @@ function TripEditPage() {
   const { id } = useParams();
 
   const { Edit } = useCRUD("trip");
-  const { data: trip, isLoading } = useDetail(
-    "trip",
-    id
-  );
 
-  const [journeys, setJourneys] = useState<Journey[]>(
-    []
-  );
+  const {
+    data: trip,
+    isLoading,
+  } = useDetail("trip", id);
 
-  const [fareRules, setFareRules] = useState<FareRule[]>(
-    []
-  );
+  const [journeys, setJourneys] =
+    useState<Journey[]>([]);
+
+  const [fareRules, setFareRules] =
+    useState<FareRule[]>([]);
 
   const [selectedJourney, setSelectedJourney] =
     useState<Journey | null>(null);
@@ -208,7 +224,7 @@ function TripEditPage() {
   // QUYỀN SỬA
   // =========================================================
 
-  // Xe + phụ xe:
+  // Xe:
   // sắp chạy hoặc đang chạy thì được sửa
   const isEditable =
     trip?.status === "sắp chạy" ||
@@ -217,6 +233,11 @@ function TripEditPage() {
   // Tài xế:
   // CHỈ được sửa khi chuyến sắp chạy
   const isDriverEditable =
+    trip?.status === "sắp chạy";
+
+  // PHỤ XE:
+  // CHỈ được sửa khi chuyến sắp chạy
+  const isAssistantEditable =
     trip?.status === "sắp chạy";
 
   // =========================================================
@@ -904,85 +925,122 @@ function TripEditPage() {
   // SUBMIT
   // =========================================================
 
-  const onFinish = (
-    values: any
-  ) => {
-    if (!selectedFareRule) {
+ // =========================================================
+// SUBMIT
+// =========================================================
+
+const onFinish = (values: any) => {
+  if (!selectedFareRule) {
+    message.error(
+      "Chưa xác định được bảng giá phù hợp cho xe này"
+    );
+
+    return;
+  }
+
+  // =====================================================
+  // KHÔNG CHO HOÀN THÀNH KHI CHƯA QUA THỜI GIAN ĐẾN
+  // =====================================================
+
+  if (
+    values.status === "hoàn thành" &&
+    values.arrivalTime
+  ) {
+    const now = dayjs();
+    const arrival = dayjs(values.arrivalTime);
+
+    if (now.isBefore(arrival)) {
       message.error(
-        "Chưa xác định được bảng giá phù hợp cho xe này"
+        `Chưa thể hoàn thành chuyến xe. Thời gian đến dự kiến là ${arrival.format(
+          "DD/MM/YYYY HH:mm"
+        )}`
       );
 
       return;
     }
+  }
 
-    // =====================================================
-    // XE <= 16 CHỖ
-    // -> KHÔNG CÓ PHỤ XE
-    // =====================================================
+  // =====================================================
+  // XE <= 16 CHỖ
+  // -> KHÔNG CÓ PHỤ XE
+  // =====================================================
 
-    const assistantDriver =
-      selectedBus &&
-      selectedBus.capacity <= 16
-        ? null
-        : values.assistantDriver ||
-          null;
+  const assistantDriver =
+    selectedBus &&
+    selectedBus.capacity <= 16
+      ? null
+      : values.assistantDriver || null;
 
-    // =====================================================
-    // XE > 16 CHỖ
-    // -> BẮT BUỘC PHỤ XE
-    // =====================================================
+  // =====================================================
+  // XE > 16 CHỖ
+  // -> BẮT BUỘC PHỤ XE
+  // =====================================================
 
-    if (
-      selectedBus &&
-      selectedBus.capacity > 16 &&
-      !assistantDriver
-    ) {
-      message.error(
-        "Xe trên 16 chỗ bắt buộc phải có phụ xe"
-      );
+  if (
+    selectedBus &&
+    selectedBus.capacity > 16 &&
+    !assistantDriver
+  ) {
+    message.error(
+      "Xe trên 16 chỗ bắt buộc phải có phụ xe"
+    );
 
-      return;
-    }
+    return;
+  }
 
-    // =====================================================
-    // KHÔNG CHO ĐỔI TÀI XẾ KHI ĐANG CHẠY
-    // =====================================================
+  // =====================================================
+  // KHÔNG CHO ĐỔI TÀI XẾ KHI ĐANG CHẠY
+  // =====================================================
 
-    const staff =
-      !isDriverEditable
-        ? trip?.staff?._id
-        : values.staff;
+  const staff =
+    !isDriverEditable
+      ? trip?.staff?._id
+      : values.staff;
 
-    Edit({
-      _id: id,
+  // =====================================================
+  // KHÔNG CHO ĐỔI PHỤ XE KHI ĐANG CHẠY
+  // =====================================================
 
-      journey:
-        values.journey,
+  const finalAssistantDriver =
+    !isAssistantEditable
+      ? trip?.assistantDriver?._id || null
+      : assistantDriver;
 
-      bus:
-        values.bus,
+  // =====================================================
+  // UPDATE
+  // =====================================================
 
-      staff,
+  Edit({
+    _id: id,
 
-      assistantDriver,
+    journey:
+      values.journey,
 
-      fareRule:
-        values.fareRule,
+    bus:
+      values.bus,
 
-      status:
-        values.status,
+    staff,
 
-      departureTime:
-        values.departureTime
-          ?.toDate()
-          .toISOString(),
+    assistantDriver:
+      finalAssistantDriver,
 
-      arrivalTime:
-        values.arrivalTime
-          ?.toDate()
-          .toISOString(),
-    });
-  };
+    fareRule:
+      values.fareRule,
+
+    status:
+      values.status,
+
+    departureTime:
+      values.departureTime
+        ?.toDate()
+        .toISOString(),
+
+    arrivalTime:
+      values.arrivalTime
+        ?.toDate()
+        .toISOString(),
+  });
+};
 
   // =========================================================
   // LOADING
@@ -1019,19 +1077,32 @@ function TripEditPage() {
           name="journey"
           label="Tuyến đường"
         >
-          <Select disabled optionLabelProp="label">
+          <Select
+            disabled
+            optionLabelProp="label"
+          >
             {journeys.map((j) => {
-              const stationText = getJourneyStationText(j);
+              const stationText =
+                getJourneyStationText(j);
+
               return (
                 <Select.Option
                   key={j._id}
                   value={j._id}
-                  label={`${j.diemDi} → ${j.diemDen}${stationText ? ` (${stationText})` : ""}`}
+                  label={`${j.diemDi} → ${
+                    j.diemDen
+                  }${
+                    stationText
+                      ? ` (${stationText})`
+                      : ""
+                  }`}
                 >
                   <div className="flex items-center gap-2 py-0.5 flex-wrap">
                     <span className="font-medium text-gray-800">
-                      {j.diemDi} → {j.diemDen}
+                      {j.diemDi} →{" "}
+                      {j.diemDen}
                     </span>
+
                     {stationText && (
                       <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 font-normal">
                         ({stationText})
@@ -1196,8 +1267,7 @@ function TripEditPage() {
           rules={[
             {
               required: true,
-              message:
-                "Chọn xe",
+              message: "Chọn xe",
             },
           ]}
           extra={
@@ -1286,8 +1356,7 @@ function TripEditPage() {
           rules={[
             {
               required: true,
-              message:
-                "Chọn tài xế",
+              message: "Chọn tài xế",
             },
           ]}
           extra={
@@ -1349,8 +1418,8 @@ function TripEditPage() {
               },
             ]}
             extra={
-              !isEditable
-                ? "Chuyến đã hoàn thành hoặc huỷ, không thể đổi phụ xe"
+              !isAssistantEditable
+                ? "Chuyến đang chạy, hoàn thành hoặc huỷ, không thể đổi phụ xe"
                 : "Chỉ hiện phụ xe đang rảnh trong khung giờ của chuyến"
             }
           >
@@ -1367,7 +1436,7 @@ function TripEditPage() {
               <Select
                 placeholder="Chọn phụ xe đang rảnh"
                 disabled={
-                  !isEditable ||
+                  !isAssistantEditable ||
                   availableAssistantDrivers.length ===
                     0
                 }

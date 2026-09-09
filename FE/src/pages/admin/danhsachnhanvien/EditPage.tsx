@@ -120,7 +120,11 @@ function EditPage() {
                                 size="large"
                                 options={[
                                     { value: "Hoạt động", label: "Hoạt động" },
-                                    { value: "Không hoạt động", label: "Không hoạt động" },
+                                    { value: "Không hoạt động", label: "Không hoạt động" }
+                                    ,
+                                    { value: "đang làm", label: "đang làm" }
+                                    ,
+                                    { value: "nghỉ làm", label: "nghỉ làm" }
                                 ]}
                             />
                         </Form.Item>
