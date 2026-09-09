@@ -101,14 +101,32 @@ function EditPage() {
                 <Form.Item
                     label="Trạng thái"
                     name="status"
-                    rules={[{ required: true, message: "Vui lòng chọn trạng thái" }]}
+                    rules={[
+                        {
+                            required: true,
+                            message: "Vui lòng chọn trạng thái",
+                        },
+                    ]}
                 >
                     <Select
                         placeholder="Chọn trạng thái"
                         options={[
-                            { value: "hoạt động", label: "hoạt động" },
-                            { value: "Bảo trì", label: "Bảo trì" },
-                            { value: "Ngừng hoạt động", label: "Ngừng hoạt động" },
+                            {
+                                value: "hoạt động",
+                                label: "Hoạt động",
+                            },
+                            {
+                                value: "đang làm",
+                                label: "Đang làm",
+                            },
+                            {
+                                value: "bảo trì",
+                                label: "Bảo trì",
+                            },
+                            {
+                                value: "ngừng hoạt động",
+                                label: "Ngừng hoạt động",
+                            },
                         ]}
                     />
                 </Form.Item>

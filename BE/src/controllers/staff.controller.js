@@ -53,111 +53,435 @@ export const getOne = asyncHandler(async (req, res) => {
     return res.json(staff);
 });
 
+// export const updateOne = asyncHandler(async (req, res) => {
+//     const { ten, namSinh, gioiTinh, email, sdt, diaChi, image, chucVu, cccd, bangLai, anhBangLai, trangThai } = req.body;
+
+//     const updateData = {};
+
+//     if (ten !== undefined) updateData.ten = ten;
+//     if (namSinh !== undefined) updateData.namSinh = namSinh;
+//     if (gioiTinh !== undefined) updateData.gioiTinh = gioiTinh;
+//     if (email !== undefined) updateData.email = email;
+//     if (sdt !== undefined) updateData.sdt = sdt;
+//     if (diaChi !== undefined) updateData.diaChi = diaChi;
+//     if (image !== undefined) updateData.image = image;
+//     if (cccd !== undefined) updateData.cccd = cccd;
+//     if (bangLai !== undefined) updateData.bangLai = bangLai;
+//     if (anhBangLai !== undefined) updateData.anhBangLai = anhBangLai;
+//     if (trangThai !== undefined) updateData.trangThai = trangThai;
+
+//     let finalRole = "";
+//     if (chucVu) {
+//         const role = chucVu.toString().trim();
+//         if (role === "Quản trị viên" || role === "Admin") finalRole = "Admin";
+//         else if (role === "Tài xế" || role === "Driver") finalRole = "Driver";
+//         else if (role === "Phụ xe" || role === "Assistant_Driver") finalRole = "Assistant_Driver";
+//         else if (role === "Nhân viên" || role === "Staff") finalRole = "Staff";
+//         updateData.chucVu = finalRole;
+//     }
+
+//     const existingStaff = await Staff.findById(req.params.id);
+//     if (!existingStaff) {
+//         return res.status(404).json({
+//             message: "Không tìm thấy nhân viên để cập nhật"
+//         });
+//     }
+
+//     const checkedRole = finalRole || existingStaff.chucVu;
+//     const checkedLicense = bangLai !== undefined ? bangLai : existingStaff.bangLai;
+//     const checkedLicenseImage = anhBangLai !== undefined ? anhBangLai : existingStaff.anhBangLai;
+
+//     if (checkedRole === "Driver") {
+//         if (!checkedLicense || !checkedLicense.trim() || !checkedLicenseImage || !checkedLicenseImage.trim()) {
+//             return res.status(400).json({
+//                 message: "Nhân viên giữ chức vụ Tài xế bắt buộc phải có bằng lái xe và ảnh chụp minh chứng!"
+//             });
+//         }
+//         const allowedLicenses = ["D", "E", "F", "FB2", "FC", "FD", "FE"];
+//         if (!allowedLicenses.includes(checkedLicense.trim().toUpperCase())) {
+//             return res.status(400).json({
+//                 message: "Bằng lái xe của tài xế phải từ hạng D trở lên (D, E, F, FC, FD, FE)!"
+//             });
+//         }
+//     }
+
+//     // Cập nhật thông tin nhân viên
+//     const staff = await Staff.findByIdAndUpdate(
+//         req.params.id,
+//         { $set: updateData },
+//         {
+//             new: true,
+//             runValidators: true
+//         }
+//     );
+
+//     // =========================================================
+//     // 🔥 ĐỒNG BỘ TRẠNG THÁI VÀ VAI TRÒ SANG BẢNG USER
+//     // =========================================================
+//     try {
+//         const targetUserId = staff.userId || existingStaff.userId;
+//         const userQuery = (targetUserId && mongoose.Types.ObjectId.isValid(targetUserId))
+//             ? { _id: targetUserId }
+//             : { email: staff.email || existingStaff.email };
+
+//         const userUpdatePayload = {};
+
+//         // Đồng bộ trạng thái: "Hoạt động" -> true, "Không hoạt động" -> false
+//         if (trangThai !== undefined) {
+//             userUpdatePayload.status = trangThai === "Hoạt động";
+//         }
+
+//         // Đồng bộ chức vụ/role nếu có cập nhật
+//         if (finalRole) {
+//             userUpdatePayload.role = finalRole.toLowerCase();
+//         }
+
+//         if (Object.keys(userUpdatePayload).length > 0) {
+//             const updatedUser = await User.findOneAndUpdate(
+//                 userQuery,
+//                 { $set: userUpdatePayload },
+//                 { new: true }
+//             );
+
+//             // Nếu staff chưa có userId nhưng tìm được User qua email thì gán ngược lại
+//             if (updatedUser && !staff.userId) {
+//                 await Staff.findByIdAndUpdate(staff._id, { userId: updatedUser._id });
+//             }
+//         }
+//     } catch (syncError) {
+//         console.error(">>> Lỗi khi đồng bộ trạng thái sang bảng User:", syncError.message);
+//     }
+
+//     return res.json({
+//         message: "Cập nhật thông tin nhân viên và đồng bộ tài khoản thành công!",
+//         data: staff
+//     });
+// });
 export const updateOne = asyncHandler(async (req, res) => {
-    const { ten, namSinh, gioiTinh, email, sdt, diaChi, image, chucVu, cccd, bangLai, anhBangLai, trangThai } = req.body;
+    const {
+        ten,
+        namSinh,
+        gioiTinh,
+        email,
+        sdt,
+        diaChi,
+        image,
+        chucVu,
+        cccd,
+        bangLai,
+        anhBangLai,
+        trangThai
+    } = req.body;
 
     const updateData = {};
 
-    if (ten !== undefined) updateData.ten = ten;
-    if (namSinh !== undefined) updateData.namSinh = namSinh;
-    if (gioiTinh !== undefined) updateData.gioiTinh = gioiTinh;
-    if (email !== undefined) updateData.email = email;
-    if (sdt !== undefined) updateData.sdt = sdt;
-    if (diaChi !== undefined) updateData.diaChi = diaChi;
-    if (image !== undefined) updateData.image = image;
-    if (cccd !== undefined) updateData.cccd = cccd;
-    if (bangLai !== undefined) updateData.bangLai = bangLai;
-    if (anhBangLai !== undefined) updateData.anhBangLai = anhBangLai;
-    if (trangThai !== undefined) updateData.trangThai = trangThai;
+    // =========================================================
+    // CẬP NHẬT THÔNG TIN NHÂN VIÊN
+    // =========================================================
+
+    if (ten !== undefined) {
+        updateData.ten = ten;
+    }
+
+    if (namSinh !== undefined) {
+        updateData.namSinh = namSinh;
+    }
+
+    if (gioiTinh !== undefined) {
+        updateData.gioiTinh = gioiTinh;
+    }
+
+    if (email !== undefined) {
+        updateData.email = email;
+    }
+
+    if (sdt !== undefined) {
+        updateData.sdt = sdt;
+    }
+
+    if (diaChi !== undefined) {
+        updateData.diaChi = diaChi;
+    }
+
+    if (image !== undefined) {
+        updateData.image = image;
+    }
+
+    if (cccd !== undefined) {
+        updateData.cccd = cccd;
+    }
+
+    if (bangLai !== undefined) {
+        updateData.bangLai = bangLai;
+    }
+
+    if (anhBangLai !== undefined) {
+        updateData.anhBangLai = anhBangLai;
+    }
+
+    // =========================================================
+    // CẬP NHẬT TRẠNG THÁI LÀM VIỆC
+    // =========================================================
+
+    if (trangThai !== undefined) {
+        updateData.trangThai = trangThai;
+    }
+
+    // =========================================================
+    // XỬ LÝ CHỨC VỤ
+    // =========================================================
 
     let finalRole = "";
+
     if (chucVu) {
         const role = chucVu.toString().trim();
-        if (role === "Quản trị viên" || role === "Admin") finalRole = "Admin";
-        else if (role === "Tài xế" || role === "Driver") finalRole = "Driver";
-        else if (role === "Phụ xe" || role === "Assistant_Driver") finalRole = "Assistant_Driver";
-        else if (role === "Nhân viên" || role === "Staff") finalRole = "Staff";
+
+        if (
+            role === "Quản trị viên" ||
+            role === "Admin"
+        ) {
+            finalRole = "Admin";
+        }
+
+        else if (
+            role === "Tài xế" ||
+            role === "Driver"
+        ) {
+            finalRole = "Driver";
+        }
+
+        else if (
+            role === "Phụ xe" ||
+            role === "Assistant_Driver"
+        ) {
+            finalRole = "Assistant_Driver";
+        }
+
+        else if (
+            role === "Nhân viên" ||
+            role === "Staff"
+        ) {
+            finalRole = "Staff";
+        }
+
         updateData.chucVu = finalRole;
     }
 
-    const existingStaff = await Staff.findById(req.params.id);
+    // =========================================================
+    // LẤY NHÂN VIÊN HIỆN TẠI
+    // =========================================================
+
+    const existingStaff =
+        await Staff.findById(req.params.id);
+
     if (!existingStaff) {
         return res.status(404).json({
-            message: "Không tìm thấy nhân viên để cập nhật"
+            message:
+                "Không tìm thấy nhân viên để cập nhật"
         });
     }
 
-    const checkedRole = finalRole || existingStaff.chucVu;
-    const checkedLicense = bangLai !== undefined ? bangLai : existingStaff.bangLai;
-    const checkedLicenseImage = anhBangLai !== undefined ? anhBangLai : existingStaff.anhBangLai;
+    // =========================================================
+    // KIỂM TRA CHỨC VỤ SAU KHI CẬP NHẬT
+    // =========================================================
+
+    const checkedRole =
+        finalRole || existingStaff.chucVu;
+
+    const checkedLicense =
+        bangLai !== undefined
+            ? bangLai
+            : existingStaff.bangLai;
+
+    const checkedLicenseImage =
+        anhBangLai !== undefined
+            ? anhBangLai
+            : existingStaff.anhBangLai;
+
+    // =========================================================
+    // NẾU LÀ TÀI XẾ
+    // -> BẮT BUỘC CÓ BẰNG LÁI + ẢNH BẰNG
+    // =========================================================
 
     if (checkedRole === "Driver") {
-        if (!checkedLicense || !checkedLicense.trim() || !checkedLicenseImage || !checkedLicenseImage.trim()) {
+
+        if (
+            !checkedLicense ||
+            !checkedLicense.trim() ||
+            !checkedLicenseImage ||
+            !checkedLicenseImage.trim()
+        ) {
             return res.status(400).json({
-                message: "Nhân viên giữ chức vụ Tài xế bắt buộc phải có bằng lái xe và ảnh chụp minh chứng!"
+                message:
+                    "Nhân viên giữ chức vụ Tài xế bắt buộc phải có bằng lái xe và ảnh chụp minh chứng!"
             });
         }
-        const allowedLicenses = ["D", "E", "F", "FB2", "FC", "FD", "FE"];
-        if (!allowedLicenses.includes(checkedLicense.trim().toUpperCase())) {
+
+        const allowedLicenses = [
+            "D",
+            "E",
+            "F",
+            "FB2",
+            "FC",
+            "FD",
+            "FE"
+        ];
+
+        if (
+            !allowedLicenses.includes(
+                checkedLicense
+                    .trim()
+                    .toUpperCase()
+            )
+        ) {
             return res.status(400).json({
-                message: "Bằng lái xe của tài xế phải từ hạng D trở lên (D, E, F, FC, FD, FE)!"
+                message:
+                    "Bằng lái xe của tài xế phải từ hạng D trở lên (D, E, F, FC, FD, FE)!"
             });
         }
     }
 
-    // Cập nhật thông tin nhân viên
-    const staff = await Staff.findByIdAndUpdate(
-        req.params.id,
-        { $set: updateData },
-        {
-            new: true,
-            runValidators: true
-        }
-    );
+    // =========================================================
+    // CẬP NHẬT STAFF
+    // =========================================================
+
+    const staff =
+        await Staff.findByIdAndUpdate(
+            req.params.id,
+            {
+                $set: updateData
+            },
+            {
+                new: true,
+                runValidators: true
+            }
+        );
 
     // =========================================================
-    // 🔥 ĐỒNG BỘ TRẠNG THÁI VÀ VAI TRÒ SANG BẢNG USER
+    // ĐỒNG BỘ SANG USER
     // =========================================================
+
     try {
-        const targetUserId = staff.userId || existingStaff.userId;
-        const userQuery = (targetUserId && mongoose.Types.ObjectId.isValid(targetUserId))
-            ? { _id: targetUserId }
-            : { email: staff.email || existingStaff.email };
+
+        const targetUserId =
+            staff.userId ||
+            existingStaff.userId;
+
+        const userQuery =
+            targetUserId &&
+            mongoose.Types.ObjectId.isValid(
+                targetUserId
+            )
+                ? {
+                    _id: targetUserId
+                }
+                : {
+                    email:
+                        staff.email ||
+                        existingStaff.email
+                };
 
         const userUpdatePayload = {};
 
-        // Đồng bộ trạng thái: "Hoạt động" -> true, "Không hoạt động" -> false
+        // =====================================================
+        // ĐỒNG BỘ TRẠNG THÁI
+        // =====================================================
+        //
+        // Hoạt động
+        // -> User.status = true
+        //
+        // Không hoạt động
+        // -> User.status = false
+        //
+        // đang làm
+        // -> KHÔNG thay đổi User.status
+        //
+        // nghỉ làm
+        // -> KHÔNG thay đổi User.status
+        //
+        // =====================================================
+
         if (trangThai !== undefined) {
-            userUpdatePayload.status = trangThai === "Hoạt động";
-        }
 
-        // Đồng bộ chức vụ/role nếu có cập nhật
-        if (finalRole) {
-            userUpdatePayload.role = finalRole.toLowerCase();
-        }
+            if (
+                trangThai === "Hoạt động"
+            ) {
+                userUpdatePayload.status = true;
+            }
 
-        if (Object.keys(userUpdatePayload).length > 0) {
-            const updatedUser = await User.findOneAndUpdate(
-                userQuery,
-                { $set: userUpdatePayload },
-                { new: true }
-            );
-
-            // Nếu staff chưa có userId nhưng tìm được User qua email thì gán ngược lại
-            if (updatedUser && !staff.userId) {
-                await Staff.findByIdAndUpdate(staff._id, { userId: updatedUser._id });
+            if (
+                trangThai === "Không hoạt động"
+            ) {
+                userUpdatePayload.status = false;
             }
         }
+
+        // =====================================================
+        // ĐỒNG BỘ CHỨC VỤ
+        // =====================================================
+
+        if (finalRole) {
+            userUpdatePayload.role =
+                finalRole.toLowerCase();
+        }
+
+        // =====================================================
+        // CẬP NHẬT USER NẾU CÓ DỮ LIỆU CẦN ĐỒNG BỘ
+        // =====================================================
+
+        if (
+            Object.keys(
+                userUpdatePayload
+            ).length > 0
+        ) {
+
+            const updatedUser =
+                await User.findOneAndUpdate(
+                    userQuery,
+                    {
+                        $set:
+                            userUpdatePayload
+                    },
+                    {
+                        new: true
+                    }
+                );
+
+            // Nếu Staff chưa có userId
+            // nhưng tìm được User bằng email
+            // thì gán userId cho Staff
+            if (
+                updatedUser &&
+                !staff.userId
+            ) {
+                await Staff.findByIdAndUpdate(
+                    staff._id,
+                    {
+                        userId:
+                            updatedUser._id
+                    }
+                );
+            }
+        }
+
     } catch (syncError) {
-        console.error(">>> Lỗi khi đồng bộ trạng thái sang bảng User:", syncError.message);
+
+        console.error(
+            ">>> Lỗi khi đồng bộ thông tin sang bảng User:",
+            syncError.message
+        );
     }
 
+    // =========================================================
+    // TRẢ VỀ KẾT QUẢ
+    // =========================================================
+
     return res.json({
-        message: "Cập nhật thông tin nhân viên và đồng bộ tài khoản thành công!",
+        message:
+            "Cập nhật thông tin nhân viên và đồng bộ tài khoản thành công!",
         data: staff
     });
 });
-
 export const deleteOne = asyncHandler(async (req, res) => {
     const { id } = req.params;
 

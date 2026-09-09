@@ -737,9 +737,13 @@ export const updateOne = asyncHandler(async (req, res) => {
     departureTime,
     arrivalTime,
     fareRule,
+    status,
   } = req.body;
 
+  // ==========================
   // Lấy chuyến hiện tại
+  // ==========================
+
   const oldTrip = await Trip.findById(req.params.id);
 
   if (!oldTrip) {
@@ -748,8 +752,42 @@ export const updateOne = asyncHandler(async (req, res) => {
     });
   }
 
-  const journeyId = req.body.journey || oldTrip.journey;
-  const journeyInfo = await Journey.findById(journeyId);
+  // ==========================
+  // Xác định trạng thái mới
+  // ==========================
+
+  const newStatus = status || oldTrip.status;
+
+  // ==========================
+  // KIỂM TRA HOÀN THÀNH
+  // ==========================
+
+  // Chỉ được chuyển sang "hoàn thành"
+  // khi đã qua thời gian đến dự tính
+
+  const expectedArrival = new Date(
+    arrivalTime || oldTrip.arrivalTime
+  );
+
+  if (
+    newStatus === "hoàn thành" &&
+    new Date() < expectedArrival
+  ) {
+    return res.status(400).json({
+      message:
+        "Chưa thể hoàn thành chuyến xe vì chưa đến thời gian đến dự tính",
+    });
+  }
+
+  // ==========================
+  // Lấy tuyến đường
+  // ==========================
+
+  const journeyId =
+    req.body.journey || oldTrip.journey;
+
+  const journeyInfo =
+    await Journey.findById(journeyId);
 
   if (!journeyInfo) {
     return res.status(404).json({
@@ -757,8 +795,15 @@ export const updateOne = asyncHandler(async (req, res) => {
     });
   }
 
-  const busId = bus || oldTrip.bus;
-  const busInfo = await Bus.findById(busId);
+  // ==========================
+  // Lấy xe
+  // ==========================
+
+  const busId =
+    bus || oldTrip.bus;
+
+  const busInfo =
+    await Bus.findById(busId);
 
   if (!busInfo) {
     return res.status(404).json({
@@ -766,17 +811,24 @@ export const updateOne = asyncHandler(async (req, res) => {
     });
   }
 
+  // ==========================
+  // Thời gian
+  // ==========================
+
   const newDeparture = new Date(
-    departureTime || oldTrip.departureTime
+    departureTime ||
+      oldTrip.departureTime
   );
 
   const newArrival = new Date(
-    arrivalTime || oldTrip.arrivalTime
+    arrivalTime ||
+      oldTrip.arrivalTime
   );
 
   if (newArrival <= newDeparture) {
     return res.status(400).json({
-      message: "Thời gian đến phải sau thời gian khởi hành",
+      message:
+        "Thời gian đến phải sau thời gian khởi hành",
     });
   }
 
@@ -784,13 +836,14 @@ export const updateOne = asyncHandler(async (req, res) => {
   // Kiểm tra xe
   // ==========================
 
-  const busError = await checkBusAvailability(
-    busId,
-    journeyInfo,
-    newDeparture,
-    newArrival,
-    req.params.id
-  );
+  const busError =
+    await checkBusAvailability(
+      busId,
+      journeyInfo,
+      newDeparture,
+      newArrival,
+      req.params.id
+    );
 
   if (busError) {
     return res.status(400).json({
@@ -802,16 +855,18 @@ export const updateOne = asyncHandler(async (req, res) => {
   // Kiểm tra tài xế
   // ==========================
 
-  const staffId = staff || oldTrip.staff;
+  const staffId =
+    staff || oldTrip.staff;
 
   if (staffId) {
-    const staffError = await checkStaffAvailability(
-      staffId,
-      journeyInfo,
-      newDeparture,
-      newArrival,
-      req.params.id
-    );
+    const staffError =
+      await checkStaffAvailability(
+        staffId,
+        journeyInfo,
+        newDeparture,
+        newArrival,
+        req.params.id
+      );
 
     if (staffError) {
       return res.status(400).json({
@@ -821,21 +876,64 @@ export const updateOne = asyncHandler(async (req, res) => {
   }
 
   // ==========================
+  // KIỂM TRA PHỤ XE
+  // ==========================
+
+  let assistantDriverId;
+
+  /*
+    Nếu chuyến hiện tại đang chạy
+    hoặc chuyến đang được chuyển sang "đang chạy"
+
+    => KHÔNG cho đổi phụ xe
+    => giữ nguyên phụ xe cũ
+  */
+
+  const lockAssistantDriver =
+    oldTrip.status === "đang chạy" ||
+    newStatus === "đang chạy";
+
+  if (lockAssistantDriver) {
+    assistantDriverId =
+      oldTrip.assistantDriver;
+  } else {
+    /*
+      Nếu req.body không gửi assistantDriver
+      thì giữ lại phụ xe cũ
+    */
+
+    assistantDriverId =
+      assistantDriver !== undefined
+        ? assistantDriver
+        : oldTrip.assistantDriver;
+  }
+
+  // ==========================
   // Kiểm tra phụ xe
   // ==========================
 
-  // Nếu req.body không gửi assistantDriver
-  // thì giữ lại phụ xe cũ
-  const assistantDriverId =
-    assistantDriver !== undefined
-      ? assistantDriver
-      : oldTrip.assistantDriver;
+  /*
+    Chỉ kiểm tra thông tin phụ xe
+    khi được phép thay đổi phụ xe.
 
-  if (assistantDriverId) {
-    // Không cho tài xế và phụ xe là cùng người
+    Nếu chuyến đang chạy:
+    => giữ nguyên phụ xe cũ
+    => không kiểm tra lại trạng thái phụ xe
+  */
+
+  if (
+    assistantDriverId &&
+    !lockAssistantDriver
+  ) {
+    // --------------------------
+    // Không cho tài xế và phụ xe
+    // là cùng một người
+    // --------------------------
+
     if (
       staffId &&
-      String(staffId) === String(assistantDriverId)
+      String(staffId) ===
+        String(assistantDriverId)
     ) {
       return res.status(400).json({
         message:
@@ -843,34 +941,54 @@ export const updateOne = asyncHandler(async (req, res) => {
       });
     }
 
+    // --------------------------
     // Kiểm tra phụ xe tồn tại
-    const assistant = await Staff.findById(
-      assistantDriverId
-    );
+    // --------------------------
+
+    const assistant =
+      await Staff.findById(
+        assistantDriverId
+      );
 
     if (!assistant) {
       return res.status(404).json({
-        message: "Không tìm thấy phụ xe",
+        message:
+          "Không tìm thấy phụ xe",
       });
     }
 
+    // --------------------------
     // Kiểm tra đúng chức vụ
-    if (assistant.chucVu !== "Assistant_Driver") {
+    // --------------------------
+
+    if (
+      assistant.chucVu !==
+      "Assistant_Driver"
+    ) {
       return res.status(400).json({
         message:
           "Nhân viên được chọn không phải là phụ xe",
       });
     }
 
+    // --------------------------
     // Kiểm tra còn làm việc
-    if (assistant.trangThai !== "Hoạt động") {
+    // --------------------------
+
+    if (
+      assistant.trangThai !==
+      "Hoạt động"
+    ) {
       return res.status(400).json({
         message:
           "Phụ xe hiện không còn làm việc",
       });
     }
 
-    // Kiểm tra phụ xe có bị trùng lịch
+    // --------------------------
+    // Kiểm tra phụ xe trùng lịch
+    // --------------------------
+
     const assistantError =
       await checkStaffAvailability(
         assistantDriverId,
@@ -882,7 +1000,8 @@ export const updateOne = asyncHandler(async (req, res) => {
 
     if (assistantError) {
       return res.status(400).json({
-        message: `Phụ xe: ${assistantError}`,
+        message:
+          `Phụ xe: ${assistantError}`,
       });
     }
   }
@@ -892,22 +1011,39 @@ export const updateOne = asyncHandler(async (req, res) => {
   // ==========================
 
   const fareId =
-    fareRule || oldTrip.fareRule;
+    fareRule ||
+    oldTrip.fareRule;
 
-  const fare = await FareRule.findById(fareId);
+  const fare =
+    await FareRule.findById(
+      fareId
+    );
 
   if (!fare) {
     return res.status(404).json({
-      message: "Không tìm thấy bảng giá",
+      message:
+        "Không tìm thấy bảng giá",
     });
   }
 
-  // Kiểm tra bảng giá với số chỗ
-  if (fare.capacity !== busInfo.capacity) {
+  // ==========================
+  // Kiểm tra bảng giá
+  // với số chỗ của xe
+  // ==========================
+
+  if (
+    fare.capacity !==
+    busInfo.capacity
+  ) {
     return res.status(400).json({
-      message: `Bảng giá này áp dụng cho xe ${fare.capacity} chỗ, không khớp với xe đang chọn (${busInfo.capacity} chỗ)`,
+      message:
+        `Bảng giá này áp dụng cho xe ${fare.capacity} chỗ, không khớp với xe đang chọn (${busInfo.capacity} chỗ)`,
     });
   }
+
+  // ==========================
+  // Tính lại giá vé
+  // ==========================
 
   req.body.ticketPrice =
     await calculateTicketPrice(
@@ -915,7 +1051,10 @@ export const updateOne = asyncHandler(async (req, res) => {
       newDeparture
     );
 
-  // Giữ phụ xe cũ nếu không gửi giá trị mới
+  // ==========================
+  // Giữ phụ xe
+  // ==========================
+
   req.body.assistantDriver =
     assistantDriverId || null;
 
@@ -938,7 +1077,8 @@ export const updateOne = asyncHandler(async (req, res) => {
       .populate("fareRule");
 
   return res.json({
-    message: "Cập nhật chuyến xe thành công",
+    message:
+      "Cập nhật chuyến xe thành công",
     data: trip,
   });
 });

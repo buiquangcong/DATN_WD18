@@ -61,7 +61,7 @@ const staffSchema = new mongoose.Schema(
         },
         trangThai: {
             type: String,
-            enum: ["Hoạt động", "Không hoạt động","đang làm"],
+            enum: ["Hoạt động", "Không hoạt động","đang làm","nghỉ làm"],
             default: "Hoạt động",
             // Tự động xử lý mọi định dạng gửi lên (boolean, chữ hoa, chữ thường)
             set: (val) => {
@@ -73,6 +73,7 @@ const staffSchema = new mongoose.Schema(
                     if (normalized === "hoạt động" || normalized === "active") return "Hoạt động";
                     if (normalized === "không hoạt động" || normalized === "inactive") return "Không hoạt động";
                     if (normalized === "đang làm" || normalized === "on duty") return "đang làm";
+                    if (normalized === "nghỉ làm" || normalized === "off duty") return "nghỉ làm";
                 }
                 return val;
             },
