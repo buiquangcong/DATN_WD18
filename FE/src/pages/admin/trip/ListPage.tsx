@@ -2,7 +2,7 @@ import { Popconfirm, Space, Table, Button, Tag, Modal, Divider, Input, Select, C
 import { useCRUD, useDetail } from "../../../hooks/useCRUD";
 import { useNavigate } from "react-router-dom";
 import type { ColumnsType } from "antd/es/table";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import dayjs from "dayjs";
 import { Html5Qrcode } from "html5-qrcode";
 import toast from "react-hot-toast";
@@ -144,32 +144,123 @@ function TripListPage() {
 
   const { data: trip, isLoading } = useDetail("trip", selectedId);
 
-  // 🟢 BỔ SUNG: State lưu dữ liệu Chấm công thực tế của Tài xế
+  // 🟢 BỔ SUNG: State lưu dữ liệu Chấm công thực tế của Tài xế và Phụ xe
   const [attendanceMap, setAttendanceMap] = useState<Record<string, any>>({});
 
-  // 🟢 BỔ SUNG: Fetch danh sách Attendance từ Backend
-  useEffect(() => {
-    const fetchAttendanceData = async () => {
-      try {
-        const res = await axios.get("http://localhost:3000/api/attendance");
-        if (res.data) {
-          const records = res.data.data || res.data;
-          const map: Record<string, any> = {};
-          if (Array.isArray(records)) {
-            records.forEach((att: any) => {
-              const tId = att.trip?._id || att.trip || att.tripId;
-              if (tId) map[String(tId)] = att;
-            });
+  const fetchAttendanceData = useCallback(async () => {
+    try {
+      const res = await axios.get(
+        "http://localhost:3000/api/attendance"
+      );
+
+      const records = res.data?.data || res.data || [];
+
+      const map: Record<string, any> = {};
+
+      if (Array.isArray(records)) {
+        records.forEach((att: any) => {
+          const tripId = String(
+            att.trip?._id || att.trip || att.tripId || ""
+          );
+          const staffId = String(
+            att.staff?._id || att.staff || att.staffId || ""
+          );
+
+          if (tripId && staffId) {
+            // Index chính xác theo cặp tripId_staffId
+            map[`${tripId}_${staffId}`] = att;
           }
-          setAttendanceMap(map);
-        }
-      } catch (err) {
-        console.error("Lỗi lấy danh sách chấm công:", err);
+
+          if (tripId) {
+            if (!map[tripId]) {
+              map[tripId] = {
+                records: [],
+                driverAtt: null,
+                assistantAtt: null,
+              };
+            }
+            map[tripId].records.push(att);
+
+            const chucVu = att.staff?.chucVu;
+            if (chucVu === "Driver" || chucVu === "tài xế") {
+              map[tripId].driverAtt = att;
+            } else if (
+              chucVu === "Assistant_Driver" ||
+              chucVu === "phụ xe"
+            ) {
+              map[tripId].assistantAtt = att;
+            }
+          }
+        });
       }
+
+      setAttendanceMap(map);
+    } catch (err) {
+      console.error(
+        "Lỗi lấy danh sách chấm công:",
+        err
+      );
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAttendanceData();
+
+    // Tự động fetch lại khi người dùng chuyển tab quay lại admin
+    const handleFocus = () => {
+      fetchAttendanceData();
     };
 
-    fetchAttendanceData();
-  }, [list]);
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener("storage", handleFocus);
+
+    // Định kỳ 5s tự động cập nhật
+    const interval = setInterval(fetchAttendanceData, 5000);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("storage", handleFocus);
+      clearInterval(interval);
+    };
+  }, [fetchAttendanceData]);
+
+  // Helper lấy bản ghi chấm công của nhân viên theo chuyến
+  const getStaffAttendance = (
+    tripId: string,
+    staffId?: string,
+    isDriver: boolean = true
+  ) => {
+    const sId = staffId ? String(staffId) : "";
+    const tId = String(tripId);
+
+    // 1. Ưu tiên tìm chính xác theo key: tripId_staffId
+    if (sId && attendanceMap[`${tId}_${sId}`]) {
+      return attendanceMap[`${tId}_${sId}`];
+    }
+
+    // 2. Tìm theo trip map role
+    const tripEntry = attendanceMap[tId];
+    if (tripEntry) {
+      if (isDriver && tripEntry.driverAtt) return tripEntry.driverAtt;
+      if (!isDriver && tripEntry.assistantAtt) return tripEntry.assistantAtt;
+
+      // 3. Quét trong mảng records của chuyến
+      if (Array.isArray(tripEntry.records)) {
+        const found = tripEntry.records.find((a: any) => {
+          const recStaffId = String(a.staff?._id || a.staff || "");
+          if (sId && recStaffId === sId) return true;
+          const role = a.staff?.chucVu;
+          if (isDriver && (role === "Driver" || role === "tài xế")) return true;
+          if (!isDriver && (role === "Assistant_Driver" || role === "phụ xe"))
+            return true;
+          return false;
+        });
+        if (found) return found;
+      }
+    }
+
+    return null;
+  };
 
   // State và Logic quét mã QR Check-in Khách
   const [isScannerOpen, setIsScannerOpen] = useState(false);
@@ -586,6 +677,7 @@ function TripListPage() {
 
   const handleView = (id: string) => {
     setSelectedId(id);
+    setOpen(true);
   };
 
   const handleViewBookings = (tripId: string) => {
@@ -753,58 +845,85 @@ function TripListPage() {
         );
       },
     },
-    // 🟢 SỬA ĐOẠN NÀY: Cột Nhân viên kiểm tra trạng thái thực tế từ attendanceMap
-    {
-      title: "Tài xế",
-      render: (_, record) => {
-        const att = attendanceMap[record._id];
+    // 🟢 SỬA ĐOẠN NÀY: Cột Tài xế kiểm tra trạng thái thực tế từ attendanceMap
+{
+  title: "Tài xế",
+  render: (_, record) => {
+    const driverStaffId = record.staff?._id
+      ? String(record.staff._id)
+      : record.staff
+      ? String(record.staff)
+      : "";
+    const att = getStaffAttendance(record._id, driverStaffId, true);
 
-        const isCheckedIn =
-          att?.status === "checked_in" ||
-          att?.status === "checked_out" ||
-          Boolean(att?.checkInTime);
+    const isDriverCheckedOut =
+      att?.status === "checked_out" || Boolean(att?.checkOutTime);
 
-        let driverStatus = {
-          text: "Chưa check-in",
-          color: "orange",
-        };
+    const isDriverCheckedIn =
+      att?.status === "checked_in" ||
+      att?.status === "Đã check-in" ||
+      Boolean(att?.checkInTime) ||
+      isDriverCheckedOut;
 
-        if (record.status === "huỷ") {
-          driverStatus = {
-            text: "Đã hủy",
-            color: "red",
-          };
-        } else if (isCheckedIn) {
-          driverStatus = {
-            text: "Đã check-in",
-            color: "green",
-          };
-        }
+    let driverStatus = {
+      text: "Chưa check-in",
+      color: "orange",
+    };
 
-        return (
-          <div className="flex flex-col gap-1">
-            <span>
-              {record.staff?.ten || "Chưa phân công"}
-            </span>
+    if (record.status === "huỷ") {
+      driverStatus = {
+        text: "Đã hủy",
+        color: "red",
+      };
+    } else if (isDriverCheckedOut) {
+      driverStatus = {
+        text: "Đã check-out",
+        color: "blue",
+      };
+    } else if (isDriverCheckedIn) {
+      driverStatus = {
+        text: "Đã check-in",
+        color: "green",
+      };
+    }
 
-            {record.staff?.ten && (
-              <Tag color={driverStatus.color} className="w-fit text-xs">
-                {driverStatus.text}
-              </Tag>
-            )}
-          </div>
-        );
-      },
-    },
-    {
+    return (
+      <div className="flex flex-col gap-1">
+        <span>
+          {record.staff?.ten || "Chưa phân công"}
+        </span>
+
+        {record.staff?.ten && (
+          <Tag
+            color={driverStatus.color}
+            className="w-fit text-xs"
+          >
+            {driverStatus.text}
+          </Tag>
+        )}
+      </div>
+    );
+  },
+},
+
+{
   title: "Phụ xe",
   render: (_, record) => {
-    const att = attendanceMap[record._id];
+    const assistantStaffId = record.assistantDriver?._id
+      ? String(record.assistantDriver._id)
+      : record.assistantDriver
+      ? String(record.assistantDriver)
+      : "";
+    const att = getStaffAttendance(record._id, assistantStaffId, false);
 
-    const isCheckedIn =
-      att?.assistantDriverStatus === "checked_in" ||
-      att?.assistantDriverStatus === "checked_out" ||
-      Boolean(att?.assistantDriverCheckInTime);
+    const isAssistantCheckedOut =
+      att?.status === "checked_out" || Boolean(att?.checkOutTime);
+
+    const isAssistantCheckedIn =
+      att?.status === "checked_in" ||
+      att?.status === "Đã check-in" ||
+      Boolean(att?.checkInTime) ||
+      isAssistantCheckedOut;
 
     let assistantStatus = {
       text: "Chưa check-in",
@@ -816,7 +935,12 @@ function TripListPage() {
         text: "Đã hủy",
         color: "red",
       };
-    } else if (isCheckedIn) {
+    } else if (isAssistantCheckedOut) {
+      assistantStatus = {
+        text: "Đã check-out",
+        color: "blue",
+      };
+    } else if (isAssistantCheckedIn) {
       assistantStatus = {
         text: "Đã check-in",
         color: "green",
@@ -841,6 +965,7 @@ function TripListPage() {
     );
   },
 },
+
     {
       title: "Xác nhận chuyến",
       render: (_, record) => {
@@ -1271,6 +1396,52 @@ function TripListPage() {
                   </p>
                 </div>
 
+                <div>
+                  <p className="text-xs text-gray-400">
+                    Trạng thái check-in tài xế
+                  </p>
+                  {(() => {
+                    const driverAtt = getStaffAttendance(
+                      trip._id,
+                      trip.staff?._id || trip.staff,
+                      true
+                    );
+                    const isCheckedOut =
+                      driverAtt?.status === "checked_out" ||
+                      Boolean(driverAtt?.checkOutTime);
+                    const isCheckedIn =
+                      driverAtt?.status === "checked_in" ||
+                      Boolean(driverAtt?.checkInTime) ||
+                      isCheckedOut;
+
+                    if (isCheckedOut) {
+                      return <Tag color="blue">Đã check-out</Tag>;
+                    }
+                    if (isCheckedIn) {
+                      return <Tag color="green">Đã check-in</Tag>;
+                    }
+                    return <Tag color="orange">Chưa check-in</Tag>;
+                  })()}
+                </div>
+
+                <div>
+                  <p className="text-xs text-gray-400">
+                    Thời gian check-in tài xế
+                  </p>
+                  <p>
+                    {(() => {
+                      const driverAtt = getStaffAttendance(
+                        trip._id,
+                        trip.staff?._id || trip.staff,
+                        true
+                      );
+                      return driverAtt?.checkInTime
+                        ? new Date(driverAtt.checkInTime).toLocaleString("vi-VN")
+                        : "---";
+                    })()}
+                  </p>
+                </div>
+
 
                 {/* PHỤ XE */}
                 <div className="col-span-2 mt-3 pt-3 border-t">
@@ -1334,7 +1505,51 @@ function TripListPage() {
                 </div>
 
                 <div>
-                 
+                  <p className="text-xs text-gray-400">
+                    Trạng thái check-in phụ xe
+                  </p>
+                  {(() => {
+                    const assistantAtt = getStaffAttendance(
+                      trip._id,
+                      trip.assistantDriver?._id || trip.assistantDriver,
+                      false
+                    );
+                    const isCheckedOut =
+                      assistantAtt?.status === "checked_out" ||
+                      Boolean(assistantAtt?.checkOutTime);
+                    const isCheckedIn =
+                      assistantAtt?.status === "checked_in" ||
+                      Boolean(assistantAtt?.checkInTime) ||
+                      isCheckedOut;
+
+                    if (isCheckedOut) {
+                      return <Tag color="blue">Đã check-out</Tag>;
+                    }
+                    if (isCheckedIn) {
+                      return <Tag color="green">Đã check-in</Tag>;
+                    }
+                    return <Tag color="orange">Chưa check-in</Tag>;
+                  })()}
+                </div>
+
+                <div>
+                  <p className="text-xs text-gray-400">
+                    Thời gian check-in phụ xe
+                  </p>
+                  <p>
+                    {(() => {
+                      const assistantAtt = getStaffAttendance(
+                        trip._id,
+                        trip.assistantDriver?._id || trip.assistantDriver,
+                        false
+                      );
+                      return assistantAtt?.checkInTime
+                        ? new Date(
+                            assistantAtt.checkInTime
+                          ).toLocaleString("vi-VN")
+                        : "---";
+                    })()}
+                  </p>
                 </div>
 
               </div>

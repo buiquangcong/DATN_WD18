@@ -170,13 +170,13 @@ export const checkIn = asyncHandler(async (req, res) => {
   // KIỂM TRA TRẠNG THÁI CHUYẾN
   // ===============================
 
-  if (trip.status === "đang chạy") {
-    return res.status(400).json({
-      success: false,
-      message:
-        "Chuyến xe đang chạy, không thể chấm công!",
-    });
-  }
+  // if (trip.status === "đang chạy") {
+  //   return res.status(400).json({
+  //     success: false,
+  //     message:
+  //       "Chuyến xe đang chạy, không thể chấm công!",
+  //   });
+  // }
 
   if (trip.status === "hoàn thành") {
     return res.status(400).json({
@@ -414,6 +414,21 @@ export const checkOut = asyncHandler(async (req, res) => {
         "Không tìm thấy chuyến xe",
     });
   }
+// ===============================
+// KIỂM TRA GIỜ CHECK-OUT
+// ===============================
+
+const now = new Date();
+const arrivalTime = new Date(trip.arrivalTime);
+
+if (now < arrivalTime) {
+  return res.status(400).json({
+    success: false,
+    message: `Chưa đến giờ kết thúc chuyến! Bạn chỉ được check-out từ ${arrivalTime.toLocaleString(
+      "vi-VN"
+    )}`,
+  });
+}
 
   // ===============================
   // XÁC ĐỊNH TÀI XẾ / PHỤ XE
