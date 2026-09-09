@@ -600,7 +600,7 @@ export default function AssistantDashboard() {
                 const att = attendanceMap[record._id];
                 const isCheckedIn = att?.status === "checked_in";
                 const isCheckedOut = att?.status === "checked_out";
-                const isConfirmed = record.driverConfirmed === true;
+                const isConfirmed = record.assistantDriverConfirmed === true;
 
                 // Tính thời gian còn lại đến giờ khởi hành
                 const now = new Date();
