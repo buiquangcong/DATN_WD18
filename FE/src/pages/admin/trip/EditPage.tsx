@@ -959,7 +959,27 @@ const onFinish = (values: any) => {
       return;
     }
   }
+// =====================================================
+// KHÔNG CHO ĐANG CHẠY KHI CHƯA ĐẾN GIỜ KHỞI HÀNH
+// =====================================================
 
+if (
+  values.status === "đang chạy" &&
+  values.departureTime
+) {
+  const now = dayjs();
+  const departure = dayjs(values.departureTime);
+
+  if (now.isBefore(departure)) {
+    message.error(
+      `Chưa thể chuyển sang đang chạy. Giờ khởi hành là ${departure.format(
+        "DD/MM/YYYY HH:mm"
+      )}`
+    );
+
+    return;
+  }
+}
   // =====================================================
   // XE <= 16 CHỖ
   // -> KHÔNG CÓ PHỤ XE
