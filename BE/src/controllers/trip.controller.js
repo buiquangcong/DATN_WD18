@@ -757,6 +757,22 @@ export const updateOne = asyncHandler(async (req, res) => {
   // ==========================
 
   const newStatus = status || oldTrip.status;
+  // ==========================
+  // KIỂM TRA HỦY CHUYẾN
+  // ==========================
+
+  if (newStatus === "huỷ") {
+    const bookingCount = await Booking.countDocuments({
+      trip: req.params.id,
+    });
+
+    if (bookingCount > 0) {
+      return res.status(400).json({
+        message:
+          "Không thể hủy chuyến xe vì đã có khách đặt vé",
+      });
+    }
+  }
 
   // ==========================
   // KIỂM TRA HOÀN THÀNH
