@@ -88,6 +88,11 @@ export default function Trip(): React.ReactElement {
   const [loading, setLoading] = useState<boolean>(false);
   const [showPolicy, setShowPolicy] = useState<boolean>(true);
   const [isPolicyModalOpen, setIsPolicyModalOpen] = useState<boolean>(false);
+
+  // Lưu tripId đang chuẩn bị đặt vé và trạng thái đồng ý điều khoản
+  const [selectedTripForBooking, setSelectedTripForBooking] = useState<string | null>(null);
+  const [isAgreedPolicy, setIsAgreedPolicy] = useState<boolean>(false);
+
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -232,6 +237,40 @@ export default function Trip(): React.ReactElement {
     setSelectedTimeSlots([]);
     setSortBy("time_asc");
     navigate("/khachhang/trip", { replace: true });
+  };
+
+  // Mở modal xem chính sách thuần túy (không đặt vé)
+  const handleOpenPolicyOnly = () => {
+    setSelectedTripForBooking(null);
+    setIsAgreedPolicy(false);
+    setIsPolicyModalOpen(true);
+  };
+
+  // Bấm Đặt vé: Mở modal chính sách yêu cầu xác nhận trước
+  const handleStartBooking = (tripId: string) => {
+    setSelectedTripForBooking(tripId);
+    setIsAgreedPolicy(false);
+    setIsPolicyModalOpen(true);
+  };
+
+  // Xác nhận đồng ý chính sách và chuyển trang đặt vé
+  const handleConfirmBooking = () => {
+    if (!isAgreedPolicy) {
+      message.warning("Vui lòng đọc và xác nhận đồng ý với các chính sách để tiếp tục!");
+      return;
+    }
+    const tripId = selectedTripForBooking;
+    setIsPolicyModalOpen(false);
+    setSelectedTripForBooking(null);
+    if (tripId) {
+      navigate(`/khachhang/booking/${tripId}`);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setIsPolicyModalOpen(false);
+    setSelectedTripForBooking(null);
+    setIsAgreedPolicy(false);
   };
 
   const filteredTrips = trips.filter((trip) => {
@@ -619,7 +658,7 @@ export default function Trip(): React.ReactElement {
                             </div>
                           </div>
 
-                          {/* Hành động: Điểm đón/trả & Chính sách (đã đồng bộ màu xanh lá) */}
+                          {/* Hành động: Điểm đón/trả & Chính sách */}
                           <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                             <Button
                               type="link"
@@ -647,7 +686,7 @@ export default function Trip(): React.ReactElement {
                             <Button
                               type="link"
                               size="small"
-                              onClick={() => setIsPolicyModalOpen(true)}
+                              onClick={handleOpenPolicyOnly}
                               style={{
                                 color: "#2e7d32",
                                 padding: 0,
@@ -691,7 +730,7 @@ export default function Trip(): React.ReactElement {
                             size="large"
                             block
                             style={{ borderRadius: 8, fontWeight: 600, height: 44, background: "#2e7d32", borderColor: "#2e7d32" }}
-                            onClick={() => navigate(`/khachhang/booking/${item._id}`)}
+                            onClick={() => handleStartBooking(item._id)}
                           >
                             Đặt vé
                           </Button>
@@ -774,20 +813,49 @@ export default function Trip(): React.ReactElement {
             </div>
           }
           open={isPolicyModalOpen}
-          onOk={() => setIsPolicyModalOpen(false)}
-          onCancel={() => setIsPolicyModalOpen(false)}
-          footer={[
-            <Button
-              key="close"
-              type="primary"
-              onClick={() => setIsPolicyModalOpen(false)}
-              style={{ background: "#2e7d32", borderColor: "#2e7d32", borderRadius: 6 }}
-            >
-              Đã hiểu
-            </Button>
-          ]}
+          onCancel={handleCloseModal}
           width={650}
-          bodyStyle={{ maxHeight: "70vh", overflowY: "auto", paddingRight: 12 }}
+          bodyStyle={{ maxHeight: "65vh", overflowY: "auto", paddingRight: 12 }}
+          footer={
+            selectedTripForBooking ? (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", flexWrap: "wrap", gap: 12 }}>
+                <Checkbox
+                  checked={isAgreedPolicy}
+                  onChange={(e) => setIsAgreedPolicy(e.target.checked)}
+                >
+                  <Text strong style={{ fontSize: 13, color: "#334155" }}>
+                    Tôi đã đọc và đồng ý với chính sách của nhà xe
+                  </Text>
+                </Checkbox>
+                <Space>
+                  <Button onClick={handleCloseModal}>
+                    Hủy
+                  </Button>
+                  <Button
+                    type="primary"
+                    disabled={!isAgreedPolicy}
+                    onClick={handleConfirmBooking}
+                    style={{
+                      background: isAgreedPolicy ? "#2e7d32" : undefined,
+                      borderColor: isAgreedPolicy ? "#2e7d32" : undefined,
+                      borderRadius: 6,
+                      fontWeight: 600
+                    }}
+                  >
+                    Đồng ý & Tiếp tục đặt vé
+                  </Button>
+                </Space>
+              </div>
+            ) : (
+              <Button
+                type="primary"
+                onClick={handleCloseModal}
+                style={{ background: "#2e7d32", borderColor: "#2e7d32", borderRadius: 6 }}
+              >
+                Đã hiểu
+              </Button>
+            )
+          }
         >
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div>
