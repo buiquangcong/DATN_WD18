@@ -32,14 +32,12 @@ import {
   EnvironmentOutlined,
   HistoryOutlined,
   KeyOutlined,
-  TrophyOutlined,
   CameraOutlined,
   CheckCircleOutlined,
   QrcodeOutlined,
   PrinterOutlined,
   CalendarOutlined,
   CarOutlined,
-  GiftOutlined,
   SaveOutlined,
   ArrowLeftOutlined,
 } from "@ant-design/icons";
@@ -83,7 +81,6 @@ interface BookingRecord {
   tripStatus?: string;
 }
 
-
 export default function ProfileClientPage() {
   const navigate = useNavigate();
   const [profileForm] = Form.useForm();
@@ -104,18 +101,34 @@ export default function ProfileClientPage() {
     try {
       const response = await axios.get("http://localhost:3000/api/booking");
       const allBookings = response.data || [];
-      const userBookings = allBookings.filter((b: any) => b.user && (b.user._id === userId || b.user === userId));
-      
+
+      // Lọc bỏ triệt để các đơn đặt/vé đã hủy hoặc chuyến xe bị hủy
+      const userBookings = allBookings
+        .filter((b: any) => b.user && (b.user._id === userId || b.user === userId))
+        .filter((b: any) => {
+          const isBookingCancelled =
+            b.status === "Đã huỷ" ||
+            b.status === "cancelled" ||
+            b.status === "Hủy" ||
+            b.status === "Đã hủy";
+          const isTripCancelled =
+            b.trip?.status === "huỷ" ||
+            b.trip?.status === "cancelled" ||
+            b.trip?.status === "hủy" ||
+            b.trip?.status === "Đã hủy";
+
+          return !isBookingCancelled && !isTripCancelled;
+        });
+
       const mapped: BookingRecord[] = userBookings.map((b: any) => {
         let mappedStatus: any = "pending";
-        if (b.status === "Đã huỷ" || b.trip?.status === "huỷ") mappedStatus = "cancelled";
-        else if (b.status === "Hoàn thành" || b.status === "Đã checkin" || b.status === "Đã check-in" || b.trip?.status === "hoàn thành") mappedStatus = "completed";
+        if (b.status === "Hoàn thành" || b.status === "Đã checkin" || b.status === "Đã check-in" || b.trip?.status === "hoàn thành") mappedStatus = "completed";
         else if (b.status === "Đã xác nhận" || b.status === "Đã thanh toán") mappedStatus = "confirmed";
         else if (b.status === "Yêu cầu hoàn tiền") mappedStatus = "refund_pending";
         else if (b.status === "Đã hoàn tiền") mappedStatus = "refunded";
         else if (b.status === "Chờ xác nhận") mappedStatus = "pending";
 
-        const busInfo = b.trip?.bus 
+        const busInfo = b.trip?.bus
           ? `${b.trip.bus.name}${b.trip.bus.licensePlates ? ` (${b.trip.bus.licensePlates})` : ""}`
           : "GoPro VIP";
 
@@ -127,8 +140,8 @@ export default function ProfileClientPage() {
           journey: b.trip?.journey ? `${b.trip.journey.diemDi} → ${b.trip.journey.diemDen}` : "Chưa xác định",
           seats: b.seats || [],
           totalPrice: b.totalPrice || 0,
-          departureTime: b.trip?.departureTime 
-            ? dayjs(b.trip.departureTime).format("HH:mm - DD/MM/YYYY") 
+          departureTime: b.trip?.departureTime
+            ? dayjs(b.trip.departureTime).format("HH:mm - DD/MM/YYYY")
             : "Chưa xác định",
           bookingDate: dayjs(b.createdAt).format("DD/MM/YYYY"),
           status: mappedStatus,
@@ -137,13 +150,11 @@ export default function ProfileClientPage() {
         };
       });
 
-      // Lấy thêm vé vừa đặt thành công từ localStorage nếu có
       const latestSuccess = localStorage.getItem("latest_ticket_success");
       let latestList: BookingRecord[] = [];
       if (latestSuccess) {
         try {
           const parsed = JSON.parse(latestSuccess);
-          // Tránh bị trùng lặp nếu đơn hàng đã được đồng bộ lên DB
           const exists = mapped.some((b: any) => b.ticketCode === parsed.ticketCode);
           if (!exists) {
             latestList.push({
@@ -159,11 +170,13 @@ export default function ProfileClientPage() {
               status: "confirmed",
             });
           }
-        } catch (e) {}
+        } catch (e) { }
       }
 
-      // Hợp nhất: Vé từ DB + Vé lưu tạm Local
-      const realBookings = [...latestList, ...mapped];
+      // Đảm bảo không chứa bất kỳ mục nào có trạng thái hủy
+      const realBookings = [...latestList, ...mapped].filter(
+        (b) => b.status !== "cancelled" && b.tripStatus !== "huỷ" && b.tripStatus !== "hủy"
+      );
       setBookings(realBookings);
     } catch (err) {
       console.error("Lỗi khi tải lịch sử vé:", err);
@@ -171,7 +184,6 @@ export default function ProfileClientPage() {
     }
   };
 
-  // Load user info and booking history from localStorage
   useEffect(() => {
     const userStr = localStorage.getItem("user");
     let userObj: any = null;
@@ -184,7 +196,6 @@ export default function ProfileClientPage() {
       }
     }
 
-    // Default fallback values if no logged in user data is found
     const initialUser = {
       _id: userObj?._id || "",
       username: userObj?.username || userObj?.displayName || userObj?.name || "Hành Khách NetBus",
@@ -195,8 +206,6 @@ export default function ProfileClientPage() {
       cccd: userObj?.cccd || "038098******",
       address: userObj?.address || userObj?.diaChi || "Hà Nội, Việt Nam",
       avatarUrl: userObj?.avatarUrl || userObj?.avatar || userObj?.image || "",
-      memberTier: userObj?.memberTier || "Thành viên Vàng",
-      rewardPoints: userObj?.rewardPoints || 1250,
       createdAt: userObj?.createdAt || "15/01/2024",
       staffId: userObj?.staffId || "",
       role: userObj?.role || "user",
@@ -221,7 +230,6 @@ export default function ProfileClientPage() {
     }
   }, [profileForm]);
 
-  // Save profile updates & sync with Admin & Backend
   const handleSaveProfile = async (values: any) => {
     const formattedDob = values.dob ? values.dob.format("YYYY-MM-DD") : (userData?.dob ? dayjs(userData.dob).format("YYYY-MM-DD") : "1998-05-15");
     const updatedUser = {
@@ -235,10 +243,8 @@ export default function ProfileClientPage() {
       name: values.username,
     };
 
-    // Gọi API cập nhật Backend để đồng bộ database thực tế
     let apiSuccess = true;
     try {
-      // 1. Cập nhật thông tin tài khoản đăng nhập (tk)
       if (userData?._id) {
         await axios.put(`http://localhost:3000/api/tk/update/${userData._id}`, {
           username: values.username,
@@ -247,7 +253,6 @@ export default function ProfileClientPage() {
         });
       }
 
-      // 2. Cập nhật thông tin chi tiết nhân viên (staff) nếu có staffId
       if (userData?.staffId) {
         await axios.put(`http://localhost:3000/api/staff/edit/${userData.staffId}`, {
           ten: values.username,
@@ -267,11 +272,9 @@ export default function ProfileClientPage() {
       apiSuccess = false;
     }
 
-    // 1. Cập nhật state nội bộ & localStorage user
     setUserData(updatedUser);
     localStorage.setItem("user", JSON.stringify(updatedUser));
 
-    // 2. Cập nhật trực tiếp biến mock dữ liệu Admin trong bộ nhớ để đồng bộ tức thời
     try {
       if (_myAccount) {
         _myAccount.displayName = updatedUser.displayName;
@@ -287,7 +290,6 @@ export default function ProfileClientPage() {
       console.error("Lỗi cập nhật mock data:", e);
     }
 
-    // 3. Cập nhật danh sách tổng Admin (users_list)
     try {
       const usersListStr = localStorage.getItem("users_list");
       let usersList = usersListStr ? JSON.parse(usersListStr) : [];
@@ -309,12 +311,10 @@ export default function ProfileClientPage() {
       toast.success("Cập nhật thông tin tài khoản thành công!");
     }
 
-    // Trigger storage event & user-updated custom event
     window.dispatchEvent(new Event("storage"));
     window.dispatchEvent(new CustomEvent("user-updated", { detail: updatedUser }));
   };
 
-  // Change password handler
   const handleChangePassword = async (values: any) => {
     if (values.newPassword !== values.confirmPassword) {
       toast.error("Mật khẩu xác nhận không trùng khớp!");
@@ -388,14 +388,6 @@ export default function ProfileClientPage() {
     });
   };
 
-  // Avatar presets option
-  // const avatarPresets = [
-  //   "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix",
-  //   "https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka",
-  //   "https://api.dicebear.com/7.x/avataaars/svg?seed=Jack",
-  //   "https://api.dicebear.com/7.x/avataaars/svg?seed=Sophia",
-  // ];
-
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const handleUploadAvatar = async (newBase64: string) => {
@@ -412,7 +404,6 @@ export default function ProfileClientPage() {
 
     let apiSuccess = true;
     try {
-      // 1. Cập nhật thông tin tài khoản (tk) ở backend
       if (userData?._id) {
         await axios.put(`http://localhost:3000/api/tk/update/${userData._id}`, {
           username: userData.username,
@@ -421,7 +412,6 @@ export default function ProfileClientPage() {
         });
       }
 
-      // 2. Cập nhật thông tin chi tiết nhân viên (staff) nếu có staffId
       if (userData?.staffId) {
         await axios.put(`http://localhost:3000/api/staff/edit/${userData.staffId}`, {
           ten: userData.username,
@@ -484,7 +474,7 @@ export default function ProfileClientPage() {
         const image = new Image();
         image.onload = () => {
           const canvas = document.createElement("canvas");
-          const maxSize = 200; // Resize to max 200px width/height
+          const maxSize = 200;
           let width = image.width;
           let height = image.height;
 
@@ -527,7 +517,7 @@ export default function ProfileClientPage() {
         console.error("Lỗi xử lý ảnh:", err);
         toast.error("Không thể xử lý file ảnh này!");
       } finally {
-        e.target.value = ""; // Reset to allow re-upload of same file
+        e.target.value = "";
       }
     }
   };
@@ -596,16 +586,15 @@ export default function ProfileClientPage() {
 
   return (
     <ClientLayout>
-      <div className="bg-slate-50 dark:bg-slate-955 min-h-screen py-10 px-4 sm:px-6 lg:px-8">
+      <div className="bg-white min-h-screen py-10 px-4 sm:px-6 lg:px-8">
         <div className="max-w-6xl mx-auto space-y-6">
 
           {/* HEADER BANNER CARD */}
           <Card
             bordered={false}
-            className="shadow-md rounded-3xl overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800"
+            className="shadow-sm rounded-3xl overflow-hidden bg-white border border-slate-100"
             styles={{ body: { padding: 0 } }}
           >
-            {/* Cover photo background with clean hero image */}
             <div
               className="h-48 bg-cover bg-center relative flex items-end justify-end p-4 rounded-t-3xl overflow-hidden"
               style={{
@@ -614,7 +603,6 @@ export default function ProfileClientPage() {
             >
             </div>
 
-            {/* Profile Bar info */}
             <div className="px-6 pb-6 pt-0 relative flex flex-col md:flex-row items-center md:items-end justify-between gap-6 -mt-16">
               <div className="flex flex-col md:flex-row items-center md:items-end gap-5 text-center md:text-left">
                 <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
@@ -622,7 +610,7 @@ export default function ProfileClientPage() {
                     size={110}
                     src={avatarUrl || undefined}
                     icon={!avatarUrl ? <UserOutlined /> : undefined}
-                    className="border-4 border-white dark:border-slate-900 shadow-lg bg-emerald-600 text-white font-bold text-3xl"
+                    className="border-4 border-white shadow-md bg-emerald-600 text-white font-bold text-3xl"
                   >
                     {!avatarUrl && userData?.username?.charAt(0).toUpperCase()}
                   </Avatar>
@@ -645,12 +633,9 @@ export default function ProfileClientPage() {
 
                 <div className="space-y-1">
                   <div className="flex items-center justify-center md:justify-start gap-3 flex-wrap">
-                    <Title level={3} className="!mb-0 !text-slate-900 dark:!text-white font-extrabold">
+                    <Title level={3} className="!mb-0 !text-slate-900 font-extrabold">
                       {userData?.username || "Hành Khách"}
                     </Title>
-                    <Tag color="gold" className="font-bold border-none px-3 py-0.5 rounded-full flex items-center gap-1">
-                      <TrophyOutlined /> {userData?.memberTier || "Thành viên Vàng"}
-                    </Tag>
                   </div>
                   <Text type="secondary" className="block text-sm">
                     {userData?.email} • Tham gia từ {userData?.createdAt}
@@ -658,7 +643,6 @@ export default function ProfileClientPage() {
                 </div>
               </div>
 
-              {/* Action buttons */}
               <div className="flex items-center gap-3 w-full md:w-auto justify-center">
                 {!isEditing ? (
                   <Button
@@ -666,7 +650,7 @@ export default function ProfileClientPage() {
                     size="large"
                     icon={<UserOutlined />}
                     onClick={() => setIsEditing(true)}
-                    className="bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold border-none"
+                    className="bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold border-none text-white"
                   >
                     Chỉnh sửa thông tin
                   </Button>
@@ -675,7 +659,7 @@ export default function ProfileClientPage() {
                     icon={<ArrowLeftOutlined />}
                     size="large"
                     onClick={() => setIsEditing(false)}
-                    className="rounded-xl font-medium"
+                    className="rounded-xl font-medium bg-white hover:bg-slate-50"
                   >
                     Hủy chỉnh sửa
                   </Button>
@@ -687,7 +671,7 @@ export default function ProfileClientPage() {
           {/* MAIN TABBED CONTENT SECTION */}
           <Card
             bordered={false}
-            className="shadow-sm rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800"
+            className="shadow-sm rounded-3xl bg-white border border-slate-100"
           >
             <Tabs
               defaultActiveKey="profile"
@@ -704,96 +688,94 @@ export default function ProfileClientPage() {
                   children: (
                     <div className="py-2">
                       {!isEditing ? (
-                        /* READ-ONLY VIEW */
                         <div className="space-y-6">
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                            <div className="p-4 rounded-2xl bg-white border border-slate-100 shadow-sm">
                               <Text type="secondary" className="text-xs uppercase tracking-wider font-semibold block mb-1">
                                 Họ và tên
                               </Text>
                               <Flex align="center" gap={10}>
                                 <UserOutlined className="text-emerald-600 text-lg" />
-                                <Text strong className="text-base text-slate-800 dark:text-slate-100">
+                                <Text strong className="text-base text-slate-800">
                                   {userData?.username}
                                 </Text>
                               </Flex>
                             </div>
 
-                            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                            <div className="p-4 rounded-2xl bg-white border border-slate-100 shadow-sm">
                               <Text type="secondary" className="text-xs uppercase tracking-wider font-semibold block mb-1">
                                 Địa chỉ Email
                               </Text>
                               <Flex align="center" gap={10}>
                                 <MailOutlined className="text-emerald-600 text-lg" />
-                                <Text strong className="text-base text-slate-800 dark:text-slate-100">
+                                <Text strong className="text-base text-slate-800">
                                   {userData?.email}
                                 </Text>
                               </Flex>
                             </div>
 
-                            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                            <div className="p-4 rounded-2xl bg-white border border-slate-100 shadow-sm">
                               <Text type="secondary" className="text-xs uppercase tracking-wider font-semibold block mb-1">
                                 Số điện thoại
                               </Text>
                               <Flex align="center" gap={10}>
                                 <PhoneOutlined className="text-emerald-600 text-lg" />
-                                <Text strong className="text-base text-slate-800 dark:text-slate-100">
+                                <Text strong className="text-base text-slate-800">
                                   {userData?.phone}
                                 </Text>
                               </Flex>
                             </div>
 
-                            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                            <div className="p-4 rounded-2xl bg-white border border-slate-100 shadow-sm">
                               <Text type="secondary" className="text-xs uppercase tracking-wider font-semibold block mb-1">
                                 Số CCCD / CMND
                               </Text>
                               <Flex align="center" gap={10}>
                                 <IdcardOutlined className="text-emerald-600 text-lg" />
-                                <Text strong className="text-base text-slate-800 dark:text-slate-100">
+                                <Text strong className="text-base text-slate-800">
                                   {userData?.cccd}
                                 </Text>
                               </Flex>
                             </div>
 
-                            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                            <div className="p-4 rounded-2xl bg-white border border-slate-100 shadow-sm">
                               <Text type="secondary" className="text-xs uppercase tracking-wider font-semibold block mb-1">
                                 Giới tính
                               </Text>
                               <Flex align="center" gap={10}>
                                 <UserOutlined className="text-emerald-600 text-lg" />
-                                <Text strong className="text-base text-slate-800 dark:text-slate-100 capitalize">
+                                <Text strong className="text-base text-slate-800 capitalize">
                                   {userData?.gender === "nam" ? "Nam" : userData?.gender === "nu" ? "Nữ" : "Khác"}
                                 </Text>
                               </Flex>
                             </div>
 
-                            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                            <div className="p-4 rounded-2xl bg-white border border-slate-100 shadow-sm">
                               <Text type="secondary" className="text-xs uppercase tracking-wider font-semibold block mb-1">
                                 Ngày sinh
                               </Text>
                               <Flex align="center" gap={10}>
                                 <CalendarOutlined className="text-emerald-600 text-lg" />
-                                <Text strong className="text-base text-slate-800 dark:text-slate-100">
+                                <Text strong className="text-base text-slate-800">
                                   {userData?.dob ? dayjs(userData.dob).format("DD/MM/YYYY") : "Chưa cập nhật"}
                                 </Text>
                               </Flex>
                             </div>
                           </div>
 
-                          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                          <div className="p-4 rounded-2xl bg-white border border-slate-100 shadow-sm">
                             <Text type="secondary" className="text-xs uppercase tracking-wider font-semibold block mb-1">
                               Địa chỉ thường trú / Nhận vé
                             </Text>
                             <Flex align="center" gap={10}>
                               <EnvironmentOutlined className="text-emerald-600 text-lg" />
-                              <Text strong className="text-base text-slate-800 dark:text-slate-100">
+                              <Text strong className="text-base text-slate-800">
                                 {userData?.address}
                               </Text>
                             </Flex>
                           </div>
                         </div>
                       ) : (
-                        /* EDIT FORM VIEW */
                         <Form
                           form={profileForm}
                           layout="vertical"
@@ -863,7 +845,7 @@ export default function ProfileClientPage() {
                             </Col>
                           </Row>
 
-                          <div className="flex justify-end gap-3 pt-4 border-t">
+                          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
                             <Button size="large" onClick={() => setIsEditing(false)}>
                               Hủy bỏ
                             </Button>
@@ -872,7 +854,7 @@ export default function ProfileClientPage() {
                               htmlType="submit"
                               size="large"
                               icon={<SaveOutlined />}
-                              className="bg-emerald-600 hover:bg-emerald-500 font-bold border-none"
+                              className="bg-emerald-600 hover:bg-emerald-500 font-bold border-none text-white"
                             >
                               Lưu thông tin
                             </Button>
@@ -907,14 +889,14 @@ export default function ProfileClientPage() {
                           {bookings.map((item) => (
                             <div
                               key={item.id}
-                              className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60 hover:shadow-md transition-all flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
+                              className="p-5 rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
                             >
                               <div className="space-y-2">
                                 <div className="flex items-center gap-3 flex-wrap">
                                   <Tag color="green" className="font-bold text-xs uppercase px-2.5 py-0.5 rounded-full">
                                     {item.ticketCode}
                                   </Tag>
-                                  <Text strong className="text-lg text-slate-800 dark:text-slate-100">
+                                  <Text strong className="text-lg text-slate-800">
                                     {item.journey}
                                   </Text>
                                   {item.status === "confirmed" && (
@@ -937,11 +919,6 @@ export default function ProfileClientPage() {
                                       Đã hoàn tiền
                                     </Tag>
                                   )}
-                                  {item.status === "cancelled" && (
-                                    <Tag color="error" className="font-semibold">
-                                      Đã hủy
-                                    </Tag>
-                                  )}
                                   {item.status === "completed" && (
                                     <Tag color="default" className="font-semibold">
                                       Hoàn thành
@@ -949,7 +926,7 @@ export default function ProfileClientPage() {
                                   )}
                                 </div>
 
-                                <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400 flex-wrap">
+                                <div className="flex items-center gap-4 text-xs text-slate-500 flex-wrap">
                                   <span>
                                     <CarOutlined className="mr-1 text-emerald-600" /> {item.busName}
                                   </span>
@@ -957,17 +934,17 @@ export default function ProfileClientPage() {
                                     <CalendarOutlined className="mr-1 text-emerald-600" /> {item.departureTime}
                                   </span>
                                   <span>
-                                    Giường: <strong className="text-emerald-700 dark:text-emerald-400">{item.seats.join(", ")}</strong>
+                                    Giường: <strong className="text-emerald-700">{item.seats.join(", ")}</strong>
                                   </span>
                                 </div>
                               </div>
 
-                              <div className="flex items-center justify-between md:justify-end w-full md:w-auto gap-4 pt-3 md:pt-0 border-t md:border-t-0 border-slate-200">
+                              <div className="flex items-center justify-between md:justify-end w-full md:w-auto gap-4 pt-3 md:pt-0 border-t md:border-t-0 border-slate-100">
                                 <div className="text-right">
                                   <Text type="secondary" className="text-xs block">
                                     Tổng tiền
                                   </Text>
-                                  <Text strong className="text-lg text-emerald-600 dark:text-emerald-400">
+                                  <Text strong className="text-lg text-emerald-600">
                                     {item.totalPrice.toLocaleString("vi-VN")}đ
                                   </Text>
                                 </div>
@@ -985,23 +962,24 @@ export default function ProfileClientPage() {
                                   Xem vé
                                 </Button>
 
-                                {(item.status === "confirmed" || item.status === "pending") && 
-                                  item.status !== "completed" && 
-                                  item.tripStatus !== "hoàn thành" && 
-                                  item.tripStatus !== "đang chạy" && 
-                                  item.tripStatus !== "huỷ" && (
-                                  <Button
-                                    danger
-                                    onClick={() => {
-                                      setCancellingBooking(item);
-                                      setIsCancelModalOpen(true);
-                                      cancelForm.resetFields();
-                                    }}
-                                    className="rounded-xl font-medium"
-                                  >
-                                    Hủy vé hoàn tiền
-                                  </Button>
-                                )}
+                                {(item.status === "confirmed" || item.status === "pending") &&
+                                  item.status !== "completed" &&
+                                  item.tripStatus !== "hoàn thành" &&
+                                  item.tripStatus !== "đang chạy" &&
+                                  item.tripStatus !== "huỷ" &&
+                                  item.tripStatus !== "hủy" && (
+                                    <Button
+                                      danger
+                                      onClick={() => {
+                                        setCancellingBooking(item);
+                                        setIsCancelModalOpen(true);
+                                        cancelForm.resetFields();
+                                      }}
+                                      className="rounded-xl font-medium"
+                                    >
+                                      Hủy vé hoàn tiền
+                                    </Button>
+                                  )}
                               </div>
                             </div>
                           ))}
@@ -1076,11 +1054,11 @@ export default function ProfileClientPage() {
                             htmlType="submit"
                             size="large"
                             icon={<CheckCircleOutlined />}
-                            className="bg-emerald-600 hover:bg-emerald-500 font-bold rounded-xl border-none"
+                            className="bg-emerald-600 hover:bg-emerald-500 font-bold rounded-xl border-none text-white"
                           >
                             Cập nhật mật khẩu
                           </Button>
-                          
+
                           <Button
                             type="link"
                             onClick={handleForgotPassword}
@@ -1098,7 +1076,7 @@ export default function ProfileClientPage() {
                         <Title level={5} className="!mb-0">
                           Tính năng bảo mật nâng cao
                         </Title>
-                        <div className="flex justify-between items-center p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border">
+                        <div className="flex justify-between items-center p-4 rounded-2xl bg-white border border-slate-100 shadow-sm">
                           <div>
                             <Text strong className="block">
                               Xác thực 2 lớp (2FA)
@@ -1109,67 +1087,6 @@ export default function ProfileClientPage() {
                           </div>
                           <Switch defaultChecked onChange={(checked) => toast.success(checked ? "Đã bật 2FA" : "Đã tắt 2FA")} />
                         </div>
-                      </div>
-                    </div>
-                  ),
-                },
-
-                {
-                  key: "rewards",
-                  label: (
-                    <span className="flex items-center gap-2">
-                      <TrophyOutlined /> Ví & Thẻ thành viên
-                    </span>
-                  ),
-                  children: (
-                    <div className="space-y-6 py-2">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <Card className="bg-gradient-to-br from-amber-500 to-yellow-600 text-white rounded-2xl border-none shadow-md">
-                          <Text className="text-amber-100 text-xs font-bold uppercase tracking-wider block mb-2">
-                            Thẻ thành viên
-                          </Text>
-                          <Title level={3} className="!text-white !mb-1 font-black">
-                            {userData?.memberTier || "Thành viên Vàng"}
-                          </Title>
-                          <Text className="text-amber-100 text-sm">Hạn dùng: Không giới hạn</Text>
-                        </Card>
-
-                        <Card className="bg-gradient-to-br from-emerald-600 to-teal-700 text-white rounded-2xl border-none shadow-md">
-                          <Text className="text-emerald-100 text-xs font-bold uppercase tracking-wider block mb-2">
-                            Điểm thưởng tích lũy
-                          </Text>
-                          <Title level={3} className="!text-white !mb-1 font-black flex items-center gap-2">
-                            <GiftOutlined /> {userData?.rewardPoints || 1250} điểm
-                          </Title>
-                          <Text className="text-emerald-100 text-sm">~ 125.000đ ưu đãi vé</Text>
-                        </Card>
-
-                        <Card className="bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-2xl border-none shadow-md">
-                          <Text className="text-blue-100 text-xs font-bold uppercase tracking-wider block mb-2">
-                            Voucher khuyến mãi
-                          </Text>
-                          <Title level={3} className="!text-white !mb-1 font-black">
-                            2 Mã giảm giá
-                          </Title>
-                          <Text className="text-blue-100 text-sm">Giảm tối đa 15%</Text>
-                        </Card>
-                      </div>
-
-                      <div className="p-6 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border">
-                        <Title level={5} className="!mb-3">
-                          Đặc quyền hạng thành viên Vàng
-                        </Title>
-                        <ul className="space-y-2 text-sm text-slate-600 dark:text-slate-300">
-                          <li className="flex items-center gap-2">
-                            <CheckCircleOutlined className="text-emerald-600" /> Tích lũy 5% giá trị vé sau mỗi chuyến đi thành công.
-                          </li>
-                          <li className="flex items-center gap-2">
-                            <CheckCircleOutlined className="text-emerald-600" /> Miễn phí đổi / trả vé trước 12 tiếng departure.
-                          </li>
-                          <li className="flex items-center gap-2">
-                            <CheckCircleOutlined className="text-emerald-600" /> Ưu tiên giữ vị trí giường đẹp nhất trên xe.
-                          </li>
-                        </ul>
                       </div>
                     </div>
                   ),
@@ -1188,7 +1105,7 @@ export default function ProfileClientPage() {
           <Button key="close" onClick={() => setIsTicketModalOpen(false)}>
             Đóng
           </Button>,
-          <Button key="print" type="primary" icon={<PrinterOutlined />} onClick={() => window.print()} className="bg-emerald-700">
+          <Button key="print" type="primary" icon={<PrinterOutlined />} onClick={() => window.print()} className="bg-emerald-700 text-white">
             In vé điện tử
           </Button>,
         ]}
@@ -1198,7 +1115,7 @@ export default function ProfileClientPage() {
       >
         {selectedTicket && (
           <div className="p-2 space-y-4">
-            <div className="text-center pb-3 border-b">
+            <div className="text-center pb-3 border-b border-slate-100">
               <img src="/assets/images/logoxoanen.png" alt="NetBus" className="h-10 mx-auto mb-2" />
               <Title level={4} className="!mb-0 text-emerald-700">
                 VÉ XE ĐIỆN TỬ NETBUS
@@ -1229,13 +1146,13 @@ export default function ProfileClientPage() {
                 <Text type="secondary">Vị trí giường/ghế:</Text>
                 <Text strong className="text-blue-600">{selectedTicket.seats.join(", ")}</Text>
               </div>
-              <div className="flex justify-between pt-2 border-t font-bold text-base">
+              <div className="flex justify-between pt-2 border-t border-slate-100 font-bold text-base">
                 <Text type="secondary">Tổng thanh toán:</Text>
                 <Text className="text-red-500">{selectedTicket.totalPrice.toLocaleString("vi-VN")}đ</Text>
               </div>
             </div>
 
-            <div className="text-center pt-3 bg-slate-50 p-4 rounded-xl border flex flex-col items-center justify-center">
+            <div className="text-center pt-3 bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex flex-col items-center justify-center">
               <QRCode value={selectedTicket.id} size={150} bordered={false} className="bg-white p-1 rounded-lg" />
               <Text type="secondary" className="block text-xs mt-2">
                 Quét mã QR khi lên xe để làm thủ tục check-in
@@ -1269,19 +1186,19 @@ export default function ProfileClientPage() {
             onFinish={handleCancelBooking}
             className="space-y-4 pt-3"
           >
-            <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border mb-4 space-y-1.5 text-xs text-slate-600 dark:text-slate-300">
+            <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm mb-4 space-y-1.5 text-xs text-slate-600">
               <div>
-                Mã vé: <strong className="text-slate-800 dark:text-slate-100">{cancellingBooking.ticketCode}</strong>
+                Mã vé: <strong className="text-slate-800">{cancellingBooking.ticketCode}</strong>
               </div>
               <div>
-                Tuyến đường: <strong className="text-slate-800 dark:text-slate-100">{cancellingBooking.journey}</strong>
+                Tuyến đường: <strong className="text-slate-800">{cancellingBooking.journey}</strong>
               </div>
               <div>
-                Giờ khởi hành: <strong className="text-slate-800 dark:text-slate-100">{cancellingBooking.departureTime}</strong>
+                Giờ khởi hành: <strong className="text-slate-800">{cancellingBooking.departureTime}</strong>
               </div>
               <Divider style={{ margin: "6px 0" }} />
               <div>
-                Giá trị vé gốc: <strong className="text-slate-800 dark:text-slate-100">{cancellingBooking.totalPrice.toLocaleString("vi-VN")}đ</strong>
+                Giá trị vé gốc: <strong className="text-slate-800">{cancellingBooking.totalPrice.toLocaleString("vi-VN")}đ</strong>
               </div>
               <div>
                 Chính sách áp dụng: <span className="font-bold text-emerald-600">{getRefundPolicyForClient(cancellingBooking).label}</span>
@@ -1338,7 +1255,7 @@ export default function ProfileClientPage() {
               <Input.TextArea placeholder="Nhập lý do hủy vé nếu có..." rows={3} />
             </Form.Item>
 
-            <div className="flex justify-end gap-3 pt-4 border-t">
+            <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
               <Button onClick={() => {
                 setIsCancelModalOpen(false);
                 setCancellingBooking(null);

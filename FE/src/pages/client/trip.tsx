@@ -16,7 +16,8 @@ import {
   Checkbox,
   Radio,
   Empty,
-  Divider
+  Divider,
+  Modal
 } from "antd";
 import {
   EnvironmentOutlined,
@@ -30,11 +31,12 @@ import {
   InfoCircleOutlined,
   CaretUpOutlined,
   CaretDownOutlined,
-  CalendarOutlined
+  CalendarOutlined,
+  FileTextOutlined
 } from "@ant-design/icons";
 import { ClientLayout } from "./layout";
 import dayjs from "dayjs";
-import "dayjs/locale/vi"; // Import tiếng Việt cho dayjs
+import "dayjs/locale/vi";
 
 dayjs.locale("vi");
 
@@ -85,6 +87,12 @@ export default function Trip(): React.ReactElement {
   const [trips, setTrips] = useState<TripData[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [showPolicy, setShowPolicy] = useState<boolean>(true);
+  const [isPolicyModalOpen, setIsPolicyModalOpen] = useState<boolean>(false);
+
+  // Lưu tripId đang chuẩn bị đặt vé và trạng thái đồng ý điều khoản
+  const [selectedTripForBooking, setSelectedTripForBooking] = useState<string | null>(null);
+  const [isAgreedPolicy, setIsAgreedPolicy] = useState<boolean>(false);
+
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -116,7 +124,6 @@ export default function Trip(): React.ReactElement {
   const [selectedTimeSlots, setSelectedTimeSlots] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<string>("time_asc");
 
-  // 🌟 Đọc URL query parameters từ Dashboard truyền sang
   useEffect(() => {
     const queryParams = new URLSearchParams(location.search);
     const paramDiemDi = queryParams.get("diemDi") || undefined;
@@ -160,13 +167,11 @@ export default function Trip(): React.ReactElement {
     fetchTrips();
   }, []);
 
-  // Format Giờ hiển thị (14:30)
   const formatTime = (dateString: string): string => {
     if (!dateString) return "--:--";
     return dayjs(dateString).format("HH:mm");
   };
 
-  // Format Ngày tháng hiển thị (T5, 06/08/2026)
   const formatDate = (dateString: string): string => {
     if (!dateString) return "";
     return dayjs(dateString).format("dd, DD/MM/YYYY");
@@ -232,6 +237,40 @@ export default function Trip(): React.ReactElement {
     setSelectedTimeSlots([]);
     setSortBy("time_asc");
     navigate("/khachhang/trip", { replace: true });
+  };
+
+  // Mở modal xem chính sách thuần túy (không đặt vé)
+  const handleOpenPolicyOnly = () => {
+    setSelectedTripForBooking(null);
+    setIsAgreedPolicy(false);
+    setIsPolicyModalOpen(true);
+  };
+
+  // Bấm Đặt vé: Mở modal chính sách yêu cầu xác nhận trước
+  const handleStartBooking = (tripId: string) => {
+    setSelectedTripForBooking(tripId);
+    setIsAgreedPolicy(false);
+    setIsPolicyModalOpen(true);
+  };
+
+  // Xác nhận đồng ý chính sách và chuyển trang đặt vé
+  const handleConfirmBooking = () => {
+    if (!isAgreedPolicy) {
+      message.warning("Vui lòng đọc và xác nhận đồng ý với các chính sách để tiếp tục!");
+      return;
+    }
+    const tripId = selectedTripForBooking;
+    setIsPolicyModalOpen(false);
+    setSelectedTripForBooking(null);
+    if (tripId) {
+      navigate(`/khachhang/booking/${tripId}`);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setIsPolicyModalOpen(false);
+    setSelectedTripForBooking(null);
+    setIsAgreedPolicy(false);
   };
 
   const filteredTrips = trips.filter((trip) => {
@@ -619,7 +658,8 @@ export default function Trip(): React.ReactElement {
                             </div>
                           </div>
 
-                          <div style={{ marginTop: 12 }}>
+                          {/* Hành động: Điểm đón/trả & Chính sách */}
+                          <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                             <Button
                               type="link"
                               size="small"
@@ -639,6 +679,26 @@ export default function Trip(): React.ReactElement {
                               <span style={{ color: "#64748b", fontWeight: 400, fontSize: 12, marginLeft: 2 }}>
                                 ({(item.journey?.diemDon?.length || 0) + (item.journey?.diemTra?.length || 0)})
                               </span>
+                            </Button>
+
+                            <span style={{ color: "#cbd5e1" }}>|</span>
+
+                            <Button
+                              type="link"
+                              size="small"
+                              onClick={handleOpenPolicyOnly}
+                              style={{
+                                color: "#2e7d32",
+                                padding: 0,
+                                fontWeight: 600,
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 4,
+                                fontSize: 13
+                              }}
+                            >
+                              <FileTextOutlined />
+                              Chính sách
                             </Button>
                           </div>
                         </Col>
@@ -670,7 +730,7 @@ export default function Trip(): React.ReactElement {
                             size="large"
                             block
                             style={{ borderRadius: 8, fontWeight: 600, height: 44, background: "#2e7d32", borderColor: "#2e7d32" }}
-                            onClick={() => navigate(`/khachhang/booking/${item._id}`)}
+                            onClick={() => handleStartBooking(item._id)}
                           >
                             Đặt vé
                           </Button>
@@ -744,6 +804,115 @@ export default function Trip(): React.ReactElement {
             </Col>
           </Row>
         </div>
+
+        {/* Modal Chi tiết Chính sách cho khách hàng */}
+        <Modal
+          title={
+            <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#15803d", fontSize: 17, fontWeight: 700 }}>
+              <FileTextOutlined /> Chính sách & Quy định nhà xe
+            </div>
+          }
+          open={isPolicyModalOpen}
+          onCancel={handleCloseModal}
+          width={650}
+          bodyStyle={{ maxHeight: "65vh", overflowY: "auto", paddingRight: 12 }}
+          footer={
+            selectedTripForBooking ? (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", flexWrap: "wrap", gap: 12 }}>
+                <Checkbox
+                  checked={isAgreedPolicy}
+                  onChange={(e) => setIsAgreedPolicy(e.target.checked)}
+                >
+                  <Text strong style={{ fontSize: 13, color: "#334155" }}>
+                    Tôi đã đọc và đồng ý với chính sách của nhà xe
+                  </Text>
+                </Checkbox>
+                <Space>
+                  <Button onClick={handleCloseModal}>
+                    Hủy
+                  </Button>
+                  <Button
+                    type="primary"
+                    disabled={!isAgreedPolicy}
+                    onClick={handleConfirmBooking}
+                    style={{
+                      background: isAgreedPolicy ? "#2e7d32" : undefined,
+                      borderColor: isAgreedPolicy ? "#2e7d32" : undefined,
+                      borderRadius: 6,
+                      fontWeight: 600
+                    }}
+                  >
+                    Đồng ý & Tiếp tục đặt vé
+                  </Button>
+                </Space>
+              </div>
+            ) : (
+              <Button
+                type="primary"
+                onClick={handleCloseModal}
+                style={{ background: "#2e7d32", borderColor: "#2e7d32", borderRadius: 6 }}
+              >
+                Đã hiểu
+              </Button>
+            )
+          }
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div>
+              <Text strong style={{ color: "#1e293b", fontSize: 15, display: "block", marginBottom: 6 }}>
+                1. Yêu cầu khi lên xe
+              </Text>
+              <ul style={{ margin: 0, paddingLeft: 20, color: "#475569", lineHeight: 1.7, fontSize: 13 }}>
+                <li>Có mặt tại văn phòng/quầy vé/bến xe trước 30 phút để làm thủ tục lên xe.</li>
+                <li>Xuất trình SMS/Email đặt vé trước khi lên xe.</li>
+                <li>Không mang đồ ăn, thức ăn có mùi lên xe.</li>
+                <li>Không hút thuốc, uống rượu, sử dụng chất kích thích trên xe.</li>
+                <li>Không mang các vật dễ cháy nổ lên xe.</li>
+                <li>Không vứt rác trên xe.</li>
+                <li>Không làm ồn, gây mất trật tự trên xe.</li>
+              </ul>
+            </div>
+
+            <Divider style={{ margin: "4px 0" }} />
+
+            <div>
+              <Text strong style={{ color: "#1e293b", fontSize: 15, display: "block", marginBottom: 6 }}>
+                2. Hành lý xách tay
+              </Text>
+              <ul style={{ margin: 0, paddingLeft: 20, color: "#475569", lineHeight: 1.7, fontSize: 13 }}>
+                <li>Tổng trọng lượng hành lý không vượt quá <strong>10 kg</strong>.</li>
+                <li>Không vận chuyển hàng hóa cồng kềnh.</li>
+                <li>Không hoàn tiền trong trường hợp huỷ đơn hàng do vi phạm các quy định về hành lý.</li>
+                <li>Hành lý vượt quá số lượng/kích thước cho phép có thể bị phụ thu theo chính sách của nhà xe.</li>
+              </ul>
+            </div>
+
+            <Divider style={{ margin: "4px 0" }} />
+
+            <div>
+              <Text strong style={{ color: "#1e293b", fontSize: 15, display: "block", marginBottom: 6 }}>
+                3. Trẻ em và phụ nữ có thai
+              </Text>
+              <ul style={{ margin: 0, paddingLeft: 20, color: "#475569", lineHeight: 1.7, fontSize: 13 }}>
+                <li>Trẻ em từ 5 tuổi hoặc cao từ 110 cm trở lên mua vé như người lớn.</li>
+                <li>Phụ nữ có thai cần đảm bảo sức khỏe trong suốt quá trình di chuyển.</li>
+                <li>Nhà xe có quyền từ chối phục vụ nếu hành khách không tuân thủ quy định về trẻ em và phụ nữ có thai.</li>
+                <li>Để đảm bảo an toàn và chỗ ngồi phù hợp, quý khách có trẻ em đi cùng vui lòng báo trước cho Nhà xe ít nhất trước 3 giờ khởi hành. Nếu không có thông báo trước và xe đã đầy chỗ, Nhà xe xin phép không áp dụng chính sách dành cho trẻ em.</li>
+              </ul>
+            </div>
+
+            <Divider style={{ margin: "4px 0" }} />
+
+            <div>
+              <Text strong style={{ color: "#1e293b", fontSize: 15, display: "block", marginBottom: 6 }}>
+                4. Chính sách giờ khởi hành, đón và trả dịp lễ, tết
+              </Text>
+              <p style={{ margin: 0, color: "#475569", fontSize: 13, lineHeight: 1.6 }}>
+                Thời gian khởi hành, đón khách và trả khách có thể thay đổi sớm hoặc trễ hơn khoảng 30 phút tùy thuộc vào tình hình giao thông thực tế trong ngày khởi hành. Nhà xe sẽ chủ động thông báo thời gian chính xác đến khách hàng qua các kênh liên lạc.
+              </p>
+            </div>
+          </div>
+        </Modal>
       </div>
     </ClientLayout>
   );
