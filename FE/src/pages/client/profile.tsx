@@ -101,12 +101,28 @@ export default function ProfileClientPage() {
     try {
       const response = await axios.get("http://localhost:3000/api/booking");
       const allBookings = response.data || [];
-      const userBookings = allBookings.filter((b: any) => b.user && (b.user._id === userId || b.user === userId));
+
+      // Lọc bỏ triệt để các đơn đặt/vé đã hủy hoặc chuyến xe bị hủy
+      const userBookings = allBookings
+        .filter((b: any) => b.user && (b.user._id === userId || b.user === userId))
+        .filter((b: any) => {
+          const isBookingCancelled =
+            b.status === "Đã huỷ" ||
+            b.status === "cancelled" ||
+            b.status === "Hủy" ||
+            b.status === "Đã hủy";
+          const isTripCancelled =
+            b.trip?.status === "huỷ" ||
+            b.trip?.status === "cancelled" ||
+            b.trip?.status === "hủy" ||
+            b.trip?.status === "Đã hủy";
+
+          return !isBookingCancelled && !isTripCancelled;
+        });
 
       const mapped: BookingRecord[] = userBookings.map((b: any) => {
         let mappedStatus: any = "pending";
-        if (b.status === "Đã huỷ" || b.trip?.status === "huỷ") mappedStatus = "cancelled";
-        else if (b.status === "Hoàn thành" || b.status === "Đã checkin" || b.status === "Đã check-in" || b.trip?.status === "hoàn thành") mappedStatus = "completed";
+        if (b.status === "Hoàn thành" || b.status === "Đã checkin" || b.status === "Đã check-in" || b.trip?.status === "hoàn thành") mappedStatus = "completed";
         else if (b.status === "Đã xác nhận" || b.status === "Đã thanh toán") mappedStatus = "confirmed";
         else if (b.status === "Yêu cầu hoàn tiền") mappedStatus = "refund_pending";
         else if (b.status === "Đã hoàn tiền") mappedStatus = "refunded";
@@ -157,7 +173,10 @@ export default function ProfileClientPage() {
         } catch (e) { }
       }
 
-      const realBookings = [...latestList, ...mapped];
+      // Đảm bảo không chứa bất kỳ mục nào có trạng thái hủy
+      const realBookings = [...latestList, ...mapped].filter(
+        (b) => b.status !== "cancelled" && b.tripStatus !== "huỷ" && b.tripStatus !== "hủy"
+      );
       setBookings(realBookings);
     } catch (err) {
       console.error("Lỗi khi tải lịch sử vé:", err);
@@ -900,11 +919,6 @@ export default function ProfileClientPage() {
                                       Đã hoàn tiền
                                     </Tag>
                                   )}
-                                  {item.status === "cancelled" && (
-                                    <Tag color="error" className="font-semibold">
-                                      Đã hủy
-                                    </Tag>
-                                  )}
                                   {item.status === "completed" && (
                                     <Tag color="default" className="font-semibold">
                                       Hoàn thành
@@ -952,7 +966,8 @@ export default function ProfileClientPage() {
                                   item.status !== "completed" &&
                                   item.tripStatus !== "hoàn thành" &&
                                   item.tripStatus !== "đang chạy" &&
-                                  item.tripStatus !== "huỷ" && (
+                                  item.tripStatus !== "huỷ" &&
+                                  item.tripStatus !== "hủy" && (
                                     <Button
                                       danger
                                       onClick={() => {
