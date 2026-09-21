@@ -66,6 +66,11 @@ export const navData = [
     icon: renderIcon('solar:hand-money-bold-duotone'),
   },
   {
+    title: 'Báo cáo sự cố',
+    path: '/admin/incident/list',
+    icon: renderIcon('solar:danger-triangle-bold-duotone'),
+  },
+  {
     title: 'Danh sách giá vé',
     path: '/admin/giave/list',
     icon: renderIcon('solar:wad-of-money-bold-duotone'),
