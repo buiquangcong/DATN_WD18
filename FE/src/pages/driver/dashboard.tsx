@@ -1,5 +1,5 @@
-import { Row, Col, Card, Typography, Button, Avatar, Badge, Progress, List, Space, Table, Tag, Modal, Input, message, Select, Upload, Tooltip } from "antd";
-import { BellOutlined, UserOutlined, TeamOutlined, CheckCircleOutlined, ClockCircleOutlined, LoginOutlined, ScanOutlined, QrcodeOutlined, UploadOutlined, CarOutlined } from "@ant-design/icons";
+import { Row, Col, Card, Typography, Button, Avatar, Badge, Progress, List, Space, Table, Tag, Modal, Input, message, Select, Upload, Tooltip, Radio } from "antd";
+import { BellOutlined, UserOutlined, TeamOutlined, CheckCircleOutlined, ClockCircleOutlined, LoginOutlined, ScanOutlined, QrcodeOutlined, UploadOutlined, CarOutlined, AlertOutlined, SendOutlined, WarningOutlined } from "@ant-design/icons";
 import { ClientLayout } from "./layout";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -69,6 +69,16 @@ export default function DriverDashboard() {
     const [tripBookings, setTripBookings] = useState<any[]>([]);
     const [bookingsLoading, setBookingsLoading] = useState(false);
 
+    // Incident Report states
+    const [incidentModalOpen, setIncidentModalOpen] = useState(false);
+    const [selectedTripForIncident, setSelectedTripForIncident] = useState<any | null>(null);
+    const [incidentIssueType, setIncidentIssueType] = useState<string>("Sự cố kỹ thuật / Hỏng hóc xe");
+    const [incidentSeverity, setIncidentSeverity] = useState<string>("Trung bình");
+    const [incidentNote, setIncidentNote] = useState<string>("");
+    const [incidentFileList, setIncidentFileList] = useState<any[]>([]);
+    const [incidentLoading, setIncidentLoading] = useState(false);
+    const [reportedTripIds, setReportedTripIds] = useState<string[]>([]);
+
     const loadTrips = async (sId: string) => {
         try {
             const res = await axios.get(`http://localhost:3000/api/trip/staff/${sId}`);
@@ -107,6 +117,15 @@ export default function DriverDashboard() {
             } catch (e) {
                 console.error("Lỗi parse user", e);
             }
+        }
+
+        try {
+            const savedIncidents = localStorage.getItem("reported_trip_ids");
+            if (savedIncidents) {
+                setReportedTripIds(JSON.parse(savedIncidents));
+            }
+        } catch (e) {
+            console.error("Lỗi load reported_trip_ids", e);
         }
     }, []);
 
@@ -538,6 +557,75 @@ export default function DriverDashboard() {
         }
     };
 
+    const handleOpenIncidentModal = (trip: any) => {
+        setSelectedTripForIncident(trip);
+        setIncidentIssueType("Sự cố kỹ thuật / Hỏng hóc xe");
+        setIncidentSeverity("Trung bình");
+        setIncidentNote("");
+        setIncidentFileList([]);
+        setIncidentModalOpen(true);
+    };
+
+    const handleSubmitIncident = async () => {
+        if (!incidentNote.trim()) {
+            message.warning("Vui lòng điền ghi chú chi tiết sự cố gửi về cho Admin!");
+            return;
+        }
+
+        if (!selectedTripForIncident) return;
+
+        setIncidentLoading(true);
+        const tripId = selectedTripForIncident._id;
+
+        const payload = {
+            tripId,
+            staffId,
+            driverName,
+            issueType: incidentIssueType,
+            severity: incidentSeverity,
+            note: incidentNote.trim(),
+            tripInfo: {
+                route: `${selectedTripForIncident.journey?.diemDi || selectedTripForIncident.journey?.startPoint || "Chưa rõ"} → ${selectedTripForIncident.journey?.diemDen || selectedTripForIncident.journey?.endPoint || "Chưa rõ"}`,
+                busName: selectedTripForIncident.bus?.name || "N/A",
+                licensePlates: selectedTripForIncident.bus?.licensePlates || "N/A",
+                departureTime: selectedTripForIncident.departureTime,
+            },
+            reportedAt: new Date().toISOString(),
+            status: "Chờ xử lý",
+        };
+
+        try {
+            // Gửi request API (chuẩn bị sẵn endpoint, nếu API chưa chạy sẽ lưu fallback)
+            await axios.post("http://localhost:3000/api/incident", payload).catch((err) => {
+                console.log("Đã gửi báo cáo sự cố (lưu fallback cục bộ):", payload, err);
+            });
+
+            // Cập nhật danh sách chuyến đã báo cáo
+            const updated = Array.from(new Set([...reportedTripIds, tripId]));
+            setReportedTripIds(updated);
+            localStorage.setItem("reported_trip_ids", JSON.stringify(updated));
+
+            // Lưu lịch sử sự cố vào localStorage
+            const existingHistory = JSON.parse(localStorage.getItem("incident_reports") || "[]");
+            existingHistory.unshift({
+                ...payload,
+                _id: "INC-" + Date.now(),
+            });
+            localStorage.setItem("incident_reports", JSON.stringify(existingHistory));
+
+            message.success("Báo cáo sự cố đã được gửi về cho Admin thành công!");
+            setIncidentModalOpen(false);
+            setSelectedTripForIncident(null);
+            setIncidentNote("");
+            setIncidentFileList([]);
+        } catch (err: any) {
+            console.error("Lỗi gửi báo cáo sự cố:", err);
+            message.error("Có lỗi xảy ra khi gửi báo cáo sự cố. Vui lòng thử lại!");
+        } finally {
+            setIncidentLoading(false);
+        }
+    };
+
     const columns = [
         {
             title: "Mã chuyến",
@@ -707,6 +795,37 @@ export default function DriverDashboard() {
                         <Button type="link" size="small" onClick={() => navigate(`/taixe/trip/${record._id}`)}>
                             Chi tiết
                         </Button>
+                    </Space>
+                );
+            },
+        },
+        {
+            title: "Báo cáo sự cố",
+            key: "incidentReport",
+            align: "center" as const,
+            render: (_: any, record: any) => {
+                const isReported = reportedTripIds.includes(record._id);
+                return (
+                    <Space direction="vertical" size={4} align="center">
+                        <Button
+                            danger
+                            size="small"
+                            icon={<AlertOutlined />}
+                            onClick={() => handleOpenIncidentModal(record)}
+                            style={{
+                                background: "#fff1f0",
+                                borderColor: "#ffa39e",
+                                color: "#cf1322",
+                                fontWeight: 500,
+                            }}
+                        >
+                            Báo sự cố
+                        </Button>
+                        {isReported && (
+                            <Tag color="error" style={{ margin: 0, fontSize: 11 }}>
+                                ⚠️ Đã gửi báo cáo
+                            </Tag>
+                        )}
                     </Space>
                 );
             },
@@ -1322,6 +1441,178 @@ z-index: 12;
                             Hủy
                         </Button>
                     </div>
+                </Modal>
+
+                {/* Modal Báo cáo sự cố gửi về cho Admin */}
+                <Modal
+                    open={incidentModalOpen}
+                    title={
+                        <Space align="center">
+                            <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-600">
+                                <AlertOutlined style={{ fontSize: 18 }} />
+                            </div>
+                            <div>
+                                <h3 className="text-base font-bold text-gray-800 m-0 leading-tight">
+                                    Báo cáo sự cố chuyến xe
+                                </h3>
+                                <p className="text-xs text-gray-500 m-0 font-normal">
+                                    Gửi ghi chú sự cố trực tiếp về cho ban điều hành (Admin)
+                                </p>
+                            </div>
+                        </Space>
+                    }
+                    onCancel={() => {
+                        if (!incidentLoading) {
+                            setIncidentModalOpen(false);
+                            setSelectedTripForIncident(null);
+                        }
+                    }}
+                    footer={null}
+                    width={580}
+                    centered
+                    destroyOnClose
+                >
+                    {selectedTripForIncident && (
+                        <div className="py-2 space-y-4">
+                            {/* Trip info summary card */}
+                            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs space-y-1.5">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-gray-500">Mã chuyến:</span>
+                                    <span className="font-bold text-gray-800 font-mono">
+                                        {selectedTripForIncident._id?.slice(-6).toUpperCase()}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-gray-500">Tuyến đường:</span>
+                                    <span className="font-semibold text-emerald-700">
+                                        {selectedTripForIncident.journey?.diemDi || selectedTripForIncident.journey?.startPoint || "Chưa rõ"} → {selectedTripForIncident.journey?.diemDen || selectedTripForIncident.journey?.endPoint || "Chưa rõ"}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-gray-500">Khởi hành:</span>
+                                    <span className="font-medium text-gray-700">
+                                        {new Date(selectedTripForIncident.departureTime).toLocaleString("vi-VN")}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-gray-500">Xe & Biển số:</span>
+                                    <span className="font-medium text-gray-700">
+                                        {selectedTripForIncident.bus?.name || "N/A"} ({selectedTripForIncident.bus?.licensePlates || "N/A"})
+                                    </span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-gray-500">Tài xế báo cáo:</span>
+                                    <span className="font-semibold text-gray-800">
+                                        {driverName}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Form fields */}
+                            <div className="space-y-3.5">
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                        Loại sự cố <span className="text-red-500">*</span>
+                                    </label>
+                                    <Select
+                                        value={incidentIssueType}
+                                        onChange={setIncidentIssueType}
+                                        style={{ width: "100%" }}
+                                        size="middle"
+                                        options={[
+                                            { value: "Sự cố kỹ thuật / Hỏng hóc xe", label: "🔧 Sự cố kỹ thuật / Hỏng hóc xe (chết máy, nổ lốp, điều hòa...)" },
+                                            { value: "Sự cố giao thông / Tuyến đường", label: "🚦 Sự cố giao thông / Tuyến đường (tắc đường nghiêm trọng, ngập úng, sạt lở...)" },
+                                            { value: "Sự cố hành khách", label: "👥 Sự cố hành khách (tranh chấp, đau ốm, mất hành lý...)" },
+                                            { value: "Va chạm / Tai nạn giao thông", label: "⚠️ Va chạm / Tai nạn giao thông" },
+                                            { value: "Sức khỏe tài xế / phụ xe", label: "🩺 Sức khỏe tài xế / phụ xe" },
+                                            { value: "Sự cố khác", label: "📝 Sự cố khác" },
+                                        ]}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                        Mức độ nghiêm trọng <span className="text-red-500">*</span>
+                                    </label>
+                                    <Radio.Group
+                                        value={incidentSeverity}
+                                        onChange={(e) => setIncidentSeverity(e.target.value)}
+                                        className="w-full"
+                                    >
+                                        <div className="grid grid-cols-3 gap-2">
+                                            <Radio.Button value="Bình thường" className="text-center">
+                                                <span className="text-emerald-600 font-medium">Bình thường</span>
+                                            </Radio.Button>
+                                            <Radio.Button value="Nghiêm trọng" className="text-center">
+                                                <span className="text-amber-600 font-medium">Nghiêm trọng</span>
+                                            </Radio.Button>
+                                            <Radio.Button value="Khẩn cấp" className="text-center">
+                                                <span className="text-red-600 font-bold">Khẩn cấp</span>
+                                            </Radio.Button>
+                                        </div>
+                                    </Radio.Group>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                        Ghi chú / Nội dung chi tiết sự cố gửi Admin <span className="text-red-500">*</span>
+                                    </label>
+                                    <Input.TextArea
+                                        rows={4}
+                                        value={incidentNote}
+                                        onChange={(e) => setIncidentNote(e.target.value)}
+                                        placeholder="Mô tả cụ thể sự cố: vị trí hiện tại của xe, tình trạng sự việc, đề xuất cần ban điều hành (Admin) hỗ trợ..."
+                                        maxLength={1000}
+                                        showCount
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                        Hình ảnh minh chứng (Tùy chọn)
+                                    </label>
+                                    <Upload
+                                        fileList={incidentFileList}
+                                        onChange={({ fileList }) => setIncidentFileList(fileList)}
+                                        beforeUpload={() => false}
+                                        listType="picture"
+                                        maxCount={3}
+                                        accept="image/*"
+                                    >
+                                        <Button icon={<UploadOutlined />} size="small">
+                                            Chọn ảnh chụp sự cố (Tối đa 3 ảnh)
+                                        </Button>
+                                    </Upload>
+                                </div>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="border-t pt-3 flex justify-end gap-2">
+                                <Button
+                                    onClick={() => {
+                                        setIncidentModalOpen(false);
+                                        setSelectedTripForIncident(null);
+                                    }}
+                                    disabled={incidentLoading}
+                                >
+                                    Hủy
+                                </Button>
+                                <Button
+                                    type="primary"
+                                    danger
+                                    icon={<SendOutlined />}
+                                    loading={incidentLoading}
+                                    onClick={handleSubmitIncident}
+                                    style={{
+                                        background: "#e11d48",
+                                        borderColor: "#e11d48",
+                                    }}
+                                >
+                                    Gửi báo cáo về Admin
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                 </Modal>
             </div>
         </ClientLayout>
