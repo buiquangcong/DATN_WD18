@@ -66,6 +66,7 @@ import OfflineBookingPage from "./pages/admin/offline-booking/OfflineBookingPage
 import OfflineBookingHistoryPage from "./pages/admin/offline-booking/OfflineBookingHistoryPage";
 import AdminTicketSuccessPage from "./pages/admin/TicketSuccessPage";
 import RefundListPage from "./pages/admin/refund/ListPage";
+import IncidentListPage from "./pages/admin/incident/ListPage";
 
 
 import DashboardPage from "./pages/admin/dashboard";
@@ -330,6 +331,7 @@ function App() {
               <Route path="offline-booking/success" element={<AdminTicketSuccessPage />} />
               <Route path="offline-booking/history" element={<OfflineBookingHistoryPage />} />
               <Route path="refund/list" element={<RefundListPage />} />
+              <Route path="incident/list" element={<IncidentListPage />} />
                {/* tintuc*/}
                <Route path="news/list" element={<NewsListPage/>}></Route>
                <Route path="news/add" element={<NewsAddPage/>}></Route>

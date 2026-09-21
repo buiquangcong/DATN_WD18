@@ -17,6 +17,7 @@ import holidayRouter from "./holiday.router.js";
 import attendanceRouter from "./attendance.router.js";
 import refundRouter from "./refund.router.js";
 import stationRouter from "./station.router.js";
+import incidentRouter from "./incident.router.js";
 const router = Router();
 
 router.use("/attendance", attendanceRouter);
@@ -37,5 +38,6 @@ router.use("/statistics", statisticsRouter);
 router.use("/news",newsRouter);
 router.use("/refund", refundRouter);
 router.use("/station", stationRouter);
+router.use("/incident", incidentRouter);
 
 export default router;
