@@ -75,6 +75,8 @@ import UserAddPage from "./pages/admin/capquyen/AddPage";
 import BookingSeats from "./pages/client/Booking";
 import LoginClientPage from "./pages/client/login";
 import TicketSuccessPage from "./pages/client/TicketSuccessPage";
+import BookingCancelPage from "./pages/client/BookingCancelPage";
+import PaymentCheckoutPage from "./pages/client/PaymentCheckoutPage";
 import RegisterClientPage from "./pages/client/Register";
 import Schedule from "./pages/client/schedule";
 import ProfileClientPage from "./pages/client/profile";
@@ -238,6 +240,9 @@ function App() {
             <Route path="/khachhang/contact" element={<Contact />} />
             <Route path="/khachhang/booking/:tripId" element={<BookingSeats />} />
             <Route path="/khachhang/booking/success" element={<TicketSuccessPage />} />
+            <Route path="/khachhang/booking/cancel" element={<BookingCancelPage />} />
+            <Route path="/khachhang/payment/:orderCode" element={<PaymentCheckoutPage />} />
+            <Route path="/khachhang/payment" element={<PaymentCheckoutPage />} />
             <Route path="/khachhang/login" element={<LoginClientPage />} />
             <Route path="/khachhang/tintuc" element={<TinTucPage />} />
             <Route path="/khachhang/tintuc/:id" element={<ChiTietTinTucPage />} />

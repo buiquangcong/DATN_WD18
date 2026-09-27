@@ -17,6 +17,7 @@ import {
   Divider,
   Table,
   Tooltip,
+  QRCode,
 } from "antd";
 import {
   CreditCardOutlined,
@@ -27,6 +28,7 @@ import {
   TeamOutlined,
   UserOutlined,
   PrinterOutlined,
+  ClockCircleOutlined,
 } from "@ant-design/icons";
 import axios from "axios";
 import toast from "react-hot-toast";
@@ -97,10 +99,76 @@ function OfflineBookingPage() {
   const [isPayOSModalOpen, setIsPayOSModalOpen] = useState(false);
   const [payOSUrl, setPayOSUrl] = useState("");
   const [currentBookingId, setCurrentBookingId] = useState("");
+  const [payOSTimeLeft, setPayOSTimeLeft] = useState<number>(300); // 5 phút = 300 giây
+  const [offlinePayOSData, setOfflinePayOSData] = useState<any>(null);
   const [pendingTicketData, setPendingTicketData] = useState<any>(null);
   const [bookingHistory, setBookingHistory] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [sessionPaymentMethods, setSessionPaymentMethods] = useState<{ [key: string]: string }>({});
+
+  // Countdown timer 5 phút cho PayOS Modal
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    if (isPayOSModalOpen) {
+      setPayOSTimeLeft(300);
+      interval = setInterval(() => {
+        setPayOSTimeLeft((prev) => {
+          if (prev <= 1) {
+            handleCancelPayOS(true);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isPayOSModalOpen]);
+
+  // Polling tự động phát hiện khách quét QR thanh toán thành công
+  useEffect(() => {
+    let pollInterval: NodeJS.Timeout | null = null;
+    if (isPayOSModalOpen && offlinePayOSData?.orderCode) {
+      pollInterval = setInterval(async () => {
+        try {
+          const res = await axios.get(`http://localhost:3000/api/payment/status/${offlinePayOSData.orderCode}`);
+          if (res.data?.status === "Đã xác nhận") {
+            if (pollInterval) clearInterval(pollInterval);
+            playBeep();
+            setTimeout(playBeep, 150);
+            toast.success("Khách hàng đã quét mã thanh toán thành công!");
+            handlePayOSComplete();
+          }
+        } catch (e) {
+          // Bỏ qua lỗi kết nối polling
+        }
+      }, 2500);
+    }
+    return () => {
+      if (pollInterval) clearInterval(pollInterval);
+    };
+  }, [isPayOSModalOpen, offlinePayOSData]);
+
+  // Kiểm tra nếu chuyển hướng về trang này với cờ hủy/quá hạn
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const isCancelled = searchParams.get("status")?.toLowerCase() === "cancelled" || searchParams.get("cancel") === "true";
+    const orderCode = searchParams.get("orderCode");
+
+    if (isCancelled) {
+      setChosenSeatCodes([]);
+      if (orderCode) {
+        axios.post("http://localhost:3000/api/payment/cancel", { orderCode })
+          .catch((e) => console.error("Lỗi hủy đơn từ redirect URL:", e))
+          .finally(() => {
+            fetchBookingHistory();
+          });
+      }
+      toast.error("Thời gian thanh toán (5 phút) đã kết thúc hoặc giao dịch đã hủy. Ghế đã được giải phóng tự động!");
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
 
   const fetchBookingHistory = async () => {
     setHistoryLoading(true);
@@ -357,12 +425,10 @@ function OfflineBookingPage() {
 
         if (paymentRes.data?.checkoutUrl) {
           setPayOSUrl(paymentRes.data.checkoutUrl);
+          setOfflinePayOSData(paymentRes.data);
           setCurrentBookingId(bookingId);
           setIsPayOSModalOpen(true);
-          
-          // Mở tab cổng thanh toán mới để quét QR PayOS
-          window.open(paymentRes.data.checkoutUrl, "_blank");
-          toast.success("Đã tạo liên kết thanh toán PayOS! Đang mở tab mới...");
+          toast.success("Đã tạo mã QR thanh toán PayOS thành công!");
         } else {
           throw new Error("Hệ thống không trả về link thanh toán PayOS hợp lệ!");
         }
@@ -373,6 +439,29 @@ function OfflineBookingPage() {
       playBeep(true);
     } finally {
       setBookingSubmitLoading(false);
+    }
+  };
+
+  // Hủy đơn PayOS và giải phóng ghế
+  const handleCancelPayOS = async (isTimeout = false) => {
+    setIsPayOSModalOpen(false);
+    if (currentBookingId) {
+      try {
+        await axios.post("http://localhost:3000/api/payment/cancel", { bookingId: currentBookingId });
+      } catch (e) {
+        console.error("Lỗi khi hủy đơn và nhả ghế:", e);
+      }
+    }
+    setChosenSeatCodes([]);
+    if (selectedTrip?._id) {
+      await handleTripChange(selectedTrip._id);
+    }
+    fetchBookingHistory();
+    playBeep(true);
+    if (isTimeout) {
+      toast.error("Đã hết thời gian chờ thanh toán (5 phút). Đơn hàng đã bị hủy và ghế đã được giải phóng tự động!");
+    } else {
+      toast.success("Đã hủy đơn thanh toán PayOS và giải phóng ghế thành công.");
     }
   };
 
@@ -1011,40 +1100,83 @@ function OfflineBookingPage() {
           <span className="font-bold text-lg">Cổng Thanh Toán Chuyển Khoản (PayOS)</span>
         </Space>
       }
-      onCancel={handlePayOSComplete}
+      onCancel={() => handleCancelPayOS(false)}
       footer={[
+        <Button key="cancel" danger onClick={() => handleCancelPayOS(false)}>
+          Hủy đơn & Nhả ghế
+        </Button>,
         <Button key="paid" type="primary" className="bg-emerald-600 hover:bg-emerald-700" onClick={handlePayOSComplete}>
-          Hoàn tất đặt vé & tải lại sơ đồ
+          Đã thanh toán (Hoàn tất & in vé)
         </Button>,
       ]}
-      width={550}
+      width={650}
       centered
       destroyOnClose
     >
-      <div className="space-y-4 pt-3 text-center">
-        <p className="text-sm text-gray-600">
-          Link thanh toán PayOS QR đã được tạo thành công cho đơn đặt vé này. Nhân viên hãy hướng dẫn khách hàng quét mã QR trên màn hình hoặc click nút bên dưới:
-        </p>
-
-        <div className="p-4 bg-slate-50 border rounded-xl inline-block max-w-full">
-          <Button
-            type="primary"
-            icon={<QrcodeOutlined />}
-            size="large"
-            className="bg-blue-600 hover:bg-blue-700 font-bold px-8 h-12"
-            onClick={() => window.open(payOSUrl, "_blank")}
-          >
-            Mở Cổng QR Thanh Toán (PayOS)
-          </Button>
-          <div className="text-xs text-gray-400 mt-2">
-            * Tab thanh toán PayOS được mở trong cửa sổ mới.
+      <div className="space-y-4 pt-2">
+        {/* Countdown 5 phút */}
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center justify-between text-amber-800">
+          <span className="font-semibold flex items-center gap-2">
+            <ClockCircleOutlined className="text-xl text-amber-600 animate-pulse" />
+            Thời gian giữ ghế & thanh toán:
+          </span>
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-2xl font-bold text-red-600 bg-white px-3 py-0.5 rounded-lg border border-amber-300">
+              {String(Math.floor(payOSTimeLeft / 60)).padStart(2, "0")}:{String(payOSTimeLeft % 60).padStart(2, "0")}
+            </span>
+            <Tag color={payOSTimeLeft <= 60 ? "error" : "warning"} className="font-bold">
+              {payOSTimeLeft <= 60 ? "Sắp hết hạn" : "Đang đếm ngược"}
+            </Tag>
           </div>
         </div>
 
+        {/* Nội dung QR và Thông tin tài khoản */}
+        <Row gutter={[16, 16]} align="middle">
+          <Col xs={24} sm={11} className="text-center">
+            <div className="bg-white p-3 rounded-2xl border border-gray-200 shadow-sm inline-block">
+              {offlinePayOSData?.qrCode ? (
+                <QRCode value={offlinePayOSData.qrCode} size={190} bordered={false} errorLevel="M" />
+              ) : (
+                <img
+                  src={`https://img.vietqr.io/image/970422-${offlinePayOSData?.accountNumber || "VQRQAMIVL8064"}-compact2.png?amount=${offlinePayOSData?.amount || 0}&addInfo=${encodeURIComponent(offlinePayOSData?.description || "")}&accountName=${encodeURIComponent(offlinePayOSData?.accountName || "BUI QUANG CONG")}`}
+                  alt="QR PayOS"
+                  className="w-48 h-48 object-contain"
+                />
+              )}
+              <div className="text-xs text-gray-500 font-semibold mt-1">Napas 247 | MB Bank</div>
+            </div>
+          </Col>
+
+          <Col xs={24} sm={13}>
+            <div className="space-y-2 text-sm bg-slate-50 p-3 rounded-xl border border-slate-200">
+              <div>
+                <span className="text-gray-500 text-xs block">Ngân hàng:</span>
+                <span className="font-bold text-gray-800">MB Bank (TMCP Quân đội)</span>
+              </div>
+              <div>
+                <span className="text-gray-500 text-xs block">Chủ tài khoản:</span>
+                <span className="font-bold text-gray-800 uppercase">{offlinePayOSData?.accountName || "BUI QUANG CONG"}</span>
+              </div>
+              <div>
+                <span className="text-gray-500 text-xs block">Số tài khoản:</span>
+                <span className="font-mono font-bold text-blue-700 text-base">{offlinePayOSData?.accountNumber || "VQRQAMIVL8064"}</span>
+              </div>
+              <div>
+                <span className="text-gray-500 text-xs block">Số tiền:</span>
+                <span className="font-bold text-red-600 text-base">{offlinePayOSData?.amount ? Number(offlinePayOSData.amount).toLocaleString("vi-VN") : "0"} đ</span>
+              </div>
+              <div>
+                <span className="text-gray-500 text-xs block">Nội dung chuyển khoản:</span>
+                <span className="font-mono font-bold text-gray-800 bg-amber-100 px-2 py-0.5 rounded border border-amber-300 inline-block">{offlinePayOSData?.description || "Ghe"}</span>
+              </div>
+            </div>
+          </Col>
+        </Row>
+
         <Alert
-          type="warning"
+          type="info"
           message="Khách hàng quét mã & chuyển khoản"
-          description="Sau khi khách hàng chuyển khoản xong, trạng thái của ghế trên sơ đồ sẽ tự động chuyển sang Đã bán (đỏ) thông qua Webhook PayOS của hệ thống."
+          description="Hệ thống tự động phát hiện khi khách quét mã chuyển khoản thành công và sẽ tự động chuyển trạng thái hoàn tất đơn vé."
           showIcon
         />
       </div>

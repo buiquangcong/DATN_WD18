@@ -59,6 +59,24 @@ export const getOne = asyncHandler(async (req, res) => {
     });
   }
 
+  // Tự động giải phóng các ghế HOLDING đã quá hạn 5 phút về AVAILABLE
+  const now = new Date();
+  let hasExpiredSeats = false;
+  if (trip.seats && Array.isArray(trip.seats)) {
+    trip.seats.forEach(seat => {
+      if (seat.status === "HOLDING" && seat.expiresAt && new Date(seat.expiresAt) <= now) {
+        seat.status = "AVAILABLE";
+        seat.heldBy = null;
+        seat.expiresAt = null;
+        hasExpiredSeats = true;
+      }
+    });
+  }
+
+  if (hasExpiredSeats) {
+    await trip.save();
+  }
+
   return res.json(trip);
 });
 

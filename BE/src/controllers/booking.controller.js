@@ -142,26 +142,22 @@ export const createOne = asyncHandler(async (req, res) => {
                     { $set: { status: "Đã huỷ" } } 
                 );
 
-                // Trả các ghế về trạng thái trống "AVAILABLE" nếu hạn giữ thực sự đã hết
-                await Trip.updateOne(
-                    { _id: booking.trip },
-                    { 
-                        $set: { 
-                            "seats.$[elem].status": "AVAILABLE",
-                            "seats.$[elem].heldBy": null,
-                            "seats.$[elem].expiresAt": null
-                        } 
-                    },
-                    { 
-                        arrayFilters: [
-                            { 
-                                "elem.seatCode": { $in: booking.seats },
-                                "elem.heldBy": booking.user,
-                                "elem.expiresAt": { $lte: new Date() }
-                            }
-                        ] 
+                // Trả các ghế về trạng thái trống "AVAILABLE" nếu đang ở trạng thái HOLDING
+                const tripToRelease = await Trip.findById(booking.trip);
+                if (tripToRelease) {
+                    let hasChanges = false;
+                    tripToRelease.seats.forEach(seat => {
+                        if (booking.seats.includes(seat.seatCode) && seat.status === "HOLDING") {
+                            seat.status = "AVAILABLE";
+                            seat.heldBy = null;
+                            seat.expiresAt = null;
+                            hasChanges = true;
+                        }
+                    });
+                    if (hasChanges) {
+                        await tripToRelease.save();
                     }
-                );
+                }
 
                 // Hủy bỏ link thanh toán từ xa trên PayOS
                 try {
