@@ -52,6 +52,11 @@ export default function BookingSeats(): React.ReactElement {
     const [viewFloorTab, setViewFloorTab] = useState<string>("all");
 
     useEffect(() => {
+        const searchParams = new URLSearchParams(window.location.search);
+        const isCancelled = searchParams.get("status")?.toLowerCase() === "cancelled" || 
+                            searchParams.get("cancel") === "true";
+        const cancelledOrderCode = searchParams.get("orderCode");
+
         const fetchTripDetails = async () => {
             if (!tripId) {
                 message.error("Không tìm thấy mã chuyến xe trên URL!");
@@ -60,23 +65,46 @@ export default function BookingSeats(): React.ReactElement {
             }
 
             try {
+                // Nếu được chuyển hướng về từ PayOS do quá hạn 5 phút hoặc người dùng hủy
+                if (isCancelled) {
+                    localStorage.removeItem("latest_ticket_success");
+                    setChosenSeatCodes([]);
+
+                    if (cancelledOrderCode) {
+                        try {
+                            await axios.post("http://localhost:3000/api/payment/cancel", { 
+                                orderCode: cancelledOrderCode 
+                            });
+                        } catch (cancelErr) {
+                            console.error("Lỗi khi hủy đơn và nhả ghế:", cancelErr);
+                        }
+                    }
+
+                    message.warning("Thời gian thanh toán (5 phút) đã kết thúc hoặc giao dịch đã bị hủy. Ghế của bạn đã được giải phóng!");
+                    
+                    // Xóa các tham số query trên thanh địa chỉ URL
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                }
+
                 const response = await axios.get(`http://localhost:3000/api/trip/${tripId}`);
                 if (response.data) {
                     const tripData = response.data.data ? response.data.data : response.data;
                     setTrip(tripData);
 
-                    // Tự động tích chọn những ghế đang được giữ bởi chính tài khoản này
-                    const userString = localStorage.getItem("user");
-                    const userObj = userString ? JSON.parse(userString) : null;
-                    if (userObj && userObj._id && tripData.seats) {
-                        const heldSeats = tripData.seats
-                            .filter((s: Seat) => {
-                                if (s.status !== "HOLDING" || !s.heldBy) return false;
-                                const heldById = typeof s.heldBy === "object" ? (s.heldBy as any)._id : s.heldBy;
-                                return String(heldById) === String(userObj._id);
-                            })
-                            .map((s: Seat) => s.seatCode);
-                        setChosenSeatCodes(heldSeats);
+                    // Chỉ tự động chọn lại ghế nếu KHÔNG phải vừa bị hủy/hết hạn
+                    if (!isCancelled) {
+                        const userString = localStorage.getItem("user");
+                        const userObj = userString ? JSON.parse(userString) : null;
+                        if (userObj && userObj._id && tripData.seats) {
+                            const heldSeats = tripData.seats
+                                .filter((s: Seat) => {
+                                    if (s.status !== "HOLDING" || !s.heldBy) return false;
+                                    const heldById = typeof s.heldBy === "object" ? (s.heldBy as any)._id : s.heldBy;
+                                    return String(heldById) === String(userObj._id);
+                                })
+                                .map((s: Seat) => s.seatCode);
+                            setChosenSeatCodes(heldSeats);
+                        }
                     }
                 }
             } catch (error) {
@@ -190,8 +218,24 @@ export default function BookingSeats(): React.ReactElement {
                         : "Đang cập nhật..."
                 };
 
+                const paymentStorageData = {
+                    checkoutUrl: paymentResponse.data.checkoutUrl,
+                    orderCode: myOrderCode,
+                    expiredAt: paymentResponse.data.expiredAt,
+                    qrCode: paymentResponse.data.qrCode,
+                    accountNumber: paymentResponse.data.accountNumber,
+                    accountName: paymentResponse.data.accountName,
+                    bin: paymentResponse.data.bin,
+                    amount: paymentResponse.data.amount || calculatedTotalAmount,
+                    description: paymentResponse.data.description || `Ghe-${chosenSeatCodes.join("-")}`,
+                    bookingId: createdBookingId,
+                    tripId: tripId
+                };
+
+                localStorage.setItem("pending_payment_data", JSON.stringify(paymentStorageData));
                 localStorage.setItem("latest_ticket_success", JSON.stringify(ticketStorageData));
-                window.location.href = paymentResponse.data.checkoutUrl;
+                
+                navigate(`/khachhang/payment/${myOrderCode}?tripId=${tripId}`);
                 return; 
             } else {
                 message.error("Đơn hàng đã tạo nhưng hệ thống không phản hồi link QR thanh toán!");

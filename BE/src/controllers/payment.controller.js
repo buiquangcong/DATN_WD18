@@ -19,7 +19,7 @@ export const createPaymentLink = asyncHandler(async (req, res) => {
         return res.status(404).json({ message: "Không tìm thấy đơn đặt vé để thanh toán" });
     }
 
-    if (booking.status !== "Chờ xác nhận") {
+    if (booking.status !== "Chờ xác nhận" && booking.status !== "PENDING") {
         return res.status(400).json({ message: "Đơn hàng này không ở trạng thái chờ thanh toán" });
     }
 
@@ -27,27 +27,166 @@ export const createPaymentLink = asyncHandler(async (req, res) => {
     const seatString = booking.seats.join("-");
     const customDescription = `Ghe-${seatString}`.slice(0, 25);
 
+    // Thời gian đếm ngược 5 phút thanh toán trên PayOS (Unix timestamp tính bằng giây)
+    const expiredAt = Math.floor(Date.now() / 1000) + 5 * 60;
+
     const returnUrl = isAdmin 
       ? `http://localhost:5173/admin/offline-booking/success?orderCode=${booking.orderCode}`
       : `http://localhost:5173/khachhang/booking/success?orderCode=${booking.orderCode}`;
 
+    // Khi hết hạn 5 phút hoặc người dùng hủy, PayOS chuyển hướng lại về trang trước và kèm mã đơn
     const cancelUrl = isAdmin
-      ? `http://localhost:5173/admin/offline-booking`
-      : "http://localhost:5173/khachhang/booking/cancel";
+      ? `http://localhost:5173/admin/offline-booking?status=cancelled&orderCode=${booking.orderCode}`
+      : `http://localhost:5173/khachhang/booking/${booking.trip}?status=cancelled&orderCode=${booking.orderCode}`;
 
     const paymentBody = {
         orderCode: booking.orderCode,
         amount: booking.totalPrice,
         description: customDescription,
         cancelUrl,
-        returnUrl
+        returnUrl,
+        expiredAt
     };
 
     const paymentLinkData = await payos.paymentRequests.create(paymentBody);
 
     return res.status(200).json({
         message: "Tạo link thanh toán thành công",
-        checkoutUrl: paymentLinkData.checkoutUrl
+        checkoutUrl: paymentLinkData.checkoutUrl,
+        orderCode: booking.orderCode,
+        expiredAt,
+        qrCode: paymentLinkData.qrCode,
+        accountNumber: paymentLinkData.accountNumber,
+        accountName: paymentLinkData.accountName,
+        bin: paymentLinkData.bin,
+        amount: paymentLinkData.amount,
+        description: paymentLinkData.description,
+        bookingId: booking._id,
+        tripId: booking.trip
+    });
+});
+
+// Hàm hủy đơn và nhả ghế ngay lập tức khi hết hạn 5 phút hoặc hủy thanh toán
+export const cancelPaymentAndReleaseSeats = asyncHandler(async (req, res) => {
+    const { orderCode, bookingId } = req.body;
+
+    if (!orderCode && !bookingId) {
+        return res.status(400).json({ message: "Thiếu thông tin mã đơn hàng" });
+    }
+
+    const filter = orderCode ? { orderCode: Number(orderCode) } : { _id: bookingId };
+    const booking = await Booking.findOne(filter);
+
+    if (!booking) {
+        return res.status(404).json({ message: "Không tìm thấy đơn hàng" });
+    }
+
+    // Chỉ hủy nếu đơn hàng đang ở trạng thái chờ thanh toán
+    if (booking.status === "Chờ xác nhận" || booking.status === "PENDING") {
+        booking.status = "Đã huỷ";
+        await booking.save();
+
+        const trip = await Trip.findById(booking.trip);
+        if (trip) {
+            let hasChanges = false;
+            trip.seats.forEach((seat) => {
+                if (booking.seats.includes(seat.seatCode)) {
+                    if (seat.status === "HOLDING") {
+                        seat.status = "AVAILABLE";
+                        seat.heldBy = null;
+                        seat.expiresAt = null;
+                        hasChanges = true;
+                    }
+                }
+            });
+            if (hasChanges) {
+                await trip.save();
+            }
+        }
+
+        try {
+            await payos.cancelPaymentLink(booking.orderCode, "Quá hạn 5 phút hoặc người dùng hủy");
+        } catch (payosErr) {
+            // Link có thể đã hết hạn hoặc đã hủy trên PayOS
+        }
+
+        console.log(`[Nhả ghế PayOS] Đơn ${booking.orderCode} đã hủy, cụm ghế [${booking.seats.join(", ")}] đã được trả về AVAILABLE.`);
+    }
+
+    return res.status(200).json({
+        success: true,
+        message: "Đơn hàng đã được hủy và các ghế đã được giải phóng thành công",
+        data: {
+            orderCode: booking.orderCode,
+            seats: booking.seats,
+            tripId: booking.trip
+        }
+    });
+});
+
+// Kiểm tra trạng thái đơn hàng và đồng bộ từ PayOS nếu đã thanh toán
+export const getPaymentStatus = asyncHandler(async (req, res) => {
+    const { orderCode } = req.params;
+    if (!orderCode) {
+        return res.status(400).json({ message: "Thiếu mã đơn hàng orderCode" });
+    }
+
+    const booking = await Booking.findOne({ orderCode: Number(orderCode) }).populate("trip").populate("user");
+    if (!booking) {
+        return res.status(404).json({ message: "Không tìm thấy đơn hàng" });
+    }
+
+    // Nếu đơn vẫn ở trạng thái Chờ xác nhận, trực tiếp hỏi PayOS xem đã thanh toán thành công chưa
+    if (booking.status === "Chờ xác nhận" || booking.status === "PENDING") {
+        try {
+            const payosInfo = await payos.paymentRequests.get(Number(orderCode));
+            if (payosInfo && (payosInfo.status === "PAID" || payosInfo.status === "SUCCESS")) {
+                booking.status = "Đã xác nhận";
+                await booking.save();
+
+                const trip = await Trip.findById(booking.trip?._id || booking.trip);
+                if (trip) {
+                    trip.seats.forEach(s => {
+                        if (booking.seats.includes(s.seatCode)) {
+                            s.status = "BOOKED";
+                            s.heldBy = null;
+                            s.expiresAt = null;
+                        }
+                    });
+                    await trip.save();
+                }
+            } else if (payosInfo && (payosInfo.status === "CANCELLED" || payosInfo.status === "EXPIRED")) {
+                booking.status = "Đã huỷ";
+                await booking.save();
+
+                const trip = await Trip.findById(booking.trip?._id || booking.trip);
+                if (trip) {
+                    trip.seats.forEach(s => {
+                        if (booking.seats.includes(s.seatCode) && s.status === "HOLDING") {
+                            s.status = "AVAILABLE";
+                            s.heldBy = null;
+                            s.expiresAt = null;
+                        }
+                    });
+                    await trip.save();
+                }
+            }
+        } catch (e) {
+            // Bỏ qua lỗi kết nối PayOS tạm thời
+        }
+    }
+
+    return res.status(200).json({
+        success: true,
+        status: booking.status,
+        booking: {
+            _id: booking._id,
+            orderCode: booking.orderCode,
+            totalPrice: booking.totalPrice,
+            seats: booking.seats,
+            status: booking.status,
+            trip: booking.trip
+        }
     });
 });
 
