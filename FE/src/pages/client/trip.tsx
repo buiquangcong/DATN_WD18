@@ -129,11 +129,20 @@ export default function Trip(): React.ReactElement {
     setDiemDen(paramDiemDen);
     setNgayDi(parsedNgayDi && parsedNgayDi.isValid() ? parsedNgayDi : null);
 
-    setAppliedSearch({
-      diemDi: paramDiemDi,
-      diemDen: paramDiemDen,
-      ngayDi: paramNgayDi && parsedNgayDi?.isValid() ? paramNgayDi : null,
-    });
+    const isCancelled = queryParams.get("status")?.toLowerCase() === "cancelled" || queryParams.get("cancel") === "true";
+    const cancelledOrderCode = queryParams.get("orderCode");
+
+    if (isCancelled) {
+      localStorage.removeItem("pending_payment_data");
+      localStorage.removeItem("latest_ticket_success");
+
+      if (cancelledOrderCode) {
+        axios.post("http://localhost:3000/api/payment/cancel", { orderCode: cancelledOrderCode }).catch(() => {});
+      }
+
+      message.warning("Thời gian thanh toán (5 phút) đã kết thúc hoặc giao dịch đã bị hủy. Ghế của bạn đã được giải phóng!");
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
   }, [location.search]);
 
   const fetchTrips = async (): Promise<void> => {

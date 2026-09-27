@@ -30,16 +30,14 @@ export default function BookingCancelPage(): React.ReactElement {
 
             setProcessing(false);
 
-            // Tự động chuyển về trang trước sau 2.5 giây nếu có tripId
-            if (tripId) {
-                setTimeout(() => {
-                    navigate(`/khachhang/booking/${tripId}?status=cancelled&orderCode=${orderCode || ""}`);
-                }, 2500);
-            }
+            // Tự động chuyển về trang danh sách chuyến sau 2 giây
+            setTimeout(() => {
+                navigate(`/khachhang/trip?status=cancelled&orderCode=${orderCode || ""}`);
+            }, 2000);
         };
 
         handleCancel();
-    }, [orderCode, tripId, navigate]);
+    }, [orderCode, navigate]);
 
     return (
         <ClientLayout>
@@ -56,26 +54,15 @@ export default function BookingCancelPage(): React.ReactElement {
                         title="Đã hủy hoặc hết hạn thanh toán"
                         subTitle="Thời gian đếm ngược 5 phút đã kết thúc hoặc bạn đã hủy giao dịch trên PayOS. Vị trí ghế của bạn đã được giải phóng thành công."
                         extra={[
-                            tripId ? (
-                                <Button 
-                                    type="primary" 
-                                    key="backTrip" 
-                                    icon={<ArrowLeftOutlined />}
-                                    style={{ backgroundColor: "#00AB55", borderColor: "#00AB55" }}
-                                    onClick={() => navigate(`/khachhang/booking/${tripId}?status=cancelled`)}
-                                >
-                                    Quay lại chọn lại ghế
-                                </Button>
-                            ) : (
-                                <Button 
-                                    type="primary" 
-                                    key="home" 
-                                    style={{ backgroundColor: "#00AB55", borderColor: "#00AB55" }}
-                                    onClick={() => navigate("/khachhang")}
-                                >
-                                    Trang chủ NetBus
-                                </Button>
-                            )
+                            <Button 
+                                type="primary" 
+                                key="backTrip" 
+                                icon={<ArrowLeftOutlined />}
+                                style={{ backgroundColor: "#00AB55", borderColor: "#00AB55" }}
+                                onClick={() => navigate(`/khachhang/trip?status=cancelled&orderCode=${orderCode || ""}`)}
+                            >
+                                Quay lại danh sách chuyến xe
+                            </Button>
                         ]}
                     />
                 )}

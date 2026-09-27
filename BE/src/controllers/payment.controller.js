@@ -34,10 +34,10 @@ export const createPaymentLink = asyncHandler(async (req, res) => {
       ? `http://localhost:5173/admin/offline-booking/success?orderCode=${booking.orderCode}`
       : `http://localhost:5173/khachhang/booking/success?orderCode=${booking.orderCode}`;
 
-    // Khi hết hạn 5 phút hoặc người dùng hủy, PayOS chuyển hướng lại về trang trước và kèm mã đơn
+    // Khi hết hạn 5 phút hoặc người dùng hủy, PayOS chuyển hướng lại về trang danh sách chuyến xe
     const cancelUrl = isAdmin
       ? `http://localhost:5173/admin/offline-booking?status=cancelled&orderCode=${booking.orderCode}`
-      : `http://localhost:5173/khachhang/booking/${booking.trip}?status=cancelled&orderCode=${booking.orderCode}`;
+      : `http://localhost:5173/khachhang/trip?status=cancelled&orderCode=${booking.orderCode}`;
 
     const paymentBody = {
         orderCode: booking.orderCode,

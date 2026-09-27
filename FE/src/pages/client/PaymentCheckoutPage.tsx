@@ -185,7 +185,7 @@ export default function PaymentCheckoutPage(): React.ReactElement {
         if (isCancelledRef.current) return;
         isCancelledRef.current = true;
 
-        message.error("Đã hết thời gian thanh toán (5 phút)! Hệ thống đang hủy đơn và giải phóng ghế...");
+        message.warning("Đã hết thời gian thanh toán (5 phút)! Đơn hàng đã bị hủy và ghế đã được giải phóng.");
 
         try {
             await axios.post("http://localhost:3000/api/payment/cancel", { orderCode });
@@ -196,12 +196,7 @@ export default function PaymentCheckoutPage(): React.ReactElement {
         localStorage.removeItem("pending_payment_data");
         localStorage.removeItem("latest_ticket_success");
 
-        const targetTrip = tripId || paymentData?.tripId;
-        if (targetTrip) {
-            navigate(`/khachhang/booking/${targetTrip}?status=cancelled&orderCode=${orderCode}`);
-        } else {
-            navigate("/khachhang");
-        }
+        navigate(`/khachhang/trip?status=cancelled&orderCode=${orderCode || ""}`);
     };
 
     // Xử lý khi người dùng chủ động bấm nút "Hủy thanh toán"
@@ -222,12 +217,7 @@ export default function PaymentCheckoutPage(): React.ReactElement {
         localStorage.removeItem("pending_payment_data");
         localStorage.removeItem("latest_ticket_success");
 
-        const targetTrip = tripId || paymentData?.tripId;
-        if (targetTrip) {
-            navigate(`/khachhang/booking/${targetTrip}?status=cancelled&orderCode=${orderCode}`);
-        } else {
-            navigate("/khachhang");
-        }
+        navigate(`/khachhang/trip?status=cancelled&orderCode=${orderCode || ""}`);
     };
 
     // Sao chép nội dung vào Clipboard
